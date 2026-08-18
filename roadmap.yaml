@@ -504,13 +504,19 @@ section:
             sections:
               - "§25 Editor UI"
               - "§25 Kind Dispatch"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
               - "§26 Editor"
           - source: "./Editor UI.md"
             role: "implementation"
             sections:
+              - "§6 Component Editing Regulation"
+          - source: "./Editor UI.md"
+            role: "boundary"
+            sections:
               - "§1 Scope"
               - "§4 Registry Driven Inspector"
-              - "§6 Component Editing Regulation"
               - "§14 UI Responsibility Boundary"
         depends_on:
           - "registry.table"
@@ -529,9 +535,12 @@ section:
             role: "implementation"
             sections:
               - "§26 Editor"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
               - "§25 Editor UI"
           - source: "./Editor UI.md"
-            role: "implementation"
+            role: "boundary"
             sections:
               - "§3 Workbench Placement"
               - "§9 Primary Side Bar Regulation"
@@ -552,9 +561,12 @@ section:
             sections:
               - "§39 Function Graph"
               - "§20 Function Dependency"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
               - "§21 Target Merge"
           - source: "./Editor UI.md"
-            role: "implementation"
+            role: "boundary"
             sections:
               - "§10 Editor Area Regulation"
               - "§11 Function Binding and Function Graph Boundary"
@@ -563,11 +575,19 @@ section:
             sections:
               - "§1 Scope"
               - "§3 Graph Model"
-              - "§7 Parameter Editing Boundary"
+              - "§5 Front Dynamic Processing"
               - "§8 Edge"
+              - "§11 Selection"
+          - source: "./Function Graph.md"
+            role: "boundary"
+            sections:
+              - "§2 Placement"
+              - "§4 Persistent Definition"
+              - "§6 Node"
+              - "§7 Parameter Editing Boundary"
               - "§9 Graph Mutation"
               - "§10 Selection and Function Binding Boundary"
-              - "§11 Selection"
+              - "§12 Runtime / Preview Boundary"
               - "§13 Save Model"
               - "§14 Boundary"
         depends_on:
@@ -592,10 +612,13 @@ section:
             sections:
               - "§4 Registry Driven Inspector"
               - "§5 Binding Section"
-              - "§6 Component Editing Regulation"
               - "§7 Inspector Layout"
               - "§11 Function Binding and Function Graph Boundary"
               - "§12 Renderer and Asset Binding"
+          - source: "./Editor UI.md"
+            role: "boundary"
+            sections:
+              - "§6 Component Editing Regulation"
               - "§14 UI Responsibility Boundary"
         depends_on:
           - "editor.registry-ui"
@@ -611,9 +634,12 @@ section:
             role: "implementation"
             sections:
               - "§39 Debug Viewer"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
               - "§24 Runtime State"
           - source: "./Editor UI.md"
-            role: "implementation"
+            role: "boundary"
             sections:
               - "§3 Workbench Placement"
               - "§13 Debug Viewer and Bottom Panel"
@@ -715,11 +741,14 @@ section:
             role: "implementation"
             sections:
               - "§39 UI"
-              - "§39 Structure"
               - "§39 Working Directory Integration"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
+              - "§39 Structure"
               - "§39 Boundary"
           - source: "./Editor UI.md"
-            role: "implementation"
+            role: "boundary"
             sections:
               - "§3 Workbench Placement"
               - "§14 UI Responsibility Boundary"
@@ -746,6 +775,9 @@ section:
             role: "implementation"
             sections:
               - "§3 Workbench Placement"
+          - source: "./Editor UI.md"
+            role: "boundary"
+            sections:
               - "§9 Primary Side Bar Regulation"
               - "§10 Editor Area Regulation"
               - "§13 Debug Viewer and Bottom Panel"
@@ -764,10 +796,13 @@ section:
             role: "implementation"
             sections:
               - "§39 AI Development"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
               - "§39 Purpose"
               - "§39 Boundary"
           - source: "./Editor UI.md"
-            role: "implementation"
+            role: "boundary"
             sections:
               - "§15 General Workbench Rules"
               - "§16 Non-Goals"
