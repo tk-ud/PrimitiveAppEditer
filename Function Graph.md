@@ -2,7 +2,7 @@
 
 ## 1. Scope
 
-Function Graphは、`function_binding`と`function_dependency`を可視化・編集するEditor Front UIとする。
+Function Graphは、`function_binding`と`function_dependency`を可視化し、Function Binding間のDependencyを編集するEditor Front UIとする。
 
 ```text
 function_registry
@@ -15,7 +15,7 @@ function_dependency
   = Function間Dependency
 
 Function Graph
-  = Binding / Dependency Authoring UI
+  = Binding Visualization / Dependency Authoring UI
 ```
 
 Function Graph自体はApplication LogicのAuthorityではない。
@@ -25,7 +25,7 @@ Registry / Binding / Dependency
   = Persistent Authority
 
 Function Graph
-  = Presentation / Selection / Mutation Interface
+  = Presentation / Selection / Dependency Mutation Interface
 ```
 
 ---
@@ -170,7 +170,7 @@ Graph操作に必要なFunction Definition、Parameter、Binding、Dependencyは
 
 ## 6. Node
 
-Nodeは`function_binding`を表現する。
+Nodeは既存の`function_binding`を表現する。
 
 ```text
 Function Registry
@@ -203,9 +203,19 @@ Primary UI
   = name / label
 ```
 
+Function Graph上にNodeを表示すること自体を、新規`function_binding`生成のAuthorityとしない。
+
+```text
+Function Binding Create / Assignment
+  = Registry Driven Inspector
+
+Graph Node
+  = Existing Function Binding Presentation
+```
+
 ---
 
-## 7. Parameter Editing
+## 7. Parameter Editing Boundary
 
 FunctionのParameter SchemaはRegistry側の定義を使用する。
 
@@ -233,10 +243,16 @@ Binding:
   b = 2.0
 ```
 
-GraphまたはRegistry Driven InspectorからParameter値を変更した場合は、既存Bindingを更新する。
+Function GraphはParameterを表示してよいが、詳細値編集の主責務を持たない。
 
 ```text
-Select Node
+Graph Node Select
+   |
+   v
+Shared Selection Context
+   |
+   v
+Registry Driven Inspector / Registry-driven Component
    |
    v
 Edit Parameter
@@ -246,6 +262,14 @@ Save
    |
    v
 UPDATE function_binding
+```
+
+```text
+Function Graph
+  = Parameter Presentation / Selection
+
+Registry Driven Inspector / Component
+  = Parameter Editing / UPDATE
 ```
 
 ---
@@ -280,18 +304,9 @@ Graph上の描画状態をRuntime Authorityとして使用しない。
 
 ## 9. Graph Mutation
 
-Function Graphの基本MutationはDB上のBinding / Dependency操作へ対応する。
+Function Graphが直接Persistent Mutationを担当する対象はFunction Dependencyとする。
 
 ```text
-Node Add
-  -> INSERT function_binding
-
-Node Delete
-  -> DELETE function_binding
-
-Node Parameter Save
-  -> UPDATE function_binding
-
 Edge Add
   -> INSERT function_dependency
 
@@ -299,13 +314,29 @@ Edge Delete
   -> DELETE function_dependency
 ```
 
-Graph操作はDB Definitionへ明示的に保存する。
+Function Bindingの生成・削除・詳細値変更はRegistry Driven Inspector / Registry-driven Componentの責務とする。
+
+```text
+Function Binding Add
+  -> Registry Driven Inspector
+  -> INSERT function_binding
+
+Function Binding Delete
+  -> Registry Driven Inspector
+  -> DELETE function_binding
+
+Function Parameter Save
+  -> Registry-driven Component
+  -> UPDATE function_binding
+```
+
+Graph上のMutationはDB Definitionへ明示的に保存する。
 
 ```text
 Graph Interaction
       |
       v
-Mutation Request
+Dependency Mutation Request
       |
       v
 Resolve / Dispatch
@@ -318,7 +349,7 @@ SQLite
 
 ## 10. Asset / Entity Binding Boundary
 
-Asset / EntityにFunctionを割り当てる操作はFunction Graphの主責務としない。
+Asset / EntityにFunctionを割り当てる操作はFunction Graphの責務としない。
 
 ```text
 Asset / Entity Selection
@@ -336,14 +367,14 @@ Save
 INSERT Function Binding
 ```
 
-Function Graphは主に、作成されたFunction Binding間の構成とDependencyを編集する。
+Function Graphは、作成済みFunction Binding間の構成とDependencyを表示・編集する。
 
 ```text
 Registry Driven Inspector
   = Asset / Entity <-> Function Binding
 
 Function Graph
-  = Function Binding <-> Function Binding
+  = Function Binding <-> Function Binding Dependency
 ```
 
 同一のBinding DefinitionをInspectorとGraphで別々に保持しない。
@@ -412,29 +443,20 @@ Preview / Graph Feedback
 
 ## 13. Save Model
 
-Function Graphは明示的なMutationをPersistent Definitionへ反映する。
-
-```text
-Select
-  -> Edit
-  -> Save / Delete
-```
-
-操作種別は以下を基本とする。
+Function GraphはDependencyの明示的MutationをPersistent Definitionへ反映する。
 
 ```text
 Read Graph
   = SELECT
 
-Create Node / Edge
-  = INSERT
+Create Edge
+  = INSERT function_dependency
 
-Edit Binding / Parameter
-  = UPDATE
-
-Remove Node / Edge
-  = DELETE
+Remove Edge
+  = DELETE function_dependency
 ```
+
+Bindingの作成・削除・Parameter UPDATEはInspector / Component側のSave Modelに従う。
 
 UI状態だけを変更してDB Definitionとの不整合を残さない。
 
@@ -459,10 +481,13 @@ TypeScript
   = Function Graph Dynamic Processing
 
 Function Graph
-  = Graph Authoring UI
+  = Binding Visualization / Dependency Authoring UI
 
 Registry Driven Inspector
-  = Selected Binding Detail / Asset Function Assignment
+  = Binding Create / Delete / Selected Binding Detail / Asset Function Assignment
+
+Registry-driven Component
+  = Detailed Binding Value / Parameter UPDATE
 
 Runtime
   = Execution
@@ -480,11 +505,17 @@ TypeScript
 Graph Node
   -X-> function_registryを複製してAuthority化
 
+Graph Node
+  -X-> 表示操作だけでfunction_bindingを暗黙生成
+
 Graph Edge
   -X-> function_dependencyとは別のDependency Authorityを保持
 
 Function Graph
   -X-> Asset / Entity Binding専用Inspectorを重複実装
+
+Function Graph
+  -X-> Parameter詳細編集の第二Authorityになる
 
 Preview State
   -X-> Persistent Definitionとして扱う
