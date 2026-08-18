@@ -593,7 +593,9 @@ Build Validation
 Build / Export Action
 ```
 
-Seed Data / Raw Data / Assets / Functions / Scripts / Config等の対象はcheckbox list、select等の明示的Controlでinclusion / exclusionを選択できるものとする。Editor / Preview専用DataをProduction Seedへ含めるかどうかも暗黙に決定せず、Build UIで選択状態を確認・設定可能とする。
+Seed Data / Raw Data / Assets / Functions / Scripts / Config等の対象はcheckbox list、select等の明示的Controlでinclusion / exclusionを選択できるものとする。
+
+Editor / Preview専用DataはProduction Application Seedから常に除外する。Build UIは`Excluded`等の状態を表示し、Tooltip / Popover等からProduction Application SeedへExportされないことを説明できるものとする。この状態をcheckbox / toggle / select等でincludeへ変更する操作は提供しない。
 
 TargetとRuntime / Storage Targetの選択に応じて利用可能な項目はRegistry / Build Definitionから解決する。不定な組み合わせ、未解決のOutput Path、欠落したAsset / Function / Script / Config、Dependency / Runtime Address等はBuild Validationで明示する。Build / Export ActionはValidation結果と対象Selectionを人間が確認できる状態で実行する。
 
