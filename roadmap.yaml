@@ -577,6 +577,7 @@ section:
               - "§3 Graph Model"
               - "§5 Front Dynamic Processing"
               - "§8 Edge"
+              - "§9 Graph Mutation"
               - "§11 Selection"
           - source: "./Function Graph.md"
             role: "boundary"
@@ -585,7 +586,6 @@ section:
               - "§4 Persistent Definition"
               - "§6 Node"
               - "§7 Parameter Editing Boundary"
-              - "§9 Graph Mutation"
               - "§10 Selection and Function Binding Boundary"
               - "§12 Runtime / Preview Boundary"
               - "§13 Save Model"
@@ -775,9 +775,6 @@ section:
             role: "implementation"
             sections:
               - "§3 Workbench Placement"
-          - source: "./Editor UI.md"
-            role: "boundary"
-            sections:
               - "§9 Primary Side Bar Regulation"
               - "§10 Editor Area Regulation"
               - "§13 Debug Viewer and Bottom Panel"
