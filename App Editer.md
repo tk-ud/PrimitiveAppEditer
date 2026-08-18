@@ -2083,7 +2083,9 @@ Every Frame Persistence
 
 ### Runtime Save Data
 
-`Runtime State Persistence = explicit only`に対応する汎用Persistent Modelを以下とする。これはApplication固有のSave Systemではなく、明示的に保存されたRuntime currentと、そのSave Eventを保持するCore Modelである。
+`Runtime State Persistence = explicit only`に対応する汎用Persistent Modelを以下とする。これはApplication固有のSave Systemや新しいSnapshot Architectureではなく、既存Architecture上でApplication-definedなSave DataのcurrentとSave Eventを保持するCore Primitiveである。
+
+`registry.current`の`registry`は抽象的な概念名ではなく、既存Registry系と同じ物理Schema名である。`registry.current`はそのRegistry schema配下のSave Data current tableとする。
 
 ```yaml
 registry.current:
@@ -2097,6 +2099,37 @@ logs.savedata:
 ```
 
 ```text
+registry.current
+  = Save Dataのcurrent
+  = current state store
+
+registry.current basic mutation
+  = UPSERT
+
+logs.diff
+  = registry.currentを含むcurrent変更差分 / History
+
+logs.savedata
+  = Save Event
+```
+
+`registry.current`はSave実行ごとのimmutable Snapshot rowsを蓄積するHistory Storeではない。currentの過去の変更は既存`logs.diff`の責務とし、新しいHistory / Version / Snapshot機構を追加しない。`logs.savedata`もSave PayloadのHistory Storeではなく、Save Eventだけを表す。
+
+```text
+registry.current
+  != SaveごとのSnapshot History Store
+
+logs.diff
+  = current変更履歴
+
+logs.savedata
+  = Save Event
+  != Save Payload History Store
+```
+
+### Save Identity
+
+```text
 logs.savedata.uuid
   = Save Identity
 
@@ -2104,41 +2137,53 @@ registry.current.saveId
   -> logs.savedata.uuid
 
 registry.current.uuid
-  = Persistent current recordのMachine Identity
+  = current recordのMachine Identity
   != Save Identity
 ```
 
-`logs.savedata.saveId`のような第二のSave Identityは追加しない。Save Identityには`logs.savedata.uuid`自体を使用する。
+`logs.savedata.saveId`のような第二のSave Identityは追加しない。`registry.current.saveId`とSave Eventのrelationは、1 Save Eventごとのimmutable Snapshot rowsを永久保存する規則を意味しない。
 
-責務は次のように分離する。
+### Application Responsibility
 
 ```text
-Runtime Memory
-  = 実行中のcurrent state
+What to Save
+  = Application Responsibility
 
-registry.current
-  = explicit saveされたcurrent payload
+What to Load
+  = Application Responsibility
 
-logs.savedata
-  = Save Event / Save History
+When to Save
+  = Application Responsibility
 
-Save Payload
-  != Save Event
+When to Load
+  = Application Responsibility
+
+Save Scope
+  = Application Responsibility
+
+Save Payload Semantics
+  = Application Responsibility
+
+Snapshot target / granularity / timing / semantics
+  = Application Responsibility
 ```
 
-Save EventとPersistent currentを分離することで、Applicationごとに異なるSave Scopeを許容する。保存対象を単一の物理payloadへ統合できないApplicationでも、複数の`registry.current` recordを同じ`saveId`へ関連付け、Save Event Identity / Historyを独立して維持できる。
+App Editor Coreは何を保存またはLoadすべきかを規定せず、`registry.current`という汎用Save Data current Primitiveを提供する。ApplicationがRuntime State、値、集計値、Derived Value、Snapshot、またはその他のApplication-defined payloadを明示的なSave対象とすることをCoreから禁止しない。ただし`registry.current`自体をSnapshot History Storeとして再定義せず、CoreをSnapshot Policy Authorityにしない。
 
 ```text
-Save Scope
-  = Application Definition
-
 Editor
   = Save / Load Binding Authoring Surface
+  != What-to-Save Authority
   != Save Scope Authority
   != Save Policy Authority
+  != Snapshot Policy Authority
 ```
 
-`registry.current.data`はApplication-definedなSave Payloadであり、CoreはApplication固有のSave Schemaを固定しない。必要なAddress / Source / TargetはJSON内に保持でき、既存Registry等のUUID Machine Identityを参照できる。
+EditorはApplicationが定義するSave / Load OperationをAuthoringできるが、Application-specific lifecycleをCore仕様として強制しない。
+
+### Save Payload
+
+`registry.current.data`はApplication-defined JSON Payloadであり、CoreはApplication固有のSave SchemaやAddress Schemaを固定しない。必要であれば既存Registry等のUUID Machine IdentityをJSONから参照できる。
 
 ```json
 {
@@ -2148,7 +2193,7 @@ Editor
 }
 ```
 
-上記は固定Save Schemaではない。単純なRuntime Stateなら次のpayloadでもよい。
+上記は固定Save Schemaではない。単純なpayloadなら次の形でもよい。
 
 ```json
 {
@@ -2157,15 +2202,15 @@ Editor
 ```
 
 ```text
-registry.current
-  = Save Identityへの参照 + Application-defined JSON Payload
+registry.current.data
+  = Application-defined JSON Payload
 
 tableId / columnId / rowId / bindingId / tableName / functionId
   = registry.currentの必須物理columnではない
   = 必要なApplicationがdata json内で利用できる任意情報
 ```
 
-集計値やDerived ValueのSnapshotも、必要であれば既存RegistryのUUID Address等をJSONから参照して保存できる。ただしSave Data Store自身にRegistry Addressing Systemを再実装しない。
+Save Data Store自身に既存Registry Addressing Systemを再実装しない。
 
 ### Static / Initial Data Boundary
 
@@ -2173,49 +2218,46 @@ tableId / columnId / rowId / bindingId / tableName / functionId
 Static / Initial Application Data
   = existing Application Data Authority
 
-Runtime Memory
-  = execution current
+Automatic Static Data Duplication
+  = prohibited
 
-registry.current
-  = explicitly persisted runtime current
+Explicit Save Target
+  = Application Responsibility
 ```
 
-`registry.current`は既存の静的Application Dataを複製するStoreではない。Saveのたびに既存のitems / raw / static rowを自動複製せず、Application DefinitionがSave Scopeとして選択したRuntime Stateだけを保存する。
+App Editor Coreは既存のitems / raw / static rowを`registry.current`へ自動複製しない。ただしこれはStatic Dataの保存禁止やSave対象のRuntime State限定を意味しない。Applicationが選択した値をApplication-definedなSave Dataとして明示的に保存できる。
 
 ### Save / Load Operation
 
+Persistenceは既存仕様どおりexplicit onlyとする。Save / Loadの対象、timing、payload semantics、および具体的なOperation sequenceはApplication / Runtime implementationが決定する。
+
 ```text
-Runtime Memory
-      ↓
-explicit Save
-      ↓
-registry.current
-      ↓ saveId
-logs.savedata.uuid
+Application-defined value / state / payload
+              ↓
+         explicit Save
+              ↓
+registry.current UPSERT + Save Event
+              ↓
+         explicit Load
+              ↓
+Application-defined load target
 ```
 
-Load時は、Application Definitionが選択したSave Identity / PayloadをRuntime Memoryへ復元する。EditorはこのSave / Load BindingをAuthoringするSurfaceを提供するが、Save対象、Save timing、Save payload semanticsを決定しない。Automatic Persistence PolicyおよびEvery Frame Persistenceは導入しない。
+Automatic Persistence PolicyおよびEvery Frame Persistenceは導入しない。
 
 ### Transaction / Integrity
 
-Save Eventとそれに属するPersistent currentは、Storage側のtransactional integrityを利用して書き込める構造とする。
+Saveに必要なStorage Operationは、Storage側のtransactional integrityを利用できる。途中失敗時にtransaction rollback可能な構造を妨げない。
 
 ```text
-BEGIN
-
-logs.savedata
-  -> Save Identity生成
-
-registry.current
-  -> saveIdを使用して必要なcurrent payloadを保存
-
-COMMIT
+Storage Operations
+  -> transaction available
 
 Failure
-  -> ROLLBACK
+  -> ROLLBACK available
 ```
 
-このFlowはRuntime implementationを固定せず、Save Data Modelがtransactional persistenceを妨げないことを示す。整合性確保のためのApplication-level checksum modelは要求しない。
+これはCanonical Save AlgorithmやSave Snapshot transaction protocolを定義するものではない。`registry.current`の基本mutationはUPSERTであり、`logs.savedata`と`registry.current`の具体的なOperation sequenceはApplication / Runtime implementationに従う。Application-level checksum modelは要求しない。
 
 ---
 
