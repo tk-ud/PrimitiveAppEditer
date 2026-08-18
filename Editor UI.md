@@ -215,11 +215,9 @@ DELETE
 ```text
 Function Binding
 Renderer Binding
-Relation Binding
-Data Binding
 ```
 
-利用可能なBinding KindはRegistryと既存Application Definitionから決定する。
+利用可能なBinding Kindは`App Editer.md`で定義済みのPersistent Modelから決定する。Raw DataはPhysical Table Rowとして編集し、Relationは`relation_registry`のLogical Definitionとして編集する。それらを未定義のBinding Kindとして扱わない。
 
 Binding Controlを別Panel、別Tab、別Inspectorとして重複実装しない。
 
@@ -410,10 +408,10 @@ Editor Selection
 
 ## 11. Function Binding and Function Graph Boundary
 
-Application ObjectへのFunction割当はRegistry Driven InspectorのBinding Sectionで行うInspector Operationとする。
+選択中のTargetに関連するFunction BindingのAuthoringは、Registry Driven InspectorのBinding Sectionから行う。SelectionはAuthoring Contextであり、Asset / EntityがFunction Bindingを所有することを意味しない。
 
 ```text
-Asset / Entity Select
+Target Select
         |
         v
 Registry Driven Inspector
@@ -422,14 +420,16 @@ Registry Driven Inspector
 Function Binding Section
         |
         v
-Function Select
+Existing Function Binding Field / Address Select
         |
         v
 Save
         |
         v
-Function Binding INSERT
+Function Binding INSERT / UPDATE
 ```
+
+保存できるのは`App Editer.md §19 Function Binding`に存在するfieldとUUID Addressのみとする。`target.address`はFunction Outputの書込先であり、Asset / EntityとFunction Bindingのowner / subject relationshipとして解釈しない。Selectionから新しい所有関係を推測せず、現行Schemaで表現できない割当は保存しない。
 
 Function Bindingのconstructor / execution / input / parameter / target / merge等の詳細値は対応するRegistry-driven Componentで編集する。
 
@@ -463,7 +463,7 @@ Delete Edge
   -> Function Dependency DELETE
 ```
 
-Asset / Entityへの通常のFunction割当にFunction Graphを必須としない。
+Function Bindingの作成・選択・詳細編集にFunction Graphを必須としない。
 
 Graph Node / Edge Selectionも同じRegistry Driven Inspectorを更新し、Graph固有Inspectorを作らない。
 
@@ -642,8 +642,8 @@ Bottom Panel
 Detailed Editing
   = Registry-driven Component
 
-Function Assignment
-  = Registry Driven Inspector
+Function Binding Authoring
+  = Registry Driven Inspector / Registry-driven Component
 
 Function Dependency
   = Function Graph

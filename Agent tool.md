@@ -5,11 +5,15 @@ tool:
 
   authority:
     roadmap: "./roadmap.yaml"
-    specification: "./App Editer.md"
+    specification_references: "selected_bundle.reference"
 
   rules:
     - "roadmap.yaml is the progress authority"
-    - "App Editer.md is the implementation specification authority"
+    - "Each selected bundle reference in roadmap.yaml is the specification input authority"
+    - "App Editer.md remains the Architecture / Authority / Boundary SSOT"
+    - "Detail SSOTs supplement and must not redefine App Editer.md authority"
+    - "Agent must not infer or add specification sources that are absent from selected_bundle.reference"
+    - "Agent must satisfy all supplied specification sources simultaneously"
     - "Agent must not modify roadmap.yaml directly"
     - "Roadmap mutation must be performed only by roadmap.complete"
     - "depends_on is defined only by roadmap.yaml"
@@ -52,10 +56,24 @@ tool:
             - "section order"
             - "bundle order"
 
-        - id: resolve_reference
-          action: "read_markdown_section"
-          source: "./App Editer.md"
-          reference_from: "selected_bundle.reference"
+        - id: specifications
+          action: "map"
+          collection_from: "selected_bundle.reference"
+          preserve_order: true
+          item:
+            action: "read_markdown_sections"
+            source_from: "item.source"
+            sections_from: "item.sections"
+            preserve_source: true
+
+        - id: validate_specification_set
+          action: "detect_reference_conflict"
+          input_from: "specifications"
+          on_conflict:
+            status: "blocked"
+            stop_condition: "A reference conflict prevents a deterministic implementation decision."
+            output:
+              message: "Referenced specifications conflict; implementation was not started."
 
         - id: render_prompt
           action: "template"
@@ -77,11 +95,18 @@ tool:
             {{ bundle.remaining }}
 
             ## Specification
-            {{ specification }}
+            {{#each specifications}}
+            ### {{ source }}
+            {{ content }}
+
+            {{/each}}
 
             ## Execution Rules
             - Work only on this bundle.
-            - Treat the supplied specification as authority.
+            - Treat every supplied specification as a simultaneous requirement.
+            - Preserve the Authority / Detail SSOT boundary identified by each source.
+            - Do not infer requirements from specification files not supplied here.
+            - If supplied references conflict, stop without implementing and report the conflict.
             - Do not modify roadmap.yaml directly.
             - Do not redefine depends_on.
             - Preserve existing implementation outside this bundle.
@@ -97,6 +122,7 @@ tool:
         required:
           - id
           - prompt
+          - specifications
 
         properties:
           id:
@@ -121,10 +147,36 @@ tool:
                 items:
                   type: string
               reference:
-                type: string
+                type: array
+                items:
+                  type: object
+                  required:
+                    - source
+                    - sections
+                  properties:
+                    source:
+                      type: string
+                    sections:
+                      type: array
+                      items:
+                        type: string
 
-          specification:
-            type: string
+          specifications:
+            type: array
+            items:
+              type: object
+              required:
+                - source
+                - content
+              properties:
+                source:
+                  type: string
+                sections:
+                  type: array
+                  items:
+                    type: string
+                content:
+                  type: string
 
       no_candidate:
         status: "completed"
