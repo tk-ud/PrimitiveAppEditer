@@ -350,31 +350,38 @@ SQLite
 
 ---
 
-## 10. Asset / Entity Binding Boundary
+## 10. Selection and Function Binding Boundary
 
-Asset / EntityにFunctionを割り当てる操作はFunction Graphの主責務としない。
+選択中のTargetをAuthoring ContextとしたFunction Bindingの作成・削除はFunction Graphの主責務としない。
 
 ```text
-Asset / Entity Selection
+Target Selection
         |
         v
 Registry Driven Inspector
         |
         v
-Function Selection
+Function Select / Initial Binding Definition
         |
         v
 Save
         |
         v
-INSERT Function Binding
+INSERT function_binding
 ```
+
+SelectionはFunction Bindingのowner / subjectを定義しない。保存は現行の`function_binding`に定義されたfieldとUUID Addressのみを使用し、`target.address`をAsset / EntityとFunction Bindingの所有関係として拡張解釈しない。
+
+既存Function Bindingの詳細編集は、Function Binding SelectionからRegistry-driven Componentへ渡し、`UPDATE function_binding`として保存する。Binding SectionまたはFunction GraphにUPDATE責務を持たせない。
 
 Function Graphは主に、作成されたFunction Binding間の構成とDependencyを編集する。
 
 ```text
 Registry Driven Inspector
-  = Asset / Entity <-> Function Binding
+  = Binding INSERT / DELETE / Selection
+
+Registry-driven Component
+  = Binding Detail UPDATE
 
 Function Graph
   = Function Binding <-> Function Binding
@@ -495,7 +502,7 @@ Function Graph
   = Dependency / Structural Authoring UI
 
 Registry Driven Inspector
-  = Selected Binding Detail / Asset Function Assignment / Binding INSERT DELETE
+  = Selected Binding Detail / Binding INSERT DELETE
 
 Registry-driven Component
   = Binding Detail UPDATE
@@ -520,7 +527,7 @@ Graph Edge
   -X-> function_dependencyとは別のDependency Authorityを保持
 
 Function Graph
-  -X-> Asset / Entity Binding専用Inspectorを重複実装
+  -X-> Target固有のBinding専用Inspectorを重複実装
 
 Function Graph
   -X-> Parameter / Target詳細編集を独自実装

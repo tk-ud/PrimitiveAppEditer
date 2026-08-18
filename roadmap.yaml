@@ -1,6 +1,14 @@
 roadmap:
   name: "App Editor"
-  source: "App Editer.md"
+  specification_sources:
+    - source: "./App Editer.md"
+      authority: "Architecture / Authority / Boundary SSOT"
+    - source: "./Editor UI.md"
+      authority: "Interaction / Placement / Editing Regulation SSOT"
+    - source: "./Function Graph.md"
+      authority: "Function Graph interaction / dependency authoring SSOT"
+    - source: "./Resolver.md"
+      authority: "Request resolve / operation dispatch SSOT"
   status_values:
     - "not started"
     - "partial"
@@ -49,11 +57,14 @@ section:
       - id: "foundation.authority"
         title: "Authority and boundary contracts"
         reference:
-          - "§1 Authority"
-          - "§33 Runtime Authority"
-          - "§34 Boundary Rules"
-          - "§35 Non-Goals"
-          - "§38 Core Definition"
+          - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "§1 Authority"
+              - "§33 Runtime Authority"
+              - "§34 Boundary Rules"
+              - "§35 Non-Goals"
+              - "§38 Core Definition"
         depends_on: []
         status: "not started"
         evidence: []
@@ -62,9 +73,12 @@ section:
       - id: "foundation.project-directory"
         title: "Project working directory lifecycle"
         reference:
-          - "§3 Project Working Directory"
-          - "§3 Open"
-          - "§32 Persistence Boundary"
+          - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "§3 Project Working Directory"
+              - "§3 Open"
+              - "§32 Persistence Boundary"
         depends_on:
           - "foundation.authority"
         status: "not started"
@@ -74,9 +88,12 @@ section:
       - id: "foundation.sqlite"
         title: "project.sqlite authoring storage"
         reference:
-          - "§4 SQLite"
-          - "§4 Logical Namespace"
-          - "§32 Persistence Boundary"
+          - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "§4 SQLite"
+              - "§4 Logical Namespace"
+              - "§32 Persistence Boundary"
         depends_on:
           - "foundation.project-directory"
         status: "not started"
@@ -86,8 +103,11 @@ section:
       - id: "foundation.editor-ddl"
         title: "Editor built-in DDL and migrations"
         reference:
-          - "§5 Editor DDL"
-          - "§5 Built-in DDL"
+          - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "§5 Editor DDL"
+              - "§5 Built-in DDL"
         depends_on:
           - "foundation.sqlite"
         status: "not started"
@@ -99,9 +119,12 @@ section:
       - id: "registry.identity"
         title: "UUID identity and human naming"
         reference:
-          - "§7 UUID Identity"
-          - "§7 Generate"
-          - "§7 Rename"
+          - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "§7 UUID Identity"
+              - "§7 Generate"
+              - "§7 Rename"
         depends_on:
           - "foundation.editor-ddl"
         status: "not started"
@@ -111,9 +134,12 @@ section:
       - id: "registry.table"
         title: "table_registry contract"
         reference:
-          - "§8 table_registry"
-          - "§8 kind"
-          - "§8 Semantic Type"
+          - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "§8 table_registry"
+              - "§8 kind"
+              - "§8 Semantic Type"
         depends_on:
           - "registry.identity"
         status: "not started"
@@ -123,11 +149,25 @@ section:
       - id: "registry.service"
         title: "C# Registry Service mutation pipeline"
         reference:
-          - "§5 Registry DDL"
-          - "§6 Registry Service"
-          - "§6 Table"
-          - "§6 Column"
-          - "§6 Transaction"
+          - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "§5 Registry DDL"
+              - "§6 Registry Service"
+              - "§6 Table"
+              - "§6 Column"
+              - "§6 Transaction"
+          - source: "./Resolver.md"
+            role: "boundary"
+            sections:
+              - "§2 Core Operations"
+              - "§4 Dispatch Flow"
+              - "§5 create"
+              - "§6 alter"
+              - "§8 drop"
+              - "§13 Registry Resolve"
+              - "§14 Service Dispatch"
+              - "§16 Boundary"
         depends_on:
           - "registry.table"
         status: "not started"
@@ -137,7 +177,10 @@ section:
       - id: "registry.physical-expansion"
         title: "SQLite physical table projection"
         reference:
-          - "§9 Physical Table Expansion"
+          - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "§9 Physical Table Expansion"
         depends_on:
           - "registry.service"
         status: "not started"
@@ -147,9 +190,12 @@ section:
       - id: "registry.enum"
         title: "enum_registry"
         reference:
-          - "§11 enum_registry"
-          - "§11 Physical"
-          - "§11 Usage"
+          - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "§11 enum_registry"
+              - "§11 Physical"
+              - "§11 Usage"
         depends_on:
           - "registry.table"
         status: "not started"
@@ -159,9 +205,12 @@ section:
       - id: "registry.relation"
         title: "relation_registry and logical join resolution"
         reference:
-          - "§10 relation_registry"
-          - "§10 Resolve"
-          - "§10 Validate"
+          - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "§10 relation_registry"
+              - "§10 Resolve"
+              - "§10 Validate"
         depends_on:
           - "registry.table"
           - "registry.identity"
@@ -174,8 +223,20 @@ section:
       - id: "data.raw"
         title: "Raw Data CRUD over projected physical tables"
         reference:
-          - "§12 Raw Data"
-          - "§9 Physical Table Expansion"
+          - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "§12 Raw Data"
+              - "§9 Physical Table Expansion"
+          - source: "./Resolver.md"
+            role: "boundary"
+            sections:
+              - "§7 truncate"
+              - "§9 insert"
+              - "§10 delete"
+              - "§11 update"
+              - "§12 select"
+              - "§14 Service Dispatch"
         depends_on:
           - "registry.physical-expansion"
           - "registry.enum"
@@ -189,9 +250,12 @@ section:
       - id: "function.registry"
         title: "function_registry"
         reference:
-          - "§13 Function"
-          - "§14 function_registry"
-          - "§15 Function Definition Contract"
+          - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "§13 Function"
+              - "§14 function_registry"
+              - "§15 Function Definition Contract"
         depends_on:
           - "registry.identity"
         status: "not started"
@@ -201,9 +265,12 @@ section:
       - id: "function.primitive"
         title: "Function primitive contract and initial catalog"
         reference:
-          - "§15 Function Definition Contract"
-          - "§16 Linear"
-          - "§17 Function Catalog"
+          - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "§15 Function Definition Contract"
+              - "§16 Linear"
+              - "§17 Function Catalog"
         depends_on:
           - "function.registry"
         status: "not started"
@@ -213,7 +280,10 @@ section:
       - id: "function.dispatcher"
         title: "Function dispatcher"
         reference:
-          - "§18 Function Dispatcher"
+          - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "§18 Function Dispatcher"
         depends_on:
           - "function.primitive"
         status: "not started"
@@ -223,8 +293,11 @@ section:
       - id: "function.program-scan"
         title: "Function and program discovery"
         reference:
-          - "§30 Function / Program Scan"
-          - "§3 Project Working Directory"
+          - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "§30 Function / Program Scan"
+              - "§3 Project Working Directory"
         depends_on:
           - "function.registry"
           - "foundation.project-directory"
@@ -237,10 +310,22 @@ section:
       - id: "binding.function"
         title: "Function Binding persistence and source/target addressing"
         reference:
-          - "§19 Function Binding"
-          - "§19 Source"
-          - "§19 Human Display"
-          - "§23 Runtime Addressing"
+          - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "§19 Function Binding"
+              - "§19 Source"
+              - "§19 Human Display"
+              - "§23 Runtime Addressing"
+          - source: "./Resolver.md"
+            role: "boundary"
+            sections:
+              - "§3 Request Model"
+              - "§9 insert"
+              - "§10 delete"
+              - "§11 update"
+              - "§12 select"
+              - "§13 Registry Resolve"
         depends_on:
           - "function.registry"
           - "data.raw"
@@ -251,10 +336,26 @@ section:
       - id: "binding.dependency"
         title: "Function dependency graph"
         reference:
-          - "§20 Function Dependency"
-          - "§20 Chain"
-          - "§20 Plan"
-          - "§20 Order"
+          - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "§20 Function Dependency"
+              - "§20 Chain"
+              - "§20 Plan"
+              - "§20 Order"
+          - source: "./Function Graph.md"
+            role: "boundary"
+            sections:
+              - "§3 Graph Model"
+              - "§4 Persistent Definition"
+              - "§8 Edge"
+              - "§9 Graph Mutation"
+              - "§13 Save Model"
+          - source: "./Resolver.md"
+            role: "boundary"
+            sections:
+              - "§9 insert"
+              - "§10 delete"
         depends_on:
           - "binding.function"
         status: "not started"
@@ -264,10 +365,13 @@ section:
       - id: "binding.merge"
         title: "Target merge policies"
         reference:
-          - "§21 Target Merge"
-          - "§21 overwrite"
-          - "§21 overlay"
-          - "§21 Merge Dispatch"
+          - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "§21 Target Merge"
+              - "§21 overwrite"
+              - "§21 overlay"
+              - "§21 Merge Dispatch"
         depends_on:
           - "binding.function"
           - "binding.dependency"
@@ -280,10 +384,13 @@ section:
       - id: "runtime.state"
         title: "Runtime state model and persistent-address resolution"
         reference:
-          - "§23 Runtime Addressing"
-          - "§24 Runtime State"
-          - "§32 Persistence Boundary"
-          - "§33 Runtime Authority"
+          - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "§23 Runtime Addressing"
+              - "§24 Runtime State"
+              - "§32 Persistence Boundary"
+              - "§33 Runtime Authority"
         depends_on:
           - "data.raw"
           - "binding.function"
@@ -294,9 +401,12 @@ section:
       - id: "runtime.execution-plan"
         title: "Validated execution plan construction"
         reference:
-          - "§20 Plan"
-          - "§20 Order"
-          - "§22 Function Runtime / Load"
+          - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "§20 Plan"
+              - "§20 Order"
+              - "§22 Function Runtime / Load"
         depends_on:
           - "binding.dependency"
           - "function.dispatcher"
@@ -309,10 +419,13 @@ section:
       - id: "runtime.loop"
         title: "Function runtime execution loop"
         reference:
-          - "§22 Function Runtime"
-          - "§22 Execute"
-          - "§22 Loop"
-          - "§24 Runtime State"
+          - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "§22 Function Runtime"
+              - "§22 Execute"
+              - "§22 Loop"
+              - "§24 Runtime State"
         depends_on:
           - "runtime.execution-plan"
           - "binding.merge"
@@ -325,9 +438,23 @@ section:
       - id: "renderer.registry"
         title: "renderer_registry and renderer binding"
         reference:
-          - "§27 Renderer"
-          - "§28 renderer_registry"
-          - "§28 Binding"
+          - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "§27 Renderer"
+              - "§28 renderer_registry"
+              - "§28 Binding"
+          - source: "./Editor UI.md"
+            role: "boundary"
+            sections:
+              - "§12 Renderer and Asset Binding"
+          - source: "./Resolver.md"
+            role: "boundary"
+            sections:
+              - "§9 insert"
+              - "§10 delete"
+              - "§11 update"
+              - "§12 select"
         depends_on:
           - "registry.identity"
           - "data.raw"
@@ -338,8 +465,11 @@ section:
       - id: "asset.registry"
         title: "Asset model and directory scan"
         reference:
-          - "§29 Asset"
-          - "§3 Project Working Directory"
+          - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "§29 Asset"
+              - "§3 Project Working Directory"
         depends_on:
           - "foundation.project-directory"
           - "registry.identity"
@@ -350,9 +480,12 @@ section:
       - id: "renderer.runtime"
         title: "Runtime state projection through renderer"
         reference:
-          - "§27 Renderer"
-          - "§29 Asset"
-          - "§37 Core Flow"
+          - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "§27 Renderer"
+              - "§29 Asset"
+              - "§37 Core Flow"
         depends_on:
           - "renderer.registry"
           - "asset.registry"
@@ -366,9 +499,25 @@ section:
       - id: "editor.registry-ui"
         title: "Registry-driven generic editor controls"
         reference:
-          - "§25 Editor UI"
-          - "§25 Kind Dispatch"
-          - "§26 Editor"
+          - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "§25 Editor UI"
+              - "§25 Kind Dispatch"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
+              - "§26 Editor"
+          - source: "./Editor UI.md"
+            role: "implementation"
+            sections:
+              - "§6 Component Editing Regulation"
+          - source: "./Editor UI.md"
+            role: "boundary"
+            sections:
+              - "§1 Scope"
+              - "§4 Registry Driven Inspector"
+              - "§14 UI Responsibility Boundary"
         depends_on:
           - "registry.table"
           - "registry.enum"
@@ -382,8 +531,21 @@ section:
       - id: "editor.data-ui"
         title: "Data Editor and Raw Data authoring"
         reference:
-          - "§26 Editor"
-          - "§25 Editor UI"
+          - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "§26 Editor"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
+              - "§25 Editor UI"
+          - source: "./Editor UI.md"
+            role: "boundary"
+            sections:
+              - "§3 Workbench Placement"
+              - "§9 Primary Side Bar Regulation"
+              - "§10 Editor Area Regulation"
+              - "§14 UI Responsibility Boundary"
         depends_on:
           - "editor.registry-ui"
           - "data.raw"
@@ -394,9 +556,40 @@ section:
       - id: "editor.function-graph"
         title: "Function Graph authoring"
         reference:
-          - "§39 Function Graph"
-          - "§20 Function Dependency"
-          - "§21 Target Merge"
+          - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "§39 Function Graph"
+              - "§20 Function Dependency"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
+              - "§21 Target Merge"
+          - source: "./Editor UI.md"
+            role: "boundary"
+            sections:
+              - "§10 Editor Area Regulation"
+              - "§11 Function Binding and Function Graph Boundary"
+          - source: "./Function Graph.md"
+            role: "implementation"
+            sections:
+              - "§1 Scope"
+              - "§3 Graph Model"
+              - "§5 Front Dynamic Processing"
+              - "§8 Edge"
+              - "§9 Graph Mutation"
+              - "§11 Selection"
+          - source: "./Function Graph.md"
+            role: "boundary"
+            sections:
+              - "§2 Placement"
+              - "§4 Persistent Definition"
+              - "§6 Node"
+              - "§7 Parameter Editing Boundary"
+              - "§10 Selection and Function Binding Boundary"
+              - "§12 Runtime / Preview Boundary"
+              - "§13 Save Model"
+              - "§14 Boundary"
         depends_on:
           - "binding.function"
           - "binding.dependency"
@@ -409,8 +602,24 @@ section:
       - id: "editor.inspector"
         title: "Registry-driven Inspector"
         reference:
-          - "§39 Inspector"
-          - "§23 Runtime Addressing / Editor"
+          - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "§39 Inspector"
+              - "§23 Runtime Addressing / Editor"
+          - source: "./Editor UI.md"
+            role: "implementation"
+            sections:
+              - "§4 Registry Driven Inspector"
+              - "§5 Binding Section"
+              - "§7 Inspector Layout"
+              - "§11 Function Binding and Function Graph Boundary"
+              - "§12 Renderer and Asset Binding"
+          - source: "./Editor UI.md"
+            role: "boundary"
+            sections:
+              - "§6 Component Editing Regulation"
+              - "§14 UI Responsibility Boundary"
         depends_on:
           - "editor.registry-ui"
           - "editor.data-ui"
@@ -421,8 +630,20 @@ section:
       - id: "editor.debug-viewer"
         title: "Debug Viewer and runtime inspection"
         reference:
-          - "§39 Debug Viewer"
-          - "§24 Runtime State"
+          - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "§39 Debug Viewer"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
+              - "§24 Runtime State"
+          - source: "./Editor UI.md"
+            role: "boundary"
+            sections:
+              - "§3 Workbench Placement"
+              - "§13 Debug Viewer and Bottom Panel"
+              - "§14 UI Responsibility Boundary"
         depends_on:
           - "runtime.loop"
           - "renderer.runtime"
@@ -436,8 +657,11 @@ section:
       - id: "build.validation"
         title: "Build validation pipeline"
         reference:
-          - "§31 Build"
-          - "§31 Build Validation"
+          - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "§31 Build"
+              - "§31 Build Validation"
         depends_on:
           - "registry.relation"
           - "runtime.execution-plan"
@@ -450,8 +674,11 @@ section:
       - id: "build.application-output"
         title: "Generic application output projection"
         reference:
-          - "§31 Application Output"
-          - "§37 Core Flow"
+          - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "§31 Application Output"
+              - "§37 Core Flow"
         depends_on:
           - "build.validation"
           - "renderer.runtime"
@@ -462,9 +689,12 @@ section:
       - id: "build.postgresql"
         title: "PostgreSQL schema and seed projection"
         reference:
-          - "§31 PostgreSQL Web Application Output"
-          - "§31 PostgreSQL DDL"
-          - "§31 PostgreSQL Seed Data"
+          - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "§31 PostgreSQL Web Application Output"
+              - "§31 PostgreSQL DDL"
+              - "§31 PostgreSQL Seed Data"
         depends_on:
           - "build.application-output"
           - "registry.physical-expansion"
@@ -476,7 +706,10 @@ section:
       - id: "build.web-program"
         title: "ASP.NET Core API and Next.js application projection"
         reference:
-          - "§31 Web Application Program"
+          - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "§31 Web Application Program"
         depends_on:
           - "build.postgresql"
           - "function.dispatcher"
@@ -488,8 +721,11 @@ section:
       - id: "build.deploy"
         title: "Deployable application artifact layout"
         reference:
-          - "§31 Deploy"
-          - "§31 Application Output"
+          - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "§31 Deploy"
+              - "§31 Application Output"
         depends_on:
           - "build.web-program"
         status: "not started"
@@ -501,10 +737,22 @@ section:
       - id: "workbench.integration"
         title: "Code-OSS / VS Code workbench integration"
         reference:
-          - "§39 UI"
-          - "§39 Structure"
-          - "§39 Working Directory Integration"
-          - "§39 Boundary"
+          - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "§39 UI"
+              - "§39 Working Directory Integration"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
+              - "§39 Structure"
+              - "§39 Boundary"
+          - source: "./Editor UI.md"
+            role: "boundary"
+            sections:
+              - "§3 Workbench Placement"
+              - "§14 UI Responsibility Boundary"
+              - "§15 General Workbench Rules"
         depends_on:
           - "foundation.project-directory"
           - "editor.registry-ui"
@@ -516,10 +764,20 @@ section:
       - id: "workbench.views"
         title: "Activity Bar, Side Bar, Editor Tabs and Bottom Panel"
         reference:
-          - "§39 Structure"
-          - "§39 Editor Tabs"
-          - "§39 Side Bar"
-          - "§39 Bottom Panel"
+          - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "§39 Structure"
+              - "§39 Editor Tabs"
+              - "§39 Side Bar"
+              - "§39 Bottom Panel"
+          - source: "./Editor UI.md"
+            role: "implementation"
+            sections:
+              - "§3 Workbench Placement"
+              - "§9 Primary Side Bar Regulation"
+              - "§10 Editor Area Regulation"
+              - "§13 Debug Viewer and Bottom Panel"
         depends_on:
           - "workbench.integration"
           - "editor.function-graph"
@@ -531,9 +789,20 @@ section:
       - id: "workbench.ai-development"
         title: "AI coding extension compatible development workflow"
         reference:
-          - "§39 AI Development"
-          - "§39 Purpose"
-          - "§39 Boundary"
+          - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "§39 AI Development"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
+              - "§39 Purpose"
+              - "§39 Boundary"
+          - source: "./Editor UI.md"
+            role: "boundary"
+            sections:
+              - "§15 General Workbench Rules"
+              - "§16 Non-Goals"
         depends_on:
           - "workbench.views"
           - "build.application-output"
@@ -546,10 +815,25 @@ section:
       - id: "completion.end-to-end"
         title: "End-to-end authoring, runtime, renderer and build flow"
         reference:
-          - "§2 Overall Structure"
-          - "§37 Core Flow"
-          - "§38 Core Definition"
-          - "§39 Purpose"
+          - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "§2 Overall Structure"
+              - "§37 Core Flow"
+              - "§38 Core Definition"
+              - "§39 Purpose"
+          - source: "./Editor UI.md"
+            role: "boundary"
+            sections:
+              - "§17 Core Definition"
+          - source: "./Function Graph.md"
+            role: "boundary"
+            sections:
+              - "§14 Boundary"
+          - source: "./Resolver.md"
+            role: "boundary"
+            sections:
+              - "§16 Boundary"
         depends_on:
           - "workbench.ai-development"
           - "build.deploy"
@@ -561,5 +845,8 @@ future:
   excluded_from_current_loop:
     - title: "Multiplayer"
       reference:
-        - "§36 Future"
+        - source: "./App Editer.md"
+          role: "implementation"
+          sections:
+            - "§36 Future"
       reason: "Current Core Scope外"

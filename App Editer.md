@@ -1509,6 +1509,21 @@ Application Editor
 └─ Build
 ```
 
+Data Editor / Side Bar / Editor Areaは、Raw Data・Relation・Function Binding・Renderer Bindingのdiscovery / list / selectionと、Grid・Graph等の広いSurfaceを必要とするstructural / detailed viewを提供する。選択されたTargetに対するcompact property editing、binding composition、contextual mutationは単一のRegistry Driven Inspectorで行う。
+
+```text
+Data Editor / Side Bar / Editor Area
+  = Discovery / List / Structural or Detailed View / Selection
+
+Registry Driven Inspector
+  = Compact Property Editing / Binding Composition / Contextual Mutation
+
+Graph / Grid / Detailed Value
+  = Editor Area when a wide surface is required
+```
+
+Data Editorの下にFunction Binding / Renderer Bindingが記載されることは、Inspectorと競合するBinding Editing Surfaceを意味しない。Inspector概念はRegistry Driven Inspectorの1つだけとする。
+
 ```text
 Editor
   = Generic Authoring

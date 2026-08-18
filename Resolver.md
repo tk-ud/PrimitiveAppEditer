@@ -298,7 +298,6 @@ Raw Data Row
 Function Binding
 Function Dependency
 Renderer Binding
-Data Binding
 ```
 
 Registry Definition自体の新規作成は`insert`ではなく`create`へdispatchする。
@@ -336,7 +335,6 @@ Raw Data Row
 Function Binding
 Function Dependency
 Renderer Binding
-Data Binding
 ```
 
 Registry Definition自体の削除は`delete`ではなく`drop`へdispatchする。
@@ -369,7 +367,6 @@ UPDATE
 Function Parameter Change
 Renderer Binding Value Change
 Raw Data Value Change
-Data Binding Value Change
 ```
 
 Registry Definition / Logical Registry Metadataの変更は`update`ではなく`alter`へdispatchする。
