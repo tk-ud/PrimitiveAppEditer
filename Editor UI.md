@@ -408,7 +408,7 @@ Editor Selection
 
 ## 11. Function Binding and Function Graph Boundary
 
-選択中のTargetに関連するFunction BindingのAuthoringは、Registry Driven InspectorのBinding Sectionから行う。SelectionはAuthoring Contextであり、Asset / EntityがFunction Bindingを所有することを意味しない。
+新規Function Bindingの作成は、Registry Driven InspectorのBinding Sectionから行う。SelectionはAuthoring Contextであり、Asset / EntityがFunction Bindingを所有することを意味しない。
 
 ```text
 Target Select
@@ -417,30 +417,36 @@ Target Select
 Registry Driven Inspector
         |
         v
-Function Binding Section
+Binding Section
         |
         v
-Existing Function Binding Field / Address Select
+Function Select / Initial Binding Definition
         |
         v
 Save
         |
         v
-Function Binding INSERT / UPDATE
+INSERT function_binding
 ```
 
 保存できるのは`App Editer.md §19 Function Binding`に存在するfieldとUUID Addressのみとする。`target.address`はFunction Outputの書込先であり、Asset / EntityとFunction Bindingのowner / subject relationshipとして解釈しない。Selectionから新しい所有関係を推測せず、現行Schemaで表現できない割当は保存しない。
 
-Function Bindingのconstructor / execution / input / parameter / target / merge等の詳細値は対応するRegistry-driven Componentで編集する。
+Binding Sectionの主要Mutationは`INSERT / DELETE`とする。既存Function Bindingのconstructor / execution / input / parameter / target / merge等の詳細値は対応するRegistry-driven Componentで編集する。
 
 ```text
-Function Binding
-  -> constructor
-  -> execution
-  -> input
-  -> parameter
-  -> target
-  -> merge
+Function Binding Selection
+        |
+        v
+Registry Resolve
+        |
+        v
+Registry-driven Component
+        |
+        v
+Edit -> Save
+        |
+        v
+UPDATE function_binding
 ```
 
 Function GraphはEditor Areaに配置し、Function Binding間のRelationship / Dependency構造を扱う。

@@ -13,7 +13,8 @@ tool:
     - "App Editer.md remains the Architecture / Authority / Boundary SSOT"
     - "Detail SSOTs supplement and must not redefine App Editer.md authority"
     - "Agent must not infer or add specification sources that are absent from selected_bundle.reference"
-    - "Agent must satisfy all supplied specification sources simultaneously"
+    - "Implementation-role references define selected bundle implementation scope"
+    - "Boundary-role references constrain implementation and never add implementation scope"
     - "Agent must not modify roadmap.yaml directly"
     - "Roadmap mutation must be performed only by roadmap.complete"
     - "depends_on is defined only by roadmap.yaml"
@@ -63,8 +64,10 @@ tool:
           item:
             action: "read_markdown_sections"
             source_from: "item.source"
+            role_from: "item.role"
             sections_from: "item.sections"
             preserve_source: true
+            preserve_role: true
 
         - id: validate_specification_set
           action: "detect_reference_conflict"
@@ -74,6 +77,20 @@ tool:
             stop_condition: "A reference conflict prevents a deterministic implementation decision."
             output:
               message: "Referenced specifications conflict; implementation was not started."
+
+        - id: implementation_specifications
+          action: "filter"
+          collection_from: "specifications"
+          condition:
+            role:
+              equals: "implementation"
+
+        - id: boundary_constraints
+          action: "filter"
+          collection_from: "specifications"
+          condition:
+            role:
+              equals: "boundary"
 
         - id: render_prompt
           action: "template"
@@ -94,19 +111,28 @@ tool:
             ## Remaining Work
             {{ bundle.remaining }}
 
-            ## Specification
-            {{#each specifications}}
+            ## Implementation Specification
+            {{#each implementation_specifications}}
+            ### {{ source }}
+            {{ content }}
+
+            {{/each}}
+
+            ## Boundary Constraints
+            {{#each boundary_constraints}}
             ### {{ source }}
             {{ content }}
 
             {{/each}}
 
             ## Execution Rules
-            - Work only on this bundle.
-            - Treat every supplied specification as a simultaneous requirement.
+            - Implement only the selected bundle's implementation specifications.
+            - Treat boundary references as constraints, not additional implementation scope.
+            - Do not implement adjacent UI / Resolver / Runtime work merely because a boundary reference mentions it.
+            - Keep all implementation consistent with supplied boundary constraints.
             - Preserve the Authority / Detail SSOT boundary identified by each source.
             - Do not infer requirements from specification files not supplied here.
-            - If supplied references conflict, stop without implementing and report the conflict.
+            - If implementation or boundary references conflict, stop without implementing and report the conflict.
             - Do not modify roadmap.yaml directly.
             - Do not redefine depends_on.
             - Preserve existing implementation outside this bundle.
@@ -152,10 +178,16 @@ tool:
                   type: object
                   required:
                     - source
+                    - role
                     - sections
                   properties:
                     source:
                       type: string
+                    role:
+                      type: string
+                      enum:
+                        - "implementation"
+                        - "boundary"
                     sections:
                       type: array
                       items:
@@ -167,10 +199,16 @@ tool:
               type: object
               required:
                 - source
+                - role
                 - content
               properties:
                 source:
                   type: string
+                role:
+                  type: string
+                  enum:
+                    - "implementation"
+                    - "boundary"
                 sections:
                   type: array
                   items:

@@ -352,7 +352,7 @@ SQLite
 
 ## 10. Selection and Function Binding Boundary
 
-選択中のTargetをAuthoring ContextとしたFunction Bindingの作成・削除・詳細編集はFunction Graphの主責務としない。
+選択中のTargetをAuthoring ContextとしたFunction Bindingの作成・削除はFunction Graphの主責務としない。
 
 ```text
 Target Selection
@@ -361,22 +361,27 @@ Target Selection
 Registry Driven Inspector
         |
         v
-Existing Function Binding Field / Address Selection
+Function Select / Initial Binding Definition
         |
         v
 Save
         |
         v
-INSERT / UPDATE Function Binding
+INSERT function_binding
 ```
 
 SelectionはFunction Bindingのowner / subjectを定義しない。保存は現行の`function_binding`に定義されたfieldとUUID Addressのみを使用し、`target.address`をAsset / EntityとFunction Bindingの所有関係として拡張解釈しない。
+
+既存Function Bindingの詳細編集は、Function Binding SelectionからRegistry-driven Componentへ渡し、`UPDATE function_binding`として保存する。Binding SectionまたはFunction GraphにUPDATE責務を持たせない。
 
 Function Graphは主に、作成されたFunction Binding間の構成とDependencyを編集する。
 
 ```text
 Registry Driven Inspector
-  = Function Binding Authoring / Detail
+  = Binding INSERT / DELETE / Selection
+
+Registry-driven Component
+  = Binding Detail UPDATE
 
 Function Graph
   = Function Binding <-> Function Binding

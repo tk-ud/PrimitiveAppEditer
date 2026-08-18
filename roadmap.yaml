@@ -58,6 +58,7 @@ section:
         title: "Authority and boundary contracts"
         reference:
           - source: "./App Editer.md"
+            role: "implementation"
             sections:
               - "§1 Authority"
               - "§33 Runtime Authority"
@@ -73,6 +74,7 @@ section:
         title: "Project working directory lifecycle"
         reference:
           - source: "./App Editer.md"
+            role: "implementation"
             sections:
               - "§3 Project Working Directory"
               - "§3 Open"
@@ -87,6 +89,7 @@ section:
         title: "project.sqlite authoring storage"
         reference:
           - source: "./App Editer.md"
+            role: "implementation"
             sections:
               - "§4 SQLite"
               - "§4 Logical Namespace"
@@ -101,6 +104,7 @@ section:
         title: "Editor built-in DDL and migrations"
         reference:
           - source: "./App Editer.md"
+            role: "implementation"
             sections:
               - "§5 Editor DDL"
               - "§5 Built-in DDL"
@@ -116,6 +120,7 @@ section:
         title: "UUID identity and human naming"
         reference:
           - source: "./App Editer.md"
+            role: "implementation"
             sections:
               - "§7 UUID Identity"
               - "§7 Generate"
@@ -130,6 +135,7 @@ section:
         title: "table_registry contract"
         reference:
           - source: "./App Editer.md"
+            role: "implementation"
             sections:
               - "§8 table_registry"
               - "§8 kind"
@@ -144,6 +150,7 @@ section:
         title: "C# Registry Service mutation pipeline"
         reference:
           - source: "./App Editer.md"
+            role: "implementation"
             sections:
               - "§5 Registry DDL"
               - "§6 Registry Service"
@@ -151,6 +158,7 @@ section:
               - "§6 Column"
               - "§6 Transaction"
           - source: "./Resolver.md"
+            role: "boundary"
             sections:
               - "§2 Core Operations"
               - "§4 Dispatch Flow"
@@ -170,6 +178,7 @@ section:
         title: "SQLite physical table projection"
         reference:
           - source: "./App Editer.md"
+            role: "implementation"
             sections:
               - "§9 Physical Table Expansion"
         depends_on:
@@ -182,6 +191,7 @@ section:
         title: "enum_registry"
         reference:
           - source: "./App Editer.md"
+            role: "implementation"
             sections:
               - "§11 enum_registry"
               - "§11 Physical"
@@ -196,6 +206,7 @@ section:
         title: "relation_registry and logical join resolution"
         reference:
           - source: "./App Editer.md"
+            role: "implementation"
             sections:
               - "§10 relation_registry"
               - "§10 Resolve"
@@ -213,10 +224,12 @@ section:
         title: "Raw Data CRUD over projected physical tables"
         reference:
           - source: "./App Editer.md"
+            role: "implementation"
             sections:
               - "§12 Raw Data"
               - "§9 Physical Table Expansion"
           - source: "./Resolver.md"
+            role: "boundary"
             sections:
               - "§7 truncate"
               - "§9 insert"
@@ -238,6 +251,7 @@ section:
         title: "function_registry"
         reference:
           - source: "./App Editer.md"
+            role: "implementation"
             sections:
               - "§13 Function"
               - "§14 function_registry"
@@ -252,6 +266,7 @@ section:
         title: "Function primitive contract and initial catalog"
         reference:
           - source: "./App Editer.md"
+            role: "implementation"
             sections:
               - "§15 Function Definition Contract"
               - "§16 Linear"
@@ -266,6 +281,7 @@ section:
         title: "Function dispatcher"
         reference:
           - source: "./App Editer.md"
+            role: "implementation"
             sections:
               - "§18 Function Dispatcher"
         depends_on:
@@ -278,6 +294,7 @@ section:
         title: "Function and program discovery"
         reference:
           - source: "./App Editer.md"
+            role: "implementation"
             sections:
               - "§30 Function / Program Scan"
               - "§3 Project Working Directory"
@@ -294,12 +311,14 @@ section:
         title: "Function Binding persistence and source/target addressing"
         reference:
           - source: "./App Editer.md"
+            role: "implementation"
             sections:
               - "§19 Function Binding"
               - "§19 Source"
               - "§19 Human Display"
               - "§23 Runtime Addressing"
           - source: "./Resolver.md"
+            role: "boundary"
             sections:
               - "§3 Request Model"
               - "§9 insert"
@@ -318,12 +337,14 @@ section:
         title: "Function dependency graph"
         reference:
           - source: "./App Editer.md"
+            role: "implementation"
             sections:
               - "§20 Function Dependency"
               - "§20 Chain"
               - "§20 Plan"
               - "§20 Order"
           - source: "./Function Graph.md"
+            role: "boundary"
             sections:
               - "§3 Graph Model"
               - "§4 Persistent Definition"
@@ -331,6 +352,7 @@ section:
               - "§9 Graph Mutation"
               - "§13 Save Model"
           - source: "./Resolver.md"
+            role: "boundary"
             sections:
               - "§9 insert"
               - "§10 delete"
@@ -344,6 +366,7 @@ section:
         title: "Target merge policies"
         reference:
           - source: "./App Editer.md"
+            role: "implementation"
             sections:
               - "§21 Target Merge"
               - "§21 overwrite"
@@ -362,6 +385,7 @@ section:
         title: "Runtime state model and persistent-address resolution"
         reference:
           - source: "./App Editer.md"
+            role: "implementation"
             sections:
               - "§23 Runtime Addressing"
               - "§24 Runtime State"
@@ -378,6 +402,7 @@ section:
         title: "Validated execution plan construction"
         reference:
           - source: "./App Editer.md"
+            role: "implementation"
             sections:
               - "§20 Plan"
               - "§20 Order"
@@ -395,6 +420,7 @@ section:
         title: "Function runtime execution loop"
         reference:
           - source: "./App Editer.md"
+            role: "implementation"
             sections:
               - "§22 Function Runtime"
               - "§22 Execute"
@@ -413,14 +439,17 @@ section:
         title: "renderer_registry and renderer binding"
         reference:
           - source: "./App Editer.md"
+            role: "implementation"
             sections:
               - "§27 Renderer"
               - "§28 renderer_registry"
               - "§28 Binding"
           - source: "./Editor UI.md"
+            role: "boundary"
             sections:
               - "§12 Renderer and Asset Binding"
           - source: "./Resolver.md"
+            role: "boundary"
             sections:
               - "§9 insert"
               - "§10 delete"
@@ -437,6 +466,7 @@ section:
         title: "Asset model and directory scan"
         reference:
           - source: "./App Editer.md"
+            role: "implementation"
             sections:
               - "§29 Asset"
               - "§3 Project Working Directory"
@@ -451,6 +481,7 @@ section:
         title: "Runtime state projection through renderer"
         reference:
           - source: "./App Editer.md"
+            role: "implementation"
             sections:
               - "§27 Renderer"
               - "§29 Asset"
@@ -469,11 +500,13 @@ section:
         title: "Registry-driven generic editor controls"
         reference:
           - source: "./App Editer.md"
+            role: "implementation"
             sections:
               - "§25 Editor UI"
               - "§25 Kind Dispatch"
               - "§26 Editor"
           - source: "./Editor UI.md"
+            role: "implementation"
             sections:
               - "§1 Scope"
               - "§4 Registry Driven Inspector"
@@ -493,10 +526,12 @@ section:
         title: "Data Editor and Raw Data authoring"
         reference:
           - source: "./App Editer.md"
+            role: "implementation"
             sections:
               - "§26 Editor"
               - "§25 Editor UI"
           - source: "./Editor UI.md"
+            role: "implementation"
             sections:
               - "§3 Workbench Placement"
               - "§9 Primary Side Bar Regulation"
@@ -513,15 +548,18 @@ section:
         title: "Function Graph authoring"
         reference:
           - source: "./App Editer.md"
+            role: "implementation"
             sections:
               - "§39 Function Graph"
               - "§20 Function Dependency"
               - "§21 Target Merge"
           - source: "./Editor UI.md"
+            role: "implementation"
             sections:
               - "§10 Editor Area Regulation"
               - "§11 Function Binding and Function Graph Boundary"
           - source: "./Function Graph.md"
+            role: "implementation"
             sections:
               - "§1 Scope"
               - "§3 Graph Model"
@@ -545,10 +583,12 @@ section:
         title: "Registry-driven Inspector"
         reference:
           - source: "./App Editer.md"
+            role: "implementation"
             sections:
               - "§39 Inspector"
               - "§23 Runtime Addressing / Editor"
           - source: "./Editor UI.md"
+            role: "implementation"
             sections:
               - "§4 Registry Driven Inspector"
               - "§5 Binding Section"
@@ -568,10 +608,12 @@ section:
         title: "Debug Viewer and runtime inspection"
         reference:
           - source: "./App Editer.md"
+            role: "implementation"
             sections:
               - "§39 Debug Viewer"
               - "§24 Runtime State"
           - source: "./Editor UI.md"
+            role: "implementation"
             sections:
               - "§3 Workbench Placement"
               - "§13 Debug Viewer and Bottom Panel"
@@ -590,6 +632,7 @@ section:
         title: "Build validation pipeline"
         reference:
           - source: "./App Editer.md"
+            role: "implementation"
             sections:
               - "§31 Build"
               - "§31 Build Validation"
@@ -606,6 +649,7 @@ section:
         title: "Generic application output projection"
         reference:
           - source: "./App Editer.md"
+            role: "implementation"
             sections:
               - "§31 Application Output"
               - "§37 Core Flow"
@@ -620,6 +664,7 @@ section:
         title: "PostgreSQL schema and seed projection"
         reference:
           - source: "./App Editer.md"
+            role: "implementation"
             sections:
               - "§31 PostgreSQL Web Application Output"
               - "§31 PostgreSQL DDL"
@@ -636,6 +681,7 @@ section:
         title: "ASP.NET Core API and Next.js application projection"
         reference:
           - source: "./App Editer.md"
+            role: "implementation"
             sections:
               - "§31 Web Application Program"
         depends_on:
@@ -650,6 +696,7 @@ section:
         title: "Deployable application artifact layout"
         reference:
           - source: "./App Editer.md"
+            role: "implementation"
             sections:
               - "§31 Deploy"
               - "§31 Application Output"
@@ -665,12 +712,14 @@ section:
         title: "Code-OSS / VS Code workbench integration"
         reference:
           - source: "./App Editer.md"
+            role: "implementation"
             sections:
               - "§39 UI"
               - "§39 Structure"
               - "§39 Working Directory Integration"
               - "§39 Boundary"
           - source: "./Editor UI.md"
+            role: "implementation"
             sections:
               - "§3 Workbench Placement"
               - "§14 UI Responsibility Boundary"
@@ -687,12 +736,14 @@ section:
         title: "Activity Bar, Side Bar, Editor Tabs and Bottom Panel"
         reference:
           - source: "./App Editer.md"
+            role: "implementation"
             sections:
               - "§39 Structure"
               - "§39 Editor Tabs"
               - "§39 Side Bar"
               - "§39 Bottom Panel"
           - source: "./Editor UI.md"
+            role: "implementation"
             sections:
               - "§3 Workbench Placement"
               - "§9 Primary Side Bar Regulation"
@@ -710,11 +761,13 @@ section:
         title: "AI coding extension compatible development workflow"
         reference:
           - source: "./App Editer.md"
+            role: "implementation"
             sections:
               - "§39 AI Development"
               - "§39 Purpose"
               - "§39 Boundary"
           - source: "./Editor UI.md"
+            role: "implementation"
             sections:
               - "§15 General Workbench Rules"
               - "§16 Non-Goals"
@@ -731,18 +784,22 @@ section:
         title: "End-to-end authoring, runtime, renderer and build flow"
         reference:
           - source: "./App Editer.md"
+            role: "implementation"
             sections:
               - "§2 Overall Structure"
               - "§37 Core Flow"
               - "§38 Core Definition"
               - "§39 Purpose"
           - source: "./Editor UI.md"
+            role: "boundary"
             sections:
               - "§17 Core Definition"
           - source: "./Function Graph.md"
+            role: "boundary"
             sections:
               - "§14 Boundary"
           - source: "./Resolver.md"
+            role: "boundary"
             sections:
               - "§16 Boundary"
         depends_on:
@@ -757,6 +814,7 @@ future:
     - title: "Multiplayer"
       reference:
         - source: "./App Editer.md"
+          role: "implementation"
           sections:
             - "§36 Future"
       reason: "Current Core Scope外"
