@@ -2,7 +2,7 @@
 
 ## 1. Scope
 
-This document defines the interaction, placement, and editing rules of the App Editor UI.
+この資料はApp Editor UIの操作、配置、編集規約を定義する。
 
 ```text
 App Editer.md
@@ -12,7 +12,7 @@ Editor UI.md
   = Interaction / Placement / Editing Regulation
 ```
 
-The UI must not become a second application authority.
+UIは第二のApplication Authorityにならない。
 
 ```text
 Registry / Raw Data / Binding
@@ -26,7 +26,7 @@ Editor UI
 
 ## 2. Core Interaction Model
 
-The primary authoring flow is based on selection and explicit persistence.
+主要なAuthoring Flowは選択と明示的な保存を基本とする。
 
 ```text
 Select
@@ -34,7 +34,7 @@ Select
   -> Save or Delete
 ```
 
-For existing editable values:
+既存値の編集は以下を基本とする。
 
 ```text
 Select
@@ -43,13 +43,13 @@ Select
   -> Save
 ```
 
-Primary UI actions should remain small, explicit, and deterministic.
+Primary UI Actionは小さく、明示的で、決定的な操作を基本とする。
 
 ---
 
 ## 3. Workbench Placement
 
-The App Editor uses the existing VS Code / Code - OSS workbench regions rather than introducing a separate desktop layout model.
+App Editorは独自Desktop Layoutを再実装せず、VS Code / Code - OSS既存Workbench領域を利用する。
 
 ```text
 Main Window
@@ -61,14 +61,14 @@ Main Window
 └─ Status Bar
 ```
 
-Default placement:
+標準配置：
 
 ```text
 Activity Bar
-  = Top-level App Editor navigation
+  = App EditorのTop-level Navigation
 
 Primary Side Bar
-  = Tree / List / Registry / Data / Asset / Function navigation
+  = Tree / List / Registry / Data / Asset / Function Navigation
 
 Editor Area
   = Code Editor / Data Grid / Function Graph / Renderer Editor /
@@ -82,10 +82,10 @@ Bottom Panel
     Function Output / Diagnostics
 
 Status Bar
-  = Project / Runtime / Build status
+  = Project / Runtime / Build Status
 ```
 
-The placement follows the responsibility of each surface.
+各Surfaceは責務に応じて配置する。
 
 ```text
 Navigate / Select
@@ -94,31 +94,31 @@ Navigate / Select
 Inspect / Compose
   -> Secondary Side Bar
 
-Edit structure or detailed content
+Edit Structure / Detailed Content
   -> Editor Area
 
-Observe logs and diagnostics
+Observe Logs / Diagnostics
   -> Bottom Panel
 ```
 
-The Registry Driven Inspector should remain visible beside the active Editor Area when space permits and should use the workbench's normal resize / collapse behavior.
+Registry Driven Inspectorは画面幅が許す場合、Active Editor Areaの右側に表示し、Workbench標準のresize / collapse挙動を利用する。
 
-The UI should reuse existing workbench interaction conventions where no App Editor-specific behavior is required.
+App Editor固有挙動が不要な場合は、既存Workbenchの一般的なInteraction Conventionを再利用する。
 
 ---
 
 ## 4. Registry Driven Inspector
 
-There is one Inspector concept.
+Inspector概念は1つだけとする。
 
 ```text
 Registry Driven Inspector
   = Inspector
 ```
 
-`Binding Inspector` is not a separate UI surface or second Inspector implementation.
+`Binding Inspector`を別Surfaceまたは第二Inspector実装として作らない。
 
-Binding authoring is one responsibility of the Registry Driven Inspector.
+Binding AuthoringはRegistry Driven Inspectorの責務の一部とする。
 
 ```text
 Selection
@@ -140,7 +140,7 @@ Registry Driven Inspector
     +--> Navigation / Open Action
 ```
 
-The Inspector is the primary composition surface for the selected object.
+Inspectorは選択対象の主要Composition Surfaceとする。
 
 ```text
 Inspector
@@ -153,7 +153,7 @@ Binding
   = Concrete Composition Data
 ```
 
-The Inspector must resolve UUID identities to human-readable names or labels for display.
+InspectorはUUID Identityを人間が読める`name / label`へ解決して表示する。
 
 ```text
 Storage
@@ -163,11 +163,11 @@ Primary UI
   = name / label
 ```
 
-UUID values are not primary human-facing controls.
+UUIDをPrimary Human-facing Controlとして扱わない。
 
 ### Empty Selection
 
-When there is no valid selection, the Inspector shows an empty or neutral state and must not infer a target from stale UI state.
+有効なSelectionが存在しない場合、Inspectorはempty / neutral stateを表示し、stale UI stateからMutation Targetを推測しない。
 
 ```text
 No Selection
@@ -178,9 +178,9 @@ No Selection
 
 ## 5. Binding Section
 
-Binding creation and removal are performed inside the Registry Driven Inspector.
+Bindingの作成と削除はRegistry Driven Inspector内のBinding Sectionで行う。
 
-The Binding Section follows the basic interaction model:
+基本操作：
 
 ```text
 Select Candidate
@@ -202,7 +202,7 @@ Delete
 DELETE Binding
 ```
 
-Binding authoring responsibility is primarily:
+Binding Authoringの主要責務：
 
 ```text
 SELECT
@@ -210,7 +210,7 @@ INSERT
 DELETE
 ```
 
-Examples include:
+例：
 
 ```text
 Function Binding
@@ -219,15 +219,15 @@ Relation Binding
 Data Binding
 ```
 
-The exact available binding kinds are determined by the Registry and existing application definition.
+利用可能なBinding KindはRegistryと既存Application Definitionから決定する。
 
-Binding controls must not duplicate the Registry Driven Inspector as a separate panel, tab, or inspector instance.
+Binding Controlを別Panel、別Tab、別Inspectorとして重複実装しない。
 
 ---
 
 ## 6. Component Editing Regulation
 
-Detailed values are edited by the component corresponding to the selected definition or binding kind.
+詳細値は選択されたDefinition / Binding Kindに対応するComponentで編集する。
 
 ```text
 Existing Binding / Data
@@ -251,14 +251,14 @@ Save
 UPDATE
 ```
 
-Component responsibility is primarily:
+Componentの主要責務：
 
 ```text
 SELECT
 UPDATE
 ```
 
-Examples:
+例：
 
 ```text
 text
@@ -280,25 +280,25 @@ relation / uuid
   -> resolved select
 ```
 
-Small scalar properties may be edited directly by Registry-driven components inside the Inspector.
+小さなscalar propertyはRegistry-driven ComponentとしてInspector内で直接編集してよい。
 
-Detailed, structural, graph, grid, code, canvas, or otherwise space-intensive editing opens in the Editor Area.
+詳細、構造、Graph、Grid、Code、Canvas等、広いSurfaceを必要とする編集はEditor Areaへ開く。
 
 ```text
 Inspector
-  = Compact property / binding editing
+  = Compact Property / Binding Editing
 
 Editor Area
-  = Detailed or structural component editing
+  = Detailed / Structural Component Editing
 ```
 
-Component-specific values must not be duplicated as hardcoded table-specific forms when Registry-driven dispatch can represent them.
+Registry-driven dispatchで表現可能な値をTable固有Hardcoded Formとして重複実装しない。
 
 ---
 
 ## 7. Inspector Layout
 
-The Registry Driven Inspector uses a conventional vertical inspector layout.
+Registry Driven Inspectorは一般的な縦型Inspector Layoutを使用する。
 
 ```text
 Inspector
@@ -310,19 +310,19 @@ Inspector
 └─ Open / Navigation Actions
 ```
 
-Sections may be collapsible when their content is non-trivial.
+内容量が多いSectionはcollapse可能としてよい。
 
-The selected object's human-readable name or label is shown in the header. Machine UUID is not the primary header value.
+Headerには選択対象の`name / label`を表示し、Machine UUIDをPrimary Header Valueとしない。
 
-The Inspector should avoid horizontal layouts that require wide fixed panels for ordinary property editing.
+通常のProperty Editingで固定幅の広いPanelを要求する横方向Layoutを避ける。
 
 ---
 
 ## 8. Icon Button Regulation
 
-Inspector actions use icon buttons by default.
+Inspector Actionは原則Icon Buttonを使用する。
 
-Typical actions include:
+代表的なAction：
 
 ```text
 Select / Add
@@ -331,9 +331,9 @@ Delete
 Open / Navigate
 ```
 
-Text buttons are not the default Inspector action control when a stable icon can represent the operation.
+安定したIconで意味を表せる操作ではText Buttonを標準としない。
 
-Each icon button must provide a human-readable meaning through tooltip or equivalent accessible labeling.
+各Icon ButtonはTooltipまたは同等のAccessible Labelで人間が読める意味を提供する。
 
 ```text
 Icon
@@ -341,19 +341,19 @@ Icon
 Tooltip / Accessible Label
 ```
 
-The visual icon is not the semantic authority of the action; the command bound to the control is.
+Icon自体をAction SemanticsのAuthorityとせず、ControlへBindingされたCommandをSemanticsとする。
 
-Context actions should be placed near the section or item they operate on rather than collected into an unrelated global toolbar.
+Context Actionは無関係なGlobal Toolbarへ集約せず、操作対象のSection / Item付近へ配置する。
 
-Destructive actions must remain visually and spatially distinguishable from ordinary selection and save actions using the existing workbench / component conventions.
+Destructive ActionはWorkbench / Component既存Conventionを用いて、通常のSelect / Save Actionと視覚的・空間的に区別する。
 
 ---
 
 ## 9. Primary Side Bar Regulation
 
-The Primary Side Bar is used for discovery, navigation, and selection.
+Primary Side BarはDiscovery / Navigation / Selectionに使用する。
 
-Expected views include:
+想定View：
 
 ```text
 Explorer
@@ -366,23 +366,23 @@ Debug
 Build
 ```
 
-Tree and list entries establish Selection Context for the Registry Driven Inspector and may open corresponding Editor Area content.
+Tree / List EntryはRegistry Driven Inspector用Selection Contextを設定し、必要に応じて対応するEditor Area Contentを開く。
 
 ```text
 Tree / List Select
        |
-       +--> Registry Driven Inspector update
+       +--> Registry Driven Inspector Update
        |
-       +--> Optional Editor Area open
+       +--> Optional Editor Area Open
 ```
 
-The Side Bar must not become a second detailed property editor.
+Side Barを第二の詳細Property Editorにしない。
 
 ---
 
 ## 10. Editor Area Regulation
 
-The Editor Area is used for content that benefits from width, persistent tabs, direct manipulation, or structural visualization.
+Editor Areaは、横幅、Persistent Tab、Direct Manipulation、Structural Visualizationを必要とするContentに使用する。
 
 ```text
 Code Editor
@@ -394,9 +394,9 @@ Component Editor
 Debug Viewer
 ```
 
-Opening detailed content should reuse an existing matching editor tab when practical rather than creating duplicate tabs for the same target without reason.
+詳細Contentを開く際、同じTargetの対応Editor Tabが存在する場合は可能な範囲で再利用し、理由なくDuplicate Tabを増殖させない。
 
-Selection inside an Editor Area surface updates the same Registry Driven Inspector used by Side Bar selection.
+Editor Area内部のSelectionもSide Bar Selectionと同じRegistry Driven Inspectorを更新する。
 
 ```text
 Side Bar Selection
@@ -410,7 +410,7 @@ Editor Selection
 
 ## 11. Function Binding and Function Graph Boundary
 
-Assigning a function to an application object is an Inspector operation performed through the Binding Section of the Registry Driven Inspector.
+Application ObjectへのFunction割当はRegistry Driven InspectorのBinding Sectionで行うInspector Operationとする。
 
 ```text
 Asset / Entity Select
@@ -431,7 +431,7 @@ Save
 Function Binding INSERT
 ```
 
-Detailed Function Binding values are edited by the corresponding Registry-driven component.
+Function Bindingのconstructor / execution / input / parameter / target / merge等の詳細値は対応するRegistry-driven Componentで編集する。
 
 ```text
 Function Binding
@@ -443,7 +443,7 @@ Function Binding
   -> merge
 ```
 
-Function Graph is an Editor Area surface reserved for relationships between Function Bindings.
+Function GraphはEditor Areaに配置し、Function Binding間のRelationship / Dependency構造を扱う。
 
 ```text
 Node
@@ -453,7 +453,7 @@ Edge
   = Function Dependency / function_output
 ```
 
-Graph edge creation and removal correspond to dependency persistence.
+Graph Edgeの作成・削除はDependency Persistenceへ対応する。
 
 ```text
 Create Edge
@@ -463,15 +463,15 @@ Delete Edge
   -> Function Dependency DELETE
 ```
 
-Function Graph should not be required for ordinary function assignment to an Asset or Entity.
+Asset / Entityへの通常のFunction割当にFunction Graphを必須としない。
 
-Selecting a graph node or edge updates the same Registry Driven Inspector rather than opening a graph-specific Inspector implementation.
+Graph Node / Edge Selectionも同じRegistry Driven Inspectorを更新し、Graph固有Inspectorを作らない。
 
 ---
 
 ## 12. Renderer and Asset Binding
 
-Renderer and Asset assignment follow the same Inspector binding interaction model.
+Renderer / Asset Assignmentも同じInspector Binding Interaction Modelを使用する。
 
 ```text
 Target Select
@@ -489,24 +489,24 @@ Select
 Save
 ```
 
-Detailed renderer-specific values are edited by the corresponding component rather than by expanding the Inspector into a renderer-specific hardcoded form.
+Renderer固有の詳細値はInspectorをRenderer専用Hardcoded Formへ拡張せず、対応Componentで編集する。
 
-Space-intensive renderer or asset editing belongs in the Editor Area.
+広いSurfaceを必要とするRenderer / Asset EditingはEditor Areaへ配置する。
 
 ---
 
 ## 13. Debug Viewer and Bottom Panel
 
-Debug Viewer is an Editor Area surface.
+Debug ViewerはEditor Area Surfaceとする。
 
 ```text
 Debug Viewer
   = Application Canvas / Preview / Direct Inspection
 ```
 
-Selecting an entity in the Debug Viewer updates the shared Selection Context and therefore the same Registry Driven Inspector.
+Debug ViewerでEntityを選択した場合もShared Selection Contextを更新し、同じRegistry Driven Inspectorへ接続する。
 
-The Bottom Panel is reserved for transient diagnostic and execution output.
+Bottom PanelはTransient Diagnostic / Execution Output専用とする。
 
 ```text
 Bottom Panel
@@ -518,7 +518,7 @@ Bottom Panel
 └─ Diagnostics
 ```
 
-Persistent authoring controls should not be moved into the Bottom Panel merely because runtime information is displayed there.
+Runtime情報が表示されるという理由だけでPersistent Authoring ControlをBottom Panelへ移さない。
 
 ---
 
@@ -535,7 +535,7 @@ Editor Component
   = Detailed Value Editing
 
 Graph / Grid / Canvas / Code
-  = Structural or Space-intensive Editing
+  = Structural / Space-intensive Editing
 
 Runtime Viewer
   = Inspection / Preview
@@ -544,26 +544,26 @@ Bottom Panel
   = Logs / Diagnostics / Transient Runtime Output
 ```
 
-The UI must preserve the existing authority model.
+UIは既存Authority Modelを維持する。
 
 ```text
 UI
-  -X-> redefine Registry
+  -X-> Registryを再定義
 
 UI
-  -X-> become Runtime Authority
+  -X-> Runtime Authority化
 
 UI
-  -X-> infer persistent identity from display label
+  -X-> Display LabelからPersistent Identityを推測
 ```
 
 ---
 
 ## 15. General Workbench Rules
 
-When a behavior is not App Editor-specific, use the normal conventions of the VS Code / Code - OSS workbench and the selected UI component library rather than inventing a parallel interaction model.
+App Editor固有でない挙動は、独自Interaction Modelを発明せず、VS Code / Code - OSS Workbenchおよび採用UI Component Libraryの一般則を使用する。
 
-This applies to ordinary behavior such as:
+対象例：
 
 ```text
 Resize
@@ -578,32 +578,32 @@ Selection Highlight
 Context Menu
 ```
 
-App Editor-specific rules take precedence only where this document or `App Editer.md` defines a distinct contract.
+`App Editer.md`または本資料にApp Editor固有規約が定義されている場合のみ、その規約を優先する。
 
 ---
 
 ## 16. Non-Goals
 
 ```text
-Multiple competing Inspector implementations
+複数の競合するInspector実装
 
-Binding Inspector as a separate UI surface from Registry Driven Inspector
+Registry Driven Inspectorとは別SurfaceとしてのBinding Inspector
 
-Inspector as a universal hardcoded form
+Universal Hardcoded FormとしてのInspector
 
-Table-specific UI model proliferation
+Table固有UI Modelの増殖
 
-Side Bar as a detailed property editor
+詳細Property EditorとしてのSide Bar
 
-Bottom Panel as persistent authoring UI
+Persistent Authoring UIとしてのBottom Panel
 
-Graph editor required for simple binding assignment
+単純Binding Assignmentに必須となるGraph Editor
 
-UUID as primary human-facing UI
+Primary Human-facing UIとしてのUUID
 
-Implicit application semantics encoded only in icon choice
+Icon Choiceだけに埋め込まれた暗黙Application Semantics
 
-Reimplementation of standard workbench behavior without an App Editor-specific need
+App Editor固有要件なしでの標準Workbench挙動の再実装
 ```
 
 ---
