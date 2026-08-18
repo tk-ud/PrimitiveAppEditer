@@ -2709,3 +2709,72 @@ Runtime Memory
 Build
   = Output
 ```
+
+## Dynamic Resolve
+
+Resolverは固定のApplication固有実装をAuthorityとしない。
+
+Registry / Binding / UI Definitionから、必要な解決規則を動的に導出する。
+
+Resolverは導出物であり、Registry / Binding / UI Definitionが持つ意味論を重複して定義しない。
+
+```text
+Registry / Binding / UI Definition
+        ↓
+Dynamic Resolve
+        ↓
+Selection / Component / Action Mapping
+```
+
+### Resolve Principle
+
+UIの配置先と機能を先に定義し、Resolverはその定義とRegistry / Bindingから導出する。
+
+```text
+Selection
+   ↓
+UUID Resolve
+   ↓
+Registry / Binding Resolve
+   ↓
+UI Definition Resolve
+   ↓
+Component / Action Resolve
+```
+
+```text
+Resolver
+  = Derived Mapping
+
+Resolver
+  != Application Authority
+```
+
+Resolverの具体的な生成方法は実装責務とする。
+
+例：
+
+```text
+Registry / Binding / UI Definition
+        ↓
+Structured Definition
+        ↓
+Script
+        ↓
+Resolver / Mapping
+```
+
+Application固有のResolverを手書きで増殖させない。
+
+### Boundary
+
+```text
+Registry / Binding / UI Definition
+  = Authority
+
+Resolver / Mapping
+  = Derived
+
+Generated Resolver
+  -X-> Registry / Binding / UI Definition の意味論を再定義
+```
