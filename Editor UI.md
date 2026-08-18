@@ -45,6 +45,8 @@ Select
 
 Primary UI Actionは小さく、明示的で、決定的な操作を基本とする。
 
+Property EditorはBlender等の高密度なProperty Surfaceに近いcompactな構成を基本とする。ただし、表示密度はField / ActionのSemanticsへの説明経路を省略する理由にならない。
+
 ---
 
 ## 3. Workbench Placement
@@ -390,6 +392,7 @@ Renderer Editor
 Asset Editor
 Component Editor
 Debug Viewer
+Build / Export Configuration
 ```
 
 詳細Contentを開く際、同じTargetの対応Editor Tabが存在する場合は可能な範囲で再利用し、理由なくDuplicate Tabを増殖させない。
@@ -473,6 +476,63 @@ Function Bindingの作成・選択・詳細編集にFunction Graphを必須と�
 
 Graph Node / Edge Selectionも同じRegistry Driven Inspectorを更新し、Graph固有Inspectorを作らない。
 
+### Function Runtime / Persistence Binding
+
+Application Definition側がFunction GraphおよびRuntime Stateに対してRuntime / Persistenceの配線を任意にAuthoringできるUIを提供する。対象は少なくとも以下とする。
+
+```text
+initial value source
+current value reference
+current value update target
+explicit load
+explicit save
+input / event trigger binding
+```
+
+Function実行に関するControlは、既存Definitionから解決した以下の値を明示的に選択・確認できるものとする。
+
+```text
+execution.kind
+  = tick | event | input
+
+source
+  = constant | state | input | time | progress | event | function_output
+```
+
+TriggerとOperation / TargetのBindingは、Application Definition側が以下の流れを具象化できるUIとする。
+
+```text
+Input / Event
+  (Key / Button / Timer / Event / Action)
+        |
+        v
+Function / Operation
+  (Load / Save / Update / Function Execute)
+        |
+        v
+Runtime State / Persistent Target
+```
+
+EditorはこのBindingの選択、編集、Validation、明示的な保存経路のみを提供する。Save / Load / UpdateのタイミングやApplication固有Semanticsを決定せず、Save / Load専用Application LogicをEditorへHardcodeしない。
+
+```text
+Runtime Memory
+  = 実行中State
+
+Runtime State Persistence
+  = explicit only
+
+Every Frame Persistence
+  = prohibited
+
+Editor
+  != Application Persistence Policy Authority
+```
+
+compactなSource / Target / Runtime / Persistence設定はRegistry Driven InspectorのBinding SectionとRegistry-driven Componentで扱う。既存Bindingの詳細は`UPDATE function_binding`とし、広いSurfaceや詳細構造が必要な場合のみ同じSelection ContextからEditor AreaのRegistry-driven Componentを開く。
+
+Function GraphはDependency / Structureの作成と可視化に留まる。Source / Target / Runtime / Persistenceの詳細編集、Save / Load専用Inspector、Graph専用の第二InspectorをGraphへ追加しない。
+
 ---
 
 ## 12. Renderer and Asset Binding
@@ -501,7 +561,76 @@ Renderer固有の詳細値はInspectorをRenderer専用Hardcoded Formへ拡張�
 
 ---
 
-## 13. Debug Viewer and Bottom Panel
+## 13. Export / Build Configuration
+
+Build / Exportは専用のEditor Area Tab / SurfaceでAuthoringする。Primary Side BarのBuild ViewはDiscovery / Navigation / Selectionに留め、Bottom PanelをBuild ConfigurationのAuthoring Surfaceとしない。
+
+```text
+Primary Side Bar / Build
+  = Discover / Select / Open
+
+Editor Area / Build / Export Configuration
+  = Configure / Validate / Build / Export
+
+Bottom Panel
+  = Build Log / Validation / Diagnostics
+```
+
+Build / Export Configuration Surfaceは、`App Editer.md`で定義済みのBuild Projection / Build Target Filter / Application Outputを人間が設定・確認するUIとする。少なくとも以下を扱えるものとする。
+
+```text
+Build Target
+Runtime / Storage Target
+Seed Data inclusion
+Raw Data inclusion / exclusion
+Editor / Preview Data exclusion
+Assets
+Functions
+Scripts
+Config
+Output Path
+Build Validation
+Build / Export Action
+```
+
+Seed Data / Raw Data / Assets / Functions / Scripts / Config等の対象はcheckbox list、select等の明示的Controlでinclusion / exclusionを選択できるものとする。Editor / Preview専用DataをProduction Seedへ含めるかどうかも暗黙に決定せず、Build UIで選択状態を確認・設定可能とする。
+
+TargetとRuntime / Storage Targetの選択に応じて利用可能な項目はRegistry / Build Definitionから解決する。不定な組み合わせ、未解決のOutput Path、欠落したAsset / Function / Script / Config、Dependency / Runtime Address等はBuild Validationで明示する。Build / Export ActionはValidation結果と対象Selectionを人間が確認できる状態で実行する。
+
+個々のControl配置やField集合を固定UI Schemaとせず、本SectionはUI Responsibility / Interaction Regulationとする。Registry-driven kind dispatchと既存Componentを優先し、Build TargetごとのApplication固有Hardcoded Formを増殖させない。
+
+Build Boundaryは以下を維持する。
+
+```text
+Authoring Data
+      |
+      v
+Build Configuration
+      |
+      v
+Build Target Filter
+      |
+      v
+Application Output
+
+Raw Data
+  = Application Data
+
+Build Configuration
+  = Build / Export Selection
+
+Build
+  = Derived Output
+
+Authoring Authority
+  != Build Package Format
+```
+
+Build ConfigurationはRaw Data / Registryそのものを書き換えず、Application固有Export PolicyのAuthorityをRaw Data / Registryへ埋め込まない。Build UIはRegistryを再定義せず、Authoring AuthorityとBuild Package Formatを同一視しない。
+
+---
+
+## 14. Debug Viewer and Bottom Panel
 
 Debug ViewerはEditor Area Surfaceとする。
 
@@ -528,7 +657,7 @@ Runtime情報が表示されるという理由だけでPersistent Authoring Cont
 
 ---
 
-## 14. UI Responsibility Boundary
+## 15. UI Responsibility Boundary
 
 ```text
 Tree / List
@@ -548,6 +677,9 @@ Runtime Viewer
 
 Bottom Panel
   = Logs / Diagnostics / Transient Runtime Output
+
+Build / Export Configuration
+  = Editor AreaでのBuild / Export Selection
 ```
 
 UIは既存Authority Modelを維持する。
@@ -565,7 +697,33 @@ UI
 
 ---
 
-## 15. General Workbench Rules
+## 16. Explanation / Help and General Workbench Rules
+
+compactなUIでも、各Field / Setting / Actionの意味と影響を人間が確認できる説明経路を必ず提供する。
+
+```text
+Tooltip
+  = 短いAction / Field説明
+
+Popover / Popper
+  = 詳細説明
+  = Runtime / Persistentへの影響
+  = Setting Semantics
+  = 注意点
+
+Inline Message
+  = Validation Error
+  = Dangerous / Invalid State
+```
+
+省略した説明はTooltip / Popover / Popper等から常に到達可能とする。Icon-only ControlにはTooltipとAccessible Labelを付与し、IconだけからApplication Semanticsを推測させない。Dangerous / Invalid Stateはhoverしなければ見えない説明だけに依存せず、対象Controlの近くにInline Messageとして表示する。
+
+```text
+Compact UI
+  != Explanation Removal
+```
+
+Primary Actionは可能な限りIcon Buttonとし、scalar値にはslider / number field / select / checkbox / toggle等の既存のRegistry-driven kind dispatchを優先する。説明を追加するためにApplication固有Component体系を新設しない。
 
 App Editor固有でない挙動は、独自Interaction Modelを発明せず、VS Code / Code - OSS Workbenchおよび採用UI Component Libraryの一般則を使用する。
 
@@ -588,7 +746,7 @@ Context Menu
 
 ---
 
-## 16. Non-Goals
+## 17. Non-Goals
 
 ```text
 複数の競合するInspector実装
@@ -609,12 +767,24 @@ Primary Human-facing UIとしてのUUID
 
 Icon Choiceだけに埋め込まれた暗黙Application Semantics
 
+Application固有Save / Load LogicのEditor Hardcode
+
+Runtime Stateの自動Persistence Policy / Every Frame Persistence
+
+Function Graph専用の第二Inspector / Save / Load専用の重複Inspector
+
+Build設定のRaw Data Authority化 / Build UIによるRegistry再定義
+
+説明のないIcon-only UI
+
+Application固有Hardcoded Formの増殖
+
 App Editor固有要件なしでの標準Workbench挙動の再実装
 ```
 
 ---
 
-## 17. Core Definition
+## 18. Core Definition
 
 ```text
 Primary Interaction
@@ -653,6 +823,25 @@ Function Binding Authoring
 
 Function Dependency
   = Function Graph
+
+Runtime / Persistence Semantics
+  = Application Definition Binding
+
+Editor Runtime / Persistence Role
+  = Binding UI only
+
+Build / Export Configuration
+  = Dedicated Editor Area Surface
+
+Build Configuration
+  = Build / Export Selection
+  != Raw Data / Registry Authority
+
+Build Log / Validation / Diagnostics
+  = Bottom Panel Output
+
+Compact UI
+  = Registry-driven Controls + Reachable Explanation
 
 Shared Selection Context
   = Side Bar / Editor Area / Debug Viewer -> same Inspector
