@@ -33,7 +33,7 @@ Resolver
 Resolverの基本Operationは以下の8種類とする。
 
 ```text
-Schema Operation
+Schema / Registry Operation
 ├─ create
 ├─ alter
 ├─ truncate
@@ -45,6 +45,8 @@ Data / Binding Operation
 ├─ update
 └─ select
 ```
+
+`truncate`は分類上Schema系Primitiveと並べるが、実処理はData集合の削除としてStorage側へdispatchする。
 
 OperationごとにApplication固有関数を増殖させない。
 
@@ -135,7 +137,7 @@ Ambiguous Target
 
 ## 5. create
 
-`create`は新規定義または新規物理構造の生成要求をdispatchする。
+`create`は新規Registry Definitionまたはそれに対応する新規物理構造の生成要求をdispatchする。
 
 ```text
 create(request)
@@ -158,19 +160,20 @@ create
   -> Physical Projection
 ```
 
-例：
+対象例：
 
 ```text
-Create Table
-Create Registry Definition
-Create Physical Projection
+Table Registry Definition
+Column Registry Definition
+Relation Registry Definition
+Physical Projection
 ```
 
 ---
 
 ## 6. alter
 
-`alter`は既存Registry Definitionの構造変更要求をdispatchする。
+`alter`は既存Registry Definitionの構造・定義変更要求をdispatchする。
 
 主な対象例：
 
@@ -180,6 +183,8 @@ Column Rename
 Column Kind Change
 Constraint Change
 Table Rename
+Relation Definition Change
+Relation Metadata Change
 ```
 
 Flow：
@@ -193,7 +198,9 @@ Change Definition Resolve
    ↓
 Registry Service
    ↓
-ALTER / Migration Projection
+Registry Mutation
+   ↓
+ALTER / Migration Projection when required
 ```
 
 RegistryでColumnを追加した場合、Physical Schemaへの反映はRegistry Service経由で行う。
@@ -205,6 +212,8 @@ Registry Service
       ↓
 ALTER Physical Table
 ```
+
+Relationを含むLogical Registry DefinitionはRaw Data / BindingのUPDATEとして扱わない。
 
 Physical SchemaからRegistry Definitionを逆生成しない。
 
@@ -251,7 +260,15 @@ Registry Service
    ↓
 Definition Removal
    ↓
-Physical Projection Removal
+Physical Projection Removal when required
+```
+
+対象例：
+
+```text
+Table Registry Definition
+Column Registry Definition
+Relation Registry Definition
 ```
 
 Physical Objectだけを先に削除してRegistry Authorityを残す操作を標準Flowとしない。
@@ -260,7 +277,7 @@ Physical Objectだけを先に削除してRegistry Authorityを残す操作を�
 
 ## 9. insert
 
-`insert`は新しいData / Binding Instanceの保存要求をdispatchする。
+`insert`は新しいRaw Data / Binding Instanceの保存要求をdispatchする。
 
 ```text
 insert(request)
@@ -281,8 +298,10 @@ Raw Data Row
 Function Binding
 Function Dependency
 Renderer Binding
-Relation Definition
+Data Binding
 ```
+
+Registry Definition自体の新規作成は`insert`ではなく`create`へdispatchする。
 
 UI上のBinding Saveは基本的に`insert`へ対応する。
 
@@ -298,7 +317,7 @@ insert(request)
 
 ## 10. delete
 
-`delete`は既存Data / Binding Instanceの削除要求をdispatchする。
+`delete`は既存Raw Data / Binding Instanceの削除要求をdispatchする。
 
 ```text
 delete(request)
@@ -317,8 +336,10 @@ Raw Data Row
 Function Binding
 Function Dependency
 Renderer Binding
-Relation Definition
+Data Binding
 ```
+
+Registry Definition自体の削除は`delete`ではなく`drop`へdispatchする。
 
 UI上のBinding Deleteは基本的に`delete`へ対応する。
 
@@ -326,7 +347,7 @@ UI上のBinding Deleteは基本的に`delete`へ対応する。
 
 ## 11. update
 
-`update`は既存Data / Bindingの具体値変更要求をdispatchする。
+`update`は既存Raw Data / Bindingの具体値変更要求をdispatchする。
 
 ```text
 update(request)
@@ -348,8 +369,10 @@ UPDATE
 Function Parameter Change
 Renderer Binding Value Change
 Raw Data Value Change
-Relation Metadata Change
+Data Binding Value Change
 ```
+
+Registry Definition / Logical Registry Metadataの変更は`update`ではなく`alter`へdispatchする。
 
 Application固有Update関数を増殖させない。
 
@@ -437,20 +460,22 @@ Storage Operation
   = Raw Data / Binding Persistence
 ```
 
-Schema系Operation：
+Registry Definition系Operation：
 
 ```text
 create / alter / drop
   -> Registry Service
 ```
 
-Data / Binding系Operation：
+Raw Data / Binding系Operation：
 
 ```text
 insert / delete / update / select
   -> Registry Resolve
   -> Storage / Binding Operation
 ```
+
+`select`はRegistry Definitionの読取にも使用できる。
 
 `truncate`はData削除OperationとしてStorage側へdispatchする。
 
@@ -478,7 +503,7 @@ Resolver / Mapping
 
 ```text
 Registry
-  = Schema / Definition Authority
+  = Schema / Logical Definition Authority
 
 Binding
   = Concrete Composition Data
@@ -507,6 +532,9 @@ Resolver
 
 Resolver
   -X-> Display LabelをPersistent Identityとして使用
+
+Raw Data / Binding Operation
+  -X-> Registry DefinitionをAuthorityとして変更
 
 Physical Schema
   -X-> Registry Authorityを逆生成
