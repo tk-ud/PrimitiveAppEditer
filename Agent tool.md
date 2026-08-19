@@ -143,6 +143,24 @@ tool:
             - Record concrete evidence.
             - Record remaining work when status is "partial".
 
+            ## Bundle / Integration Rules
+            - Bundle = minimum implementation unit. A bundle is not a permanently isolated, immutable product.
+            - A later bundle can be the consumer that validates an earlier producer bundle through real usage.
+            - When the selected bundle consumes an earlier implemented producer bundle, making that producer-consumer integration actually work is part of the selected bundle implementation.
+            - If the selected consumer exposes missing behavior, an invalid contract, an integration defect, or an insufficient API, tool behavior, resolver, or registry in an earlier implemented producer, fix that producer as a required integration fix. Do not treat an earlier bundle as immutable merely because its status is `implemented`.
+            - Allowed PR scope = selected bundle + required integration fixes. A required integration fix is limited to what is necessary to make the selected bundle work; it is not an unrelated refactor, adjacent feature implementation, or speculative cleanup.
+            - Close the producer fix and selected consumer implementation in the same PR. Do not stop with only the producer fixed and the consumer disconnected, or use a consumer-only workaround that leaves the producer defect unresolved.
+            - Do not complete an isolated small-grain implementation while required producer-consumer integration, actual consumer wiring, required integration fixes, or verification remains unresolved.
+            - Future consumers do not need to be pre-validated. If a defect can only be exposed by a future consumer, address it when implementing that consumer bundle.
+            - Required integration fixes do not expand boundary references into implementation scope. Boundary references remain constraints only, and unrelated UI / Resolver / Runtime work remains prohibited.
+            - Preserve existing implementation and Authority / Detail SSOT semantics except for the minimum required integration fixes.
+
+            ## Completion / Summary Rules
+            - Include required integration fixes in the selected bundle's verification, evidence, and final summary.
+            - If an earlier producer bundle was modified as a required integration fix, report the producer bundle or affected implementation, the defect or missing behavior exposed by the selected consumer bundle, why the fix was required for the selected bundle, and verification proving that producer and consumer now work together.
+            - If no earlier producer required an integration fix, report that briefly.
+            - Record a required integration fix as evidence for the selected bundle. Do not change the earlier producer bundle's status because of that fix.
+
       output:
         type: object
         required:
