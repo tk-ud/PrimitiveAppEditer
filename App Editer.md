@@ -307,7 +307,7 @@ ddl/
 Registry Mutation
       |
       v
-C# Registry Service
+App Editor Registry Service
       |
       +--> UUID Complete
       |
@@ -332,7 +332,7 @@ Authority
   = Registry
 
 Mutation Executor
-  = C# Registry Service
+  = App Editor Registry Service
 
 Physical Schema
   = Registry Projection
@@ -634,7 +634,7 @@ UUID Resolve
 Table / Column Resolve
         |
         v
-C# Query Resolver
+App Editor Query Resolver
         |
         v
 Logical JOIN
@@ -1827,7 +1827,7 @@ Build時にRegistryからPostgreSQL Physical Schemaを生成する。
 
 【Build】
 
-C# Build / Registry Service
+App Editor Build / Registry Service
         |
         +----------------------------------+
         |                                  |
@@ -2358,7 +2358,7 @@ Physical Schema
 
 ```text
 Registry Mutation
-  -> C# Registry Service
+  -> App Editor Registry Service
   -> SQLite DDL
 
 Registry Mutation
@@ -2471,7 +2471,7 @@ Editor
 Registry              Files / Assets
       |
       v
-C# Registry Service
+App Editor Registry Service
       |
       v
 SQLite Physical Schema
@@ -2535,7 +2535,7 @@ Schema
   = Registry
 
 Schema Expansion
-  = C# Registry Service
+  = App Editor Registry Service
 
 Concrete Data
   = Physical Table Row
@@ -2920,8 +2920,11 @@ VS Code Fork
 App Editor
   = Registry / Data / Function / Renderer / Debug / Build
 
-C#
-  = Registry Service / Runtime / Function Primitive / Renderer / Build
+Code OSS / App Editor
+  = Node / TypeScript
+
+Generated Application
+  = C#
 
 SQLite
   = Structured Authoring Storage
@@ -2942,6 +2945,104 @@ Runtime Memory
 
 Build
   = Output
+```
+
+#### App Editor API / Application Language Boundary
+
+App EditorはNode / TypeScript側で汎用APIを提供する。Resolver PrimitiveはApplication固有Functionではなく、App Editor API境界から利用可能な再利用可能Operationとする。
+
+```text
+App Editor API
+  = Node / TypeScript
+  = Generic API Provider
+
+App Editor API
+├─ create
+├─ alter
+├─ truncate
+├─ drop
+├─ insert
+├─ delete
+├─ update
+├─ upsert
+└─ select
+
+Resolver Primitive
+  = App Editor側のGeneric API
+  != Application-specific Function
+```
+
+生成Application固有のFunctionとsemanticsはApplication側の責務とする。専用処理が必要な場合もApp Editor Coreに専用Resolverや専用Primitiveを追加することを前提とせず、Application側がC#で専用Functionを実装して必要なApp Editor APIを利用する。
+
+```text
+Generated Application
+  = C#
+
+Application-specific Function / Semantics
+  = Application Responsibility
+
+Application Function
+       ↓
+App Editor API
+       ↓
+Resolver Primitive
+```
+
+例えばApplication側の専用Functionは`upsert`、`update`、`insert`、`select`などを組み合わせて利用できる。具体的なFunction名やApplication semanticsはCore Specificationとして固定しない。
+
+```text
+App Editor
+  = Generic API / Primitive Provider
+  != Application Logic Authority
+
+Application
+  = Application-specific Function / Semantics Authority
+  != Editor Internal Implementation Authority
+
+C#
+  = Application-side Logic Implementation Language
+  != App Editor Backend Authority
+
+Node API
+  != Application-specific Semantics Authority
+```
+
+App Editorと生成Applicationの互換性境界は公開API Contractとする。Application側はEditor内部実装に直接依存せず、App Editor API Contractを利用する。Editor内部実装を変更する場合も、このContractを維持する限りApplicationへの影響を最小化できる構造とする。
+
+```text
+Editor Internal Implementation
+          ↓
+App Editor API Contract
+          ↓
+Generated Application
+
+Editor Compatibility
+  = App Editor API Contract Stability
+```
+
+App EditorはCode OSSをWorkbenchとして利用する既存Architectureを維持し、API ProviderはCode OSSと親和性のあるNode / TypeScript側に置く。C#は生成Application側のLogic実装言語であり、App Editor BackendのAuthorityではない。
+
+```text
+Code OSS / App Editor
+  = Node / TypeScript
+  = API Provider
+
+Generated Application
+  = C#
+  = API Consumer
+```
+
+Node側APIとC# Application間のTransport / Invocation方式は実装選択とし、HTTP、IPC、RPC、Process Bridge、Socketその他のいずれかをCanonical Architectureとして固定しない。
+
+```text
+API Provider
+  = App Editor / Node
+
+API Consumer
+  = Application / C#
+
+API Transport / Invocation
+  = Implementation Choice
 ```
 
 ## Dynamic Resolve
