@@ -41,7 +41,7 @@ roadmap:
   invariants:
     - "Registry is the authority for application physical schema."
     - "Physical schema is a projection and must never be used to reverse-generate Registry authority."
-    - "Registry mutation is executed by the C# Registry Service; SQLite triggers are not schema authority."
+    - "Registry mutation is executed by the App Editor Registry Service; SQLite triggers are not schema authority."
     - "Relation authority is logical relation_registry; physical foreign keys are not relation authority."
     - "UUID is machine identity; name/label are human display identifiers."
     - "Runtime execution uses resolved in-memory state and must not query SQLite per frame."
@@ -147,7 +147,7 @@ section:
         remaining: []
 
       - id: "registry.service"
-        title: "C# Registry Service mutation pipeline"
+        title: "App Editor Registry Service mutation pipeline"
         reference:
           - source: "./App Editer.md"
             role: "implementation"
@@ -165,9 +165,9 @@ section:
               - "§5 create"
               - "§6 alter"
               - "§8 drop"
-              - "§13 Registry Resolve"
-              - "§14 Service Dispatch"
-              - "§16 Boundary"
+              - "§14 Registry Resolve"
+              - "§15 Service Dispatch"
+              - "§17 Boundary"
         depends_on:
           - "registry.table"
         status: "not started"
@@ -235,8 +235,9 @@ section:
               - "§9 insert"
               - "§10 delete"
               - "§11 update"
-              - "§12 select"
-              - "§14 Service Dispatch"
+              - "§12 upsert"
+              - "§13 select"
+              - "§15 Service Dispatch"
         depends_on:
           - "registry.physical-expansion"
           - "registry.enum"
@@ -324,8 +325,9 @@ section:
               - "§9 insert"
               - "§10 delete"
               - "§11 update"
-              - "§12 select"
-              - "§13 Registry Resolve"
+              - "§12 upsert"
+              - "§13 select"
+              - "§14 Registry Resolve"
         depends_on:
           - "function.registry"
           - "data.raw"
@@ -454,7 +456,8 @@ section:
               - "§9 insert"
               - "§10 delete"
               - "§11 update"
-              - "§12 select"
+              - "§12 upsert"
+              - "§13 select"
         depends_on:
           - "registry.identity"
           - "data.raw"
@@ -833,7 +836,7 @@ section:
           - source: "./Resolver.md"
             role: "boundary"
             sections:
-              - "§16 Boundary"
+              - "§17 Boundary"
         depends_on:
           - "workbench.ai-development"
           - "build.deploy"
