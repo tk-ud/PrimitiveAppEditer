@@ -30,7 +30,7 @@ Resolver
 
 ## 2. Core Operations
 
-Resolverの基本Operationは以下の9種類とする。
+Resolverの基本Operationは以下の8種類とする。
 
 ```text
 Schema / Registry Operation
@@ -43,7 +43,6 @@ Data / Binding Operation
 ├─ insert
 ├─ delete
 ├─ update
-├─ upsert
 └─ select
 ```
 
@@ -59,7 +58,6 @@ drop(request)
 insert(request)
 delete(request)
 update(request)
-upsert(request)
 select(request)
 ```
 
@@ -75,7 +73,7 @@ Requestは少なくともOperationとTargetを識別できる入力を持つ。
 
 ```yaml
 request:
-  operation: "create | alter | truncate | drop | insert | delete | update | upsert | select"
+  operation: "create | alter | truncate | drop | insert | delete | update | select"
 
   target:
     kind: text
@@ -391,78 +389,7 @@ update(request)
 
 ---
 
-## 12. upsert
-
-`upsert`はRegistry / Binding DefinitionからTargetとConflict Identityを解決し、既存Rowの有無に応じてINSERTまたはUPDATEを行う汎用Data / Binding Operationとする。
-
-```text
-upsert(request)
-   ↓
-Target Resolve
-   ↓
-Registry / Binding Resolve
-   ↓
-Conflict Identity Resolve
-   ↓
-Payload Map
-   ↓
-UPSERT
-```
-
-SQLiteでは、解決したConflict Identityを用いて対応するStorage Operationへdispatchできる。
-
-```sql
-INSERT ...
-ON CONFLICT (...) DO UPDATE ...
-```
-
-Conflict IdentityはRegistry / Persistent Definitionから解決する。ResolverにApplication固有のConflict KeyやConflict PolicyをHardcodeしない。
-
-```text
-Conflict Identity
-  = Registry / Persistent DefinitionからResolve
-
-Resolver
-  != Application-specific Conflict Policy Authority
-```
-
-Resolverは不足したConflict Identityを推測しない。Definitionが存在しない、または一意に解決できない場合は、既存の`Missing Definition` / `Ambiguous Target`と同様にreject / errorとする。
-
-`registry.current`は汎用`upsert`を利用できる具体例の一つである。
-
-```text
-registry.current
-  = Save Data current
-
-key
-  = stable current identity
-
-UNIQUE(key)
-
-basic mutation
-  = UPSERT
-
-registry.current
-   ↓
-key resolve
-   ↓
-upsert(request)
-   ↓
-ON CONFLICT(key)
-   ↓
-current update
-```
-
-```text
-upsert
-  != Save専用Operation
-```
-
-`upsert`はRaw Data / Bindingなど、Registry Definition上UPSERT可能なTargetにも再利用可能とする。
-
----
-
-## 13. select
+## 12. select
 
 `select`はRegistry / Binding / Raw Dataの読取要求をdispatchする。
 
@@ -492,7 +419,7 @@ UI Result
 
 ---
 
-## 14. Registry Resolve
+## 13. Registry Resolve
 
 ResolverはOperation実行前に対象定義をRegistry / Bindingから解決する。
 
@@ -515,7 +442,7 @@ Hardcoded Application Mapping
 
 ---
 
-## 15. Service Dispatch
+## 14. Service Dispatch
 
 ResolverはStorage / Schema操作そのもののAuthorityではない。
 
@@ -540,7 +467,7 @@ create / alter / drop
 Raw Data / Binding系Operation：
 
 ```text
-insert / delete / update / upsert / select
+insert / delete / update / select
   -> Registry Resolve
   -> Storage / Binding Operation
 ```
@@ -551,7 +478,7 @@ insert / delete / update / upsert / select
 
 ---
 
-## 16. Dynamic Generation
+## 15. Dynamic Generation
 
 Resolver Mappingは手書きのApplication固有実装をAuthorityとせず、Structured Definitionから導出可能とする。
 
@@ -569,7 +496,7 @@ Resolver / Mapping
 
 ---
 
-## 17. Boundary
+## 16. Boundary
 
 ```text
 Registry
@@ -591,51 +518,14 @@ SQLite
   = Persistent Storage
 ```
 
-9種類のResolver Primitiveはすべて再利用可能な汎用抽象Operationとし、共通のBoundaryに従う。
-
-```text
-Resolver Primitive
-  = Generic / Application-agnostic Operation
-
-Resolver Primitive
-  != Application-specific field Authority
-  != Application-specific semantics Authority
-```
-
-特定Application、特定Table、特定Featureの都合による専用fieldや専用semanticsはPrimitiveそのものへ追加しない。この原則は`upsert`に限らず、すべてのResolver Primitiveに適用する。
-
-Application側がResolver Primitiveを利用してApplication固有の専用関数を構築することは可能とする。
-
-```text
-Application-specific Function
-  = Resolver Primitiveを利用してApplication側で構築可能
-
-Application Function
-       ↓
-insert / update / upsert / select ...
-       ↓
-Resolver
-```
-
-Resolver PrimitiveはLibrary相当の再利用可能な汎用Operationとして扱い、Application LogicはApplication側でPrimitiveをCompositionする。これは具体的な配布形式をArchitecture Requirementとして固定するものではない。
-
 禁止：
 
 ```text
 Resolver
   -X-> Application固有SemanticsをAuthority化
 
-Resolver Primitive
-  -X-> Application固有field / semanticsをAuthority化
-
 Resolver
   -X-> Registry DefinitionをHardcode
-
-Resolver
-  -X-> Application固有Conflict PolicyをAuthority化
-
-Resolver
-  -X-> 不足したConflict Identityを推測
 
 Resolver
   -X-> Display LabelをPersistent Identityとして使用
