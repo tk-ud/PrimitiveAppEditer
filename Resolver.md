@@ -30,7 +30,7 @@ Resolver
 
 ## 2. Core Operations
 
-Resolverの基本Operationは以下の8種類とする。
+Resolverの基本Operationは以下の9種類とする。
 
 ```text
 Schema / Registry Operation
@@ -43,6 +43,7 @@ Data / Binding Operation
 ├─ insert
 ├─ delete
 ├─ update
+├─ upsert
 └─ select
 ```
 
@@ -58,6 +59,7 @@ drop(request)
 insert(request)
 delete(request)
 update(request)
+upsert(request)
 select(request)
 ```
 
@@ -73,7 +75,7 @@ Requestは少なくともOperationとTargetを識別できる入力を持つ。
 
 ```yaml
 request:
-  operation: "create | alter | truncate | drop | insert | delete | update | select"
+  operation: "create | alter | truncate | drop | insert | delete | update | upsert | select"
 
   target:
     kind: text
@@ -389,7 +391,78 @@ update(request)
 
 ---
 
-## 12. select
+## 12. upsert
+
+`upsert`はRegistry / Binding DefinitionからTargetとConflict Identityを解決し、既存Rowの有無に応じてINSERTまたはUPDATEを行う汎用Data / Binding Operationとする。
+
+```text
+upsert(request)
+   ↓
+Target Resolve
+   ↓
+Registry / Binding Resolve
+   ↓
+Conflict Identity Resolve
+   ↓
+Payload Map
+   ↓
+UPSERT
+```
+
+SQLiteでは、解決したConflict Identityを用いて対応するStorage Operationへdispatchできる。
+
+```sql
+INSERT ...
+ON CONFLICT (...) DO UPDATE ...
+```
+
+Conflict IdentityはRegistry / Persistent Definitionから解決する。ResolverにApplication固有のConflict KeyやConflict PolicyをHardcodeしない。
+
+```text
+Conflict Identity
+  = Registry / Persistent DefinitionからResolve
+
+Resolver
+  != Application-specific Conflict Policy Authority
+```
+
+Resolverは不足したConflict Identityを推測しない。Definitionが存在しない、または一意に解決できない場合は、既存の`Missing Definition` / `Ambiguous Target`と同様にreject / errorとする。
+
+`registry.current`は汎用`upsert`を利用できる具体例の一つである。
+
+```text
+registry.current
+  = Save Data current
+
+key
+  = stable current identity
+
+UNIQUE(key)
+
+basic mutation
+  = UPSERT
+
+registry.current
+   ↓
+key resolve
+   ↓
+upsert(request)
+   ↓
+ON CONFLICT(key)
+   ↓
+current update
+```
+
+```text
+upsert
+  != Save専用Operation
+```
+
+`upsert`はRaw Data / Bindingなど、Registry Definition上UPSERT可能なTargetにも再利用可能とする。Conflict Identityを既存Registry / Persistent Definitionから解決できる場合は、新しいApplication固有Request Schemaを追加しない。実装上追加情報が必要な場合もResolverの汎用Request Modelとして扱い、`registry.current`専用fieldを追加しない。
+
+---
+
+## 13. select
 
 `select`はRegistry / Binding / Raw Dataの読取要求をdispatchする。
 
@@ -419,7 +492,7 @@ UI Result
 
 ---
 
-## 13. Registry Resolve
+## 14. Registry Resolve
 
 ResolverはOperation実行前に対象定義をRegistry / Bindingから解決する。
 
@@ -442,7 +515,7 @@ Hardcoded Application Mapping
 
 ---
 
-## 14. Service Dispatch
+## 15. Service Dispatch
 
 ResolverはStorage / Schema操作そのもののAuthorityではない。
 
@@ -467,7 +540,7 @@ create / alter / drop
 Raw Data / Binding系Operation：
 
 ```text
-insert / delete / update / select
+insert / delete / update / upsert / select
   -> Registry Resolve
   -> Storage / Binding Operation
 ```
@@ -478,7 +551,7 @@ insert / delete / update / select
 
 ---
 
-## 15. Dynamic Generation
+## 16. Dynamic Generation
 
 Resolver Mappingは手書きのApplication固有実装をAuthorityとせず、Structured Definitionから導出可能とする。
 
@@ -496,7 +569,7 @@ Resolver / Mapping
 
 ---
 
-## 16. Boundary
+## 17. Boundary
 
 ```text
 Registry
@@ -526,6 +599,12 @@ Resolver
 
 Resolver
   -X-> Registry DefinitionをHardcode
+
+Resolver
+  -X-> Application固有Conflict PolicyをAuthority化
+
+Resolver
+  -X-> 不足したConflict Identityを推測
 
 Resolver
   -X-> Display LabelをPersistent Identityとして使用
