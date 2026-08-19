@@ -2095,7 +2095,6 @@ registry.current:
   data: json
 
   unique:
-    - saveId
     - key
 
 logs.savedata:
@@ -2140,6 +2139,8 @@ logs.savedata.uuid
 
 registry.current.saveId
   -> logs.savedata.uuid
+  = このcurrentが最後に更新されたSave Event Identity
+  != current identity
 
 registry.current.uuid
   = current recordのMachine Identity
@@ -2148,20 +2149,40 @@ registry.current.uuid
 
 registry.current.key
   = Application-defined current identity
+  = stable UPSERT target
 
 Current Identity
-  = (saveId, key)
+  = key
 
 UNIQUE
-  = (saveId, key)
+  = key
 
 UPSERT conflict target
-  = (saveId, key)
+  = key
+
+(saveId, key)
+  != UPSERT conflict target
 ```
 
 `logs.savedata.saveId`のような第二のSave Identityは追加しない。`registry.current.saveId`とSave Eventのrelationは、1 Save Eventごとのimmutable Snapshot rowsを永久保存する規則を意味しない。
 
-`uuid`はrow自体のMachine Identityであり、`key`は同一Save Data currentをUPSERT時に安定して識別するApplication-defined identityである。`key`の命名規則や意味はCoreで固定しない。Applicationは例えば`player.hp`、`player.position`、`aggregate.monthly_sales`等を使用できるが、これらは用途例でありCanonical SchemaやCore-defined key taxonomyではない。
+`uuid`はrow自体のMachine Identityであり、`key`は同一Save Data currentをUPSERT時に安定して識別するApplication-defined identityである。Save Eventが変わっても、同じ`key`のcurrentは同じrowとしてUPSERTし、`saveId`を最後に更新したSave Event Identityへ更新する。
+
+```text
+Before
+  uuid   = X
+  key    = player.hp
+  saveId = Save-A
+  data   = 100
+
+After next Save
+  uuid   = X
+  key    = player.hp
+  saveId = Save-B
+  data   = 80
+```
+
+`key`の意味、命名、scopeはApplication Responsibilityであり、Coreで固定しない。Applicationは例えば`player.hp`、`player.position`、`slot1.player.hp`、`slot2.player.hp`、`aggregate.monthly_sales`等を使用できる。Save Slot等のscopeを分離する場合もApplicationが`key`へ含める。これらは用途例でありCanonical SchemaやCore-defined key taxonomyではない。
 
 ### Application Responsibility
 
