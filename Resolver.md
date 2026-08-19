@@ -458,7 +458,7 @@ upsert
   != Save専用Operation
 ```
 
-`upsert`はRaw Data / Bindingなど、Registry Definition上UPSERT可能なTargetにも再利用可能とする。Conflict Identityを既存Registry / Persistent Definitionから解決できる場合は、新しいApplication固有Request Schemaを追加しない。実装上追加情報が必要な場合もResolverの汎用Request Modelとして扱い、`registry.current`専用fieldを追加しない。
+`upsert`はRaw Data / Bindingなど、Registry Definition上UPSERT可能なTargetにも再利用可能とする。
 
 ---
 
@@ -591,11 +591,42 @@ SQLite
   = Persistent Storage
 ```
 
+9種類のResolver Primitiveはすべて再利用可能な汎用抽象Operationとし、共通のBoundaryに従う。
+
+```text
+Resolver Primitive
+  = Generic / Application-agnostic Operation
+
+Resolver Primitive
+  != Application-specific field Authority
+  != Application-specific semantics Authority
+```
+
+特定Application、特定Table、特定Featureの都合による専用fieldや専用semanticsはPrimitiveそのものへ追加しない。この原則は`upsert`に限らず、すべてのResolver Primitiveに適用する。
+
+Application側がResolver Primitiveを利用してApplication固有の専用関数を構築することは可能とする。
+
+```text
+Application-specific Function
+  = Resolver Primitiveを利用してApplication側で構築可能
+
+Application Function
+       ↓
+insert / update / upsert / select ...
+       ↓
+Resolver
+```
+
+Resolver PrimitiveはLibrary相当の再利用可能な汎用Operationとして扱い、Application LogicはApplication側でPrimitiveをCompositionする。これは具体的な配布形式をArchitecture Requirementとして固定するものではない。
+
 禁止：
 
 ```text
 Resolver
   -X-> Application固有SemanticsをAuthority化
+
+Resolver Primitive
+  -X-> Application固有field / semanticsをAuthority化
 
 Resolver
   -X-> Registry DefinitionをHardcode
