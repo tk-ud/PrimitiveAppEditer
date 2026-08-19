@@ -2091,7 +2091,12 @@ Every Frame Persistence
 registry.current:
   uuid: uuid
   saveId: logs.savedata.uuid
+  key: text
   data: json
+
+  unique:
+    - saveId
+    - key
 
 logs.savedata:
   uuid: uuid
@@ -2106,21 +2111,21 @@ registry.current
 registry.current basic mutation
   = UPSERT
 
-logs.diff
-  = registry.currentを含むcurrent変更差分 / History
+registry.current mutation history
+  -> logs系へ保存
 
 logs.savedata
   = Save Event
 ```
 
-`registry.current`はSave実行ごとのimmutable Snapshot rowsを蓄積するHistory Storeではない。currentの過去の変更は既存`logs.diff`の責務とし、新しいHistory / Version / Snapshot機構を追加しない。`logs.savedata`もSave PayloadのHistory Storeではなく、Save Eventだけを表す。
+`registry.current`はSave実行ごとのimmutable Snapshot rowsを蓄積するHistory Storeではない。currentのmutation historyはcurrentとは分離してlogs系へ保存する。履歴保存の責務は維持するが、このPRでは`logs.diff`、`logs.current`、`logs.history`等の具体table名やcolumn構造をCanonical Definitionとして固定しない。`logs.savedata`もSave PayloadのHistory Storeではなく、Save Eventだけを表す。
 
 ```text
 registry.current
   != SaveごとのSnapshot History Store
 
-logs.diff
-  = current変更履歴
+registry.current mutation history
+  -> logs系
 
 logs.savedata
   = Save Event
@@ -2139,9 +2144,24 @@ registry.current.saveId
 registry.current.uuid
   = current recordのMachine Identity
   != Save Identity
+  != UPSERT conflict target identity単体
+
+registry.current.key
+  = Application-defined current identity
+
+Current Identity
+  = (saveId, key)
+
+UNIQUE
+  = (saveId, key)
+
+UPSERT conflict target
+  = (saveId, key)
 ```
 
 `logs.savedata.saveId`のような第二のSave Identityは追加しない。`registry.current.saveId`とSave Eventのrelationは、1 Save Eventごとのimmutable Snapshot rowsを永久保存する規則を意味しない。
+
+`uuid`はrow自体のMachine Identityであり、`key`は同一Save Data currentをUPSERT時に安定して識別するApplication-defined identityである。`key`の命名規則や意味はCoreで固定しない。Applicationは例えば`player.hp`、`player.position`、`aggregate.monthly_sales`等を使用できるが、これらは用途例でありCanonical SchemaやCore-defined key taxonomyではない。
 
 ### Application Responsibility
 
