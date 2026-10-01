@@ -9,6 +9,8 @@ roadmap:
       authority: "Function Graph interaction / dependency authoring SSOT"
     - source: "./Resolver.md"
       authority: "Request resolve / operation dispatch SSOT"
+    - source: "../../README.md"
+      authority: "Repository / Upstream / Development Baseline"
   status_values:
     - "not started"
     - "partial"
@@ -52,6 +54,29 @@ roadmap:
     - "Workbench UI is not application authority."
 
 section:
+  - name: "Repository Baseline"
+    bundle:
+      - id: "repository.ci-baseline"
+        title: "Code OSS inherited GitHub Actions audit and CI baseline"
+        reference:
+          - source: "../../README.md"
+            role: "implementation"
+            sections:
+              - "Repository / Upstream"
+              - "Development Model"
+              - "Implementation Flow"
+              - "Status"
+        depends_on: []
+        status: "partial"
+        evidence:
+          - "Code OSS snapshot baseline is established from revision 2be8d96dfdb."
+          - "Private-repository checkout permission for Monaco Editor checks was corrected in commit e31a0e1725c by granting contents: read."
+        remaining:
+          - "Audit inherited .github/workflows from Code OSS against Primitive App Editor development needs."
+          - "Keep only workflows required by Primitive App Editor; disable or remove upstream-only workflows."
+          - "Adapt retained workflows for private-repository permissions and the snapshot-baseline repository model."
+          - "Verify retained main-branch CI completes without Microsoft/upstream-only assumptions."
+
   - name: "Foundation"
     bundle:
       - id: "foundation.authority"
