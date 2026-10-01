@@ -69,7 +69,7 @@ Primitive App Editor:
     role: Derived Output
 ```
 
-詳細: `App Editer.md`
+詳細: `docs/primitive-app-editor/App Editer.md`
 
 ## Documentation
 
@@ -77,7 +77,7 @@ Primitive App Editor:
 
 ```yaml
 abstract:
-  App Editer.md:
+  docs/primitive-app-editor/App Editer.md:
     purpose: 全体把握
     defines:
       - Architecture
@@ -85,28 +85,28 @@ abstract:
       - Boundary
 
 concrete:
-  Editor UI.md:
+  docs/primitive-app-editor/Editor UI.md:
     purpose: Editor UIの個別把握
     defines:
       - Placement
       - Interaction
       - Editing Responsibility
 
-  Function Graph.md:
+  docs/primitive-app-editor/Function Graph.md:
     purpose: Function Graphの個別把握
     defines:
       - Node / Edge
       - Dependency
       - Graph Operation
 
-  Resolver.md:
+  docs/primitive-app-editor/Resolver.md:
     purpose: Resolverの個別把握
     defines:
       - Request Resolution
       - Operation Dispatch
 
 implementation:
-  roadmap.yaml:
+  docs/primitive-app-editor/roadmap.yaml:
     purpose: 実装管理
     defines:
       - Bundle
@@ -114,7 +114,7 @@ implementation:
       - Progress
       - Specification Reference
 
-  Agent tool.md:
+  docs/primitive-app-editor/Agent tool.md:
     purpose: 実装AgentへのSpecification供給
     defines:
       - Bundle Selection
