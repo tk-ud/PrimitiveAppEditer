@@ -72,15 +72,16 @@ describe('read_markdown_sections', () => {
 			appEditer: sample('./App Editer.md', ['§1 Authority', '§3 Open', '§22 Function Runtime / Load', '§23 Runtime Addressing / Editor', '§30 Function / Program Scan', '§39 Boundary', '§31 Build']),
 			readme: sample('../../README.md', ['Tool First']),
 			agentTool: sample('./Agent tool.md', ['roadmap Tool']),
-			// Only Editor UI.md references (used by later bundles) currently disagree with the
-			// numbering of Editor UI.md; they must fail instead of being guessed.
-			unresolvedOutsideEditorUi: [...unresolved].filter(item => !item.startsWith('./Editor UI.md')),
+			editorUi: sample('./Editor UI.md', ['§14 Debug Viewer and Bottom Panel', '§15 UI Responsibility Boundary', '§16 Explanation / Help and General Workbench Rules', '§17 Non-Goals', '§18 Core Definition']),
+			// Every Specification reference in roadmap.yaml must resolve deterministically.
+			unresolved: [...unresolved],
 			someResolved: resolvedCount > 150,
 		}, {
 			appEditer: ['1. Authority', 'Open', 'Load', 'Editor', '30. Function / Program Scan', 'Boundary', '31. Build'],
 			readme: ['Tool First'],
 			agentTool: ['roadmap Tool'],
-			unresolvedOutsideEditorUi: [],
+			editorUi: ['14. Debug Viewer and Bottom Panel', '15. UI Responsibility Boundary', '16. Explanation / Help and General Workbench Rules', '17. Non-Goals', '18. Core Definition'],
+			unresolved: [],
 			someResolved: true,
 		});
 	});
