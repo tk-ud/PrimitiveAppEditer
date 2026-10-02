@@ -574,7 +574,7 @@ section:
             sections:
               - "§1 Scope"
               - "§4 Registry Driven Inspector"
-              - "§14 UI Responsibility Boundary"
+              - "§15 UI Responsibility Boundary"
         depends_on:
           - "registry.table"
           - "registry.enum"
@@ -602,7 +602,7 @@ section:
               - "§3 Workbench Placement"
               - "§9 Primary Side Bar Regulation"
               - "§10 Editor Area Regulation"
-              - "§14 UI Responsibility Boundary"
+              - "§15 UI Responsibility Boundary"
         depends_on:
           - "editor.registry-ui"
           - "data.raw"
@@ -676,7 +676,7 @@ section:
             role: "boundary"
             sections:
               - "§6 Component Editing Regulation"
-              - "§14 UI Responsibility Boundary"
+              - "§15 UI Responsibility Boundary"
         depends_on:
           - "editor.registry-ui"
           - "editor.data-ui"
@@ -699,8 +699,8 @@ section:
             role: "boundary"
             sections:
               - "§3 Workbench Placement"
-              - "§13 Debug Viewer and Bottom Panel"
-              - "§14 UI Responsibility Boundary"
+              - "§14 Debug Viewer and Bottom Panel"
+              - "§15 UI Responsibility Boundary"
         depends_on:
           - "runtime.loop"
           - "renderer.runtime"
@@ -808,8 +808,8 @@ section:
             role: "boundary"
             sections:
               - "§3 Workbench Placement"
-              - "§14 UI Responsibility Boundary"
-              - "§15 General Workbench Rules"
+              - "§15 UI Responsibility Boundary"
+              - "§16 Explanation / Help and General Workbench Rules"
         depends_on:
           - "foundation.project-directory"
           - "editor.registry-ui"
@@ -834,7 +834,7 @@ section:
               - "§3 Workbench Placement"
               - "§9 Primary Side Bar Regulation"
               - "§10 Editor Area Regulation"
-              - "§13 Debug Viewer and Bottom Panel"
+              - "§14 Debug Viewer and Bottom Panel"
         depends_on:
           - "workbench.integration"
           - "editor.function-graph"
@@ -858,8 +858,8 @@ section:
           - source: "./Editor UI.md"
             role: "boundary"
             sections:
-              - "§15 General Workbench Rules"
-              - "§16 Non-Goals"
+              - "§16 Explanation / Help and General Workbench Rules"
+              - "§17 Non-Goals"
         depends_on:
           - "workbench.views"
           - "build.application-output"
@@ -882,7 +882,7 @@ section:
           - source: "./Editor UI.md"
             role: "boundary"
             sections:
-              - "§17 Core Definition"
+              - "§18 Core Definition"
           - source: "./Function Graph.md"
             role: "boundary"
             sections:
