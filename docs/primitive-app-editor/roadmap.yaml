@@ -70,8 +70,15 @@ section:
             sections:
               - "Tool First"
         depends_on: []
-        status: "not started"
-        evidence: []
+        status: "implemented"
+        evidence:
+          - "Implementation commit ae47e50c: standalone stdio MCP server tools/primitive-app-editor/roadmap-mcp (src/roadmap.ts, src/markdown.ts, src/next.ts, src/complete.ts, src/server.ts, src/stdio.ts), isolated from src/vs (Code OSS) and test/mcp, registered in .mcp.json as primitive-app-editor-roadmap (npm --prefix tools/primitive-app-editor/roadmap-mcp run --silent start-stdio)."
+          - "roadmap.next: read_yaml, collect_candidates (status != implemented), resolve_dependencies (all depends_on implemented), select_first (section order, bundle order), read_markdown_sections for selected_bundle.reference only (§N Title, §N Sub, §N Title / Sub, plain Title; fenced code ignored), implementation / boundary separation with source and role preserved, detect_reference_conflict (same heading referenced as implementation and boundary -> blocked), render_prompt with the Agent tool.md template; no_candidate -> completed, blocked -> blocked."
+          - "roadmap.complete: strict input {id, status, evidence, remaining}; validation rules bundle_exists, current_status_is_not_implemented, depends_on_unchanged, dependencies_are_implemented, evidence_not_empty, implemented_requires_empty_remaining, partial_requires_non_empty_remaining, status_transition; updates only the target bundle status / evidence / remaining text, re-parses to verify all other roadmap content is unchanged, atomic temp-file + rename write; returns next_action restart / completed / blocked."
+          - "Verification: cd tools/primitive-app-editor/roadmap-mcp && npm ci && npm test -> 16 tests / 4 suites pass (bundle selection, dependency gating, reference section extraction, implementation / boundary separation, no candidate / blocked / reference conflict, complete validation, not started -> partial -> partial -> implemented and partial -> implemented transitions, unrelated roadmap text byte-identical, prompt template equals Agent tool.md, stdio MCP end-to-end)."
+          - "Real roadmap reference sweep (src/test/markdown.test.ts): all App Editer.md, Resolver.md, Function Graph.md, README.md and Agent tool.md section references resolve (e.g. §3 Open, §22 Function Runtime / Load, §23 Runtime Addressing / Editor, §30 Function / Program Scan); Editor UI.md references whose number and title disagree are rejected instead of guessed."
+          - "Tool First bootstrap: roadmap.next via the .mcp.json server selected tooling.roadmap-agent (./Agent tool.md implementation, ../../README.md boundary), and this completion was recorded by roadmap.complete through the same MCP server."
+          - "No earlier producer bundle required an integration fix."
         remaining: []
 
   - name: "Repository Baseline"
