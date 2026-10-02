@@ -1,3 +1,19 @@
+# Agent Tool
+
+roadmap Agent Tool仕様のSSOT。
+
+```yaml
+authority:
+  scope: "roadmap Agent Tool specification SSOT"
+  implemented_by: "tooling.roadmap-agent (./roadmap.yaml)"
+  rules:
+    - "Tool command / validation / lifecycle are defined only by this document"
+    - "README.md defines Tool First development policy and must not redefine Tool behavior"
+    - "roadmap.yaml defines Tool implementation bundle / dependency / progress and must not redefine Tool behavior"
+```
+
+## roadmap Tool
+
 ```yaml
 tool:
   name: "roadmap"

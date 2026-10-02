@@ -9,6 +9,8 @@ roadmap:
       authority: "Function Graph interaction / dependency authoring SSOT"
     - source: "./Resolver.md"
       authority: "Request resolve / operation dispatch SSOT"
+    - source: "./Agent tool.md"
+      authority: "roadmap Agent Tool specification SSOT"
     - source: "../../README.md"
       authority: "Repository / Upstream / Development Baseline"
   status_values:
@@ -54,6 +56,24 @@ roadmap:
     - "Workbench UI is not application authority."
 
 section:
+  - name: "Tooling"
+    bundle:
+      - id: "tooling.roadmap-agent"
+        title: "roadmap Agent Tool (roadmap.next / roadmap.complete)"
+        reference:
+          - source: "./Agent tool.md"
+            role: "implementation"
+            sections:
+              - "roadmap Tool"
+          - source: "../../README.md"
+            role: "boundary"
+            sections:
+              - "Tool First"
+        depends_on: []
+        status: "not started"
+        evidence: []
+        remaining: []
+
   - name: "Repository Baseline"
     bundle:
       - id: "repository.ci-baseline"
@@ -66,7 +86,8 @@ section:
               - "Development Model"
               - "Implementation Flow"
               - "Status"
-        depends_on: []
+        depends_on:
+          - "tooling.roadmap-agent"
         status: "partial"
         evidence:
           - "Code OSS snapshot baseline is established from revision 2be8d96dfdb."
@@ -90,7 +111,8 @@ section:
               - "§34 Boundary Rules"
               - "§35 Non-Goals"
               - "§38 Core Definition"
-        depends_on: []
+        depends_on:
+          - "tooling.roadmap-agent"
         status: "not started"
         evidence: []
         remaining: []
