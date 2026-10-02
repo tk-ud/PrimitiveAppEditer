@@ -116,6 +116,7 @@ implementation:
 
   docs/primitive-app-editor/Agent tool.md:
     purpose: 実装AgentへのSpecification供給
+    authority: roadmap Agent Tool仕様SSOT
     defines:
       - Bundle Selection
       - Specification Extraction
@@ -194,6 +195,33 @@ roadmap update
    ↺
 ```
 
+## Tool First
+
+実装Agentは原則としてroadmap Agent Tool経由で実装loopを進める。
+
+```yaml
+policy:
+  implementation_agent:
+    bundle_selection: roadmap.next
+    specification_extraction: roadmap.next
+    progress_update: roadmap.complete
+  prohibited:
+    - roadmap.yamlの直接編集によるstatus / evidence / remaining更新
+    - Toolが供給しないSpecificationからの要件推定
+
+authority:
+  development_policy: README.md (Tool First)
+  tool_specification: docs/primitive-app-editor/Agent tool.md
+  tool_implementation_progress: docs/primitive-app-editor/roadmap.yaml (tooling.roadmap-agent)
+
+bootstrap:
+  bundle: tooling.roadmap-agent
+  rule:
+    - 全後続Bundleはdepends_onによりtooling.roadmap-agentのimplemented後に選択可能となる
+    - tooling.roadmap-agent自身はTool未実装のため、Agent tool.mdのroadmap.next sequenceに従い手動でSpecificationを取得する
+    - 完了更新は実装したroadmap.completeで行い、Tool検証のEvidenceとする
+```
+
 ## Repository / Upstream
 
 Code OSSとPrimitive App Editor固有実装の系譜管理。
@@ -223,6 +251,7 @@ status:
   concrete_specifications: Defined
   roadmap: Defined
   agent_loop: Defined
+  agent_tool: Pending
   code_oss_baseline: Verified
   implementation: Pending
 ```
