@@ -10,6 +10,17 @@
 				"start-stdio"
 			]
 		},
+		"primitive-app-editor-roadmap": {
+			"type": "stdio",
+			"command": "npm",
+			"args": [
+				"--prefix",
+				"tools/primitive-app-editor/roadmap-mcp",
+				"run",
+				"--silent",
+				"start-stdio"
+			]
+		},
 		"component-explorer": {
 			"type": "stdio",
 			"command": "npm",

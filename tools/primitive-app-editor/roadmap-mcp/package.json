@@ -1,0 +1,22 @@
+{
+  "name": "primitive-app-editor-roadmap-mcp",
+  "version": "1.0.0",
+  "license": "MIT",
+  "private": true,
+  "description": "roadmap Agent Tool (roadmap.next / roadmap.complete) for Primitive App Editor development. Specification: docs/primitive-app-editor/Agent tool.md",
+  "main": "./out/stdio.js",
+  "scripts": {
+    "compile": "tsc -p ./tsconfig.json",
+    "test": "npm run -s compile && node --test \"out/test/**/*.test.js\"",
+    "start-stdio": "npm ci --no-audit --no-fund --loglevel=error 1>&2 && npm run -s compile 1>&2 && node ./out/stdio.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.26.0",
+    "yaml": "2.9.1",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "22.x",
+    "typescript": "5.9.3"
+  }
+}
