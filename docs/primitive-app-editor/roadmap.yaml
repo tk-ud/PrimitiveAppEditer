@@ -95,7 +95,7 @@ section:
               - "Status"
         depends_on:
           - "tooling.roadmap-agent"
-        status: "partial"
+        status: "implemented"
         evidence:
           - "Code OSS snapshot baseline is established from revision 2be8d96dfdb."
           - "Private-repository checkout permission for Monaco Editor checks was corrected in commit e31a0e1725c by granting contents: read."
@@ -107,8 +107,9 @@ section:
           - "Required integration fix (commit e3c26d06): retained eslint exposed 16 problems in tools/primitive-app-editor/roadmap-mcp (tooling.roadmap-agent); exempted tools/primitive-app-editor/** from the Microsoft header/header rule in eslint.config.js and replaced `in` narrowing in roadmap-mcp tests with an isSelected() guard; roadmap-mcp npm test 16/16 pass; full-repo eslint and hygiene pass locally."
           - "actionlint v1.7.7 reports no errors on the retained workflows."
           - "PR #17 CI on e3c26d06 is green on GitHub-hosted runners: Code OSS (Compile & Hygiene + Linux Electron-Unit / Electron / Electron-Smoke / Browser / Remote), Monaco Editor checks, Component Fixtures, CodeQL."
-        remaining:
-          - "Verify the first push-triggered Code OSS / Component Fixtures / CodeQL / Monaco runs on main after PR #17 merges (push-only paths: node_modules and built-in extension cache seeding, Codex sync base via github.event.before, Agent Host E2E detection skipped on push)."
+          - "Main push CI after PR #17 merge (a7e8a240) is green on GitHub-hosted runners: Code OSS run 37104427250, Component Fixtures run 37104427140, Monaco Editor checks run 37104427133, CodeQL run 37104427135."
+          - "Push-only paths verified in Code OSS run 37104427250: Save node_modules cache succeeded in Compile & Hygiene and Linux / Electron-Unit; built-in extensions cache saved (Post Restore built-in extensions cache); Check Codex protocol client is in sync succeeded with github.event.before; Detect Agent Host E2E changes skipped on push and Linux / Electron integration tests ran and passed."
+        remaining: []
 
   - name: "Foundation"
     bundle:
@@ -125,8 +126,15 @@ section:
               - "§38 Core Definition"
         depends_on:
           - "tooling.roadmap-agent"
-        status: "not started"
-        evidence: []
+        status: "implemented"
+        evidence:
+          - "Implementation commit d5cacf19: src/vs/workbench/contrib/primitiveAppEditor/common/authority.ts encodes App Editer.md as an immutable, I/O-free common-layer contract module: §1 Authority (authorityElements with responsibilities; Definition / Persistent Authoring / Transient Runtime artifactLifecycles with getArtifactLifecycle and isPersistedArtifact = false for every Transient Runtime artifact; schemaAbstraction Registry = Abstract, Physical Table Schema = Projection, Row = Concrete)."
+          - "§33 Runtime Authority: runtimeAuthority map for all 11 concerns (Application Definition = Registry + Raw Data + Binding, Physical Schema = Registry, Function Semantics = Function Definition + Code Primitive, Relation = relation_registry, Address Identity = UUID, Human Display = name/label, Execution = Runtime Execution Plan + Runtime Memory, Target Merge = Function Binding Merge Policy, Projection = Renderer Binding, Project Storage = Working Directory + project.sqlite, Output = Build) with getAuthority / isAuthorityFor."
+          - "§34 Boundary Rules: allowedBoundaryFlows (11 `->` flows) and forbiddenBoundaryFlows (6 `-X->` flows: Physical Schema reverse generation, Registry Mutation -> SQLite Trigger DDL, Relation / enum -> Physical FK, UUID -> Primary Human Display, Runtime Loop -> SQLite per-frame query) with checkBoundaryFlow (allowed / forbidden / unregulated) and assertBoundaryFlow throwing AuthorityBoundaryError."
+          - "§35 Non-Goals: all 12 Non-Goals enumerated; boundary Non-Goals linked to their forbidden flows (nonGoalBoundaryFlows) and persistence Non-Goals linked to transient artifacts (nonGoalTransientArtifacts). §38 Core Definition: coreDefinition record and Composition overwrite | overlay with isComposition."
+          - "Tests: src/vs/workbench/contrib/primitiveAppEditor/test/common/authority.test.ts, 16 tests across all five sections; commit 5b9188b6 made the forbidden-flow test compatible with the browser assert shim (test/unit/assert.js), reproduced locally with the shim before and after the fix."
+          - "eslint.config.js / build/filters.ts: PAE-owned src/vs/workbench/contrib/primitiveAppEditor/** carries its own header and is exempt from the Microsoft copyright header checks (same treatment as tools/primitive-app-editor). No earlier producer bundle required an integration fix."
+          - "Verification: local mocha 16 passing, eslint --max-warnings 0 clean, full-repo hygiene passes (12616 files); PR #18 CI on 5b9188b6 green on GitHub-hosted runners: Code OSS run 37114995334 (Compile & Hygiene incl. eslint / layers / tsec, Linux Electron-Unit node+electron unit tests, Browser unit tests, Electron, Electron-Smoke, Remote), Monaco Editor checks 37114995191, Component Fixtures 37114995163, CodeQL 37114995162."
         remaining: []
 
       - id: "foundation.project-directory"

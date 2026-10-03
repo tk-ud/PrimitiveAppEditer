@@ -173,6 +173,8 @@ export const indentationFilter = Object.freeze<string[]>([
 
 export const copyrightFilter = Object.freeze<string[]>([
 	'**',
+	// Primitive App Editor original code carries its own header
+	'!src/vs/workbench/contrib/primitiveAppEditor/**',
 	'!**/*.desktop',
 	'!**/*.json',
 	'!**/*.jsonc',
