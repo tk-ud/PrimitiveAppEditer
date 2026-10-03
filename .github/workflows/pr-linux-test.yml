@@ -33,13 +33,14 @@ jobs:
       VSCODE_ARCH: x64
       VSCODE_SKIP_PRELAUNCH: '1'
     steps:
-      - name: Checkout microsoft/vscode
+      - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           lfs: true
 
       - name: Detect Agent Host E2E changes
-        if: ${{ inputs.electron_tests && inputs.integration_tests }}
+        # Push events have no pull request file list; the tests then always run.
+        if: ${{ github.event_name == 'pull_request' && inputs.electron_tests && inputs.integration_tests }}
         id: agent-host-e2e-changes
         uses: ./.github/actions/detect-agent-host-e2e-changes
         with:
@@ -117,6 +118,12 @@ jobs:
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Save node_modules cache
+        # Seed the shared Linux cache once per main push (formerly done by the
+        # upstream self-hosted pr-node-modules workflow).
+        if: github.event_name != 'pull_request' && inputs.job_name == 'Electron-Unit' && steps.cache-node-modules.outputs.cache-hit != 'true'
+        uses: ./.github/actions/save-node-modules
 
       - name: Create .build folder
         run: mkdir -p .build
