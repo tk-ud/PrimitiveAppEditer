@@ -126,8 +126,15 @@ section:
               - "§38 Core Definition"
         depends_on:
           - "tooling.roadmap-agent"
-        status: "not started"
-        evidence: []
+        status: "implemented"
+        evidence:
+          - "Implementation commit d5cacf19: src/vs/workbench/contrib/primitiveAppEditor/common/authority.ts encodes App Editer.md as an immutable, I/O-free common-layer contract module: §1 Authority (authorityElements with responsibilities; Definition / Persistent Authoring / Transient Runtime artifactLifecycles with getArtifactLifecycle and isPersistedArtifact = false for every Transient Runtime artifact; schemaAbstraction Registry = Abstract, Physical Table Schema = Projection, Row = Concrete)."
+          - "§33 Runtime Authority: runtimeAuthority map for all 11 concerns (Application Definition = Registry + Raw Data + Binding, Physical Schema = Registry, Function Semantics = Function Definition + Code Primitive, Relation = relation_registry, Address Identity = UUID, Human Display = name/label, Execution = Runtime Execution Plan + Runtime Memory, Target Merge = Function Binding Merge Policy, Projection = Renderer Binding, Project Storage = Working Directory + project.sqlite, Output = Build) with getAuthority / isAuthorityFor."
+          - "§34 Boundary Rules: allowedBoundaryFlows (11 `->` flows) and forbiddenBoundaryFlows (6 `-X->` flows: Physical Schema reverse generation, Registry Mutation -> SQLite Trigger DDL, Relation / enum -> Physical FK, UUID -> Primary Human Display, Runtime Loop -> SQLite per-frame query) with checkBoundaryFlow (allowed / forbidden / unregulated) and assertBoundaryFlow throwing AuthorityBoundaryError."
+          - "§35 Non-Goals: all 12 Non-Goals enumerated; boundary Non-Goals linked to their forbidden flows (nonGoalBoundaryFlows) and persistence Non-Goals linked to transient artifacts (nonGoalTransientArtifacts). §38 Core Definition: coreDefinition record and Composition overwrite | overlay with isComposition."
+          - "Tests: src/vs/workbench/contrib/primitiveAppEditor/test/common/authority.test.ts, 16 tests across all five sections; commit 5b9188b6 made the forbidden-flow test compatible with the browser assert shim (test/unit/assert.js), reproduced locally with the shim before and after the fix."
+          - "eslint.config.js / build/filters.ts: PAE-owned src/vs/workbench/contrib/primitiveAppEditor/** carries its own header and is exempt from the Microsoft copyright header checks (same treatment as tools/primitive-app-editor). No earlier producer bundle required an integration fix."
+          - "Verification: local mocha 16 passing, eslint --max-warnings 0 clean, full-repo hygiene passes (12616 files); PR #18 CI on 5b9188b6 green on GitHub-hosted runners: Code OSS run 37114995334 (Compile & Hygiene incl. eslint / layers / tsec, Linux Electron-Unit node+electron unit tests, Browser unit tests, Electron, Electron-Smoke, Remote), Monaco Editor checks 37114995191, Component Fixtures 37114995163, CodeQL 37114995162."
         remaining: []
 
       - id: "foundation.project-directory"
