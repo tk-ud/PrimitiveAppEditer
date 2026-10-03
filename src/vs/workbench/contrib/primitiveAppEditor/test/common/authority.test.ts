@@ -160,8 +160,15 @@ suite('Primitive App Editor - Authority (34. Boundary Rules)', () => {
 		assert.deepStrictEqual(forbiddenBoundaryFlows.map(flow => [flow.from, flow.to]), forbidden);
 		for (const [from, to] of forbidden) {
 			assert.strictEqual(checkBoundaryFlow(from, to), BoundaryVerdict.Forbidden);
-			assert.throws(() => assertBoundaryFlow(from, to), (error: unknown) =>
-				error instanceof AuthorityBoundaryError && error.from === from && error.to === to);
+			let thrown: unknown;
+			try {
+				assertBoundaryFlow(from, to);
+			} catch (error) {
+				thrown = error;
+			}
+			assert.ok(thrown instanceof AuthorityBoundaryError);
+			assert.strictEqual(thrown.from, from);
+			assert.strictEqual(thrown.to, to);
 		}
 	});
 
