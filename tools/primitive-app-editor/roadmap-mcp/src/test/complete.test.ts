@@ -10,7 +10,7 @@ import { describe, test } from 'node:test';
 import { CompleteValidationError, roadmapComplete } from '../complete';
 import { roadmapNext } from '../next';
 import { loadRoadmap } from '../roadmap';
-import { realRoadmapWithToolingReset, roadmapYaml, writeFixture } from './fixture';
+import { isSelected, realRoadmapWithToolingReset, roadmapYaml, writeFixture } from './fixture';
 
 const fixture = () => roadmapYaml([
 	{ name: 'A', bundle: [{ id: 'a.done', status: 'implemented', evidence: ['old evidence'] }, { id: 'a.work', depends_on: ['a.done'] }] },
@@ -123,7 +123,7 @@ describe('roadmap.complete', () => {
 		});
 		// a.work is now implemented, so roadmap.next moves on and the bundle can never be completed again.
 		const next = roadmapNext(roadmapPath);
-		assert.strictEqual('id' in next ? next.id : next.status, 'b.blocked');
+		assert.strictEqual(isSelected(next) ? next.id : next.status, 'b.blocked');
 		assert.deepStrictEqual(violations(roadmapPath, { id: 'a.work', status: 'implemented', evidence: ['e'], remaining: [] }), ['current_status_is_not_implemented']);
 	});
 

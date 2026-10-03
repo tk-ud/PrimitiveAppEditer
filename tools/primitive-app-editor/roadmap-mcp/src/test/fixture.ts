@@ -6,6 +6,14 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import type { NextOutput } from '../next';
+
+export type SelectedNextOutput = Extract<NextOutput, { readonly prompt: string }>;
+
+/** True when roadmap.next selected a bundle (as opposed to a completed / blocked result). */
+export function isSelected(result: NextOutput): result is SelectedNextOutput {
+	return Object.hasOwn(result, 'prompt');
+}
 
 /** Repository root (tools/primitive-app-editor/roadmap-mcp/out/test -> repo). */
 export const repositoryRoot = path.resolve(__dirname, '..', '..', '..', '..', '..');
