@@ -15,7 +15,9 @@ import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { Artifact } from '../../common/authority.js';
 import {
 	AssetCategory,
+	getRequiredOpenPhases,
 	IProjectOpenContext,
+	IProjectOpenSteps,
 	openProjectDirectory,
 	PROJECT_SQLITE_FILE_NAME,
 	ProjectDirectoryError,
@@ -24,6 +26,7 @@ import {
 	projectLayout,
 	ProjectOpenMode,
 	ProjectOpenPhase,
+	ProjectOpenStatus,
 	resolveProjectPaths,
 	scanProjectDirectory,
 } from '../../common/projectDirectory.js';
@@ -91,7 +94,7 @@ suite('Primitive App Editor - Project Open (3. Open)', () => {
 		return undefined;
 	}
 
-	function recordingSteps(log: string[]) {
+	function recordingSteps(log: string[]): Required<IProjectOpenSteps> {
 		const step = (name: string) => async (context: IProjectOpenContext) => { log.push(`${name}:${context.mode}`); };
 		return {
 			createStorage: async (context: IProjectOpenContext) => {
@@ -112,6 +115,7 @@ suite('Primitive App Editor - Project Open (3. Open)', () => {
 		const log: string[] = [];
 		const result = await openProjectDirectory(fileService, root, recordingSteps(log));
 
+		assert.strictEqual(result.status, ProjectOpenStatus.Ready);
 		assert.strictEqual(result.mode, ProjectOpenMode.Create);
 		assert.deepStrictEqual(result.phases, [
 			ProjectOpenPhase.WorkingDirectorySelect,
@@ -125,7 +129,6 @@ suite('Primitive App Editor - Project Open (3. Open)', () => {
 			ProjectOpenPhase.AssetScan,
 			ProjectOpenPhase.EditorReady,
 		]);
-		assert.deepStrictEqual(result.skippedPhases, []);
 		assert.deepStrictEqual(log.slice(0, 5), ['createStorage:create', 'editorDdlScan:create', 'schemaVersionResolve:create', 'migrationApply:create', 'registryLoad:create']);
 		assert.deepStrictEqual([...log.slice(5)].sort(), ['assetScan:create', 'functionScan:create']);
 
@@ -144,8 +147,20 @@ suite('Primitive App Editor - Project Open (3. Open)', () => {
 		const log: string[] = [];
 		const result = await openProjectDirectory(fileService, root, recordingSteps(log));
 
+		assert.strictEqual(result.status, ProjectOpenStatus.Ready);
 		assert.strictEqual(result.mode, ProjectOpenMode.Open);
-		assert.ok(result.phases.includes(ProjectOpenPhase.Open));
+		assert.deepStrictEqual(result.phases, [
+			ProjectOpenPhase.WorkingDirectorySelect,
+			ProjectOpenPhase.DirectoryScan,
+			ProjectOpenPhase.Open,
+			ProjectOpenPhase.EditorDdlScan,
+			ProjectOpenPhase.SchemaVersionResolve,
+			ProjectOpenPhase.MigrationApply,
+			ProjectOpenPhase.RegistryLoad,
+			ProjectOpenPhase.FunctionScan,
+			ProjectOpenPhase.AssetScan,
+			ProjectOpenPhase.EditorReady,
+		]);
 		assert.ok(!result.phases.includes(ProjectOpenPhase.Create));
 		assert.strictEqual(log[0], 'openStorage:open');
 		assert.deepStrictEqual(result.createdDirectories, []);
@@ -155,21 +170,71 @@ suite('Primitive App Editor - Project Open (3. Open)', () => {
 
 	test('Open restores missing layout directories without creating project.sqlite', async () => {
 		await fileService.writeFile(joinPath(root, PROJECT_SQLITE_FILE_NAME), VSBuffer.fromString('sqlite'));
+		const openSteps: IProjectOpenSteps = { ...recordingSteps([]), createStorage: undefined };
 
-		const result = await openProjectDirectory(fileService, root);
+		const result = await openProjectDirectory(fileService, root, openSteps);
 
+		assert.strictEqual(result.status, ProjectOpenStatus.Ready);
 		assert.strictEqual(result.mode, ProjectOpenMode.Open);
 		assert.deepStrictEqual(result.createdDirectories.map(entry => entry.path), projectLayout.filter(entry => entry.kind === ProjectEntryKind.Directory).map(entry => entry.path));
-		assert.deepStrictEqual(result.skippedPhases, [
-			ProjectOpenPhase.Open,
-			ProjectOpenPhase.EditorDdlScan,
-			ProjectOpenPhase.SchemaVersionResolve,
-			ProjectOpenPhase.MigrationApply,
-			ProjectOpenPhase.RegistryLoad,
-			ProjectOpenPhase.FunctionScan,
-			ProjectOpenPhase.AssetScan,
-		]);
 		assert.strictEqual(result.phases[result.phases.length - 1], ProjectOpenPhase.EditorReady);
+		assert.strictEqual((await fileService.readFile(result.paths.sqlite)).value.toString(), 'sqlite');
+	});
+
+	test('no steps supplied -> incomplete, nothing written, never Editor Ready', async () => {
+		const result = await openProjectDirectory(fileService, root);
+
+		assert.strictEqual(result.status, ProjectOpenStatus.Incomplete);
+		assert.strictEqual(result.mode, ProjectOpenMode.Create);
+		assert.deepStrictEqual(result.phases, [ProjectOpenPhase.WorkingDirectorySelect, ProjectOpenPhase.DirectoryScan]);
+		assert.ok(!result.phases.includes(ProjectOpenPhase.EditorReady));
+		if (result.status === ProjectOpenStatus.Incomplete) {
+			assert.deepStrictEqual(result.missingPhases, getRequiredOpenPhases(ProjectOpenMode.Create));
+		}
+		assert.deepStrictEqual(result.createdDirectories, []);
+		assert.strictEqual(await fileService.exists(root), false);
+	});
+
+	test('each missing required step makes the open incomplete without running any step', async () => {
+		const stepByPhase: [ProjectOpenPhase, keyof IProjectOpenSteps][] = [
+			[ProjectOpenPhase.Create, 'createStorage'],
+			[ProjectOpenPhase.EditorDdlScan, 'editorDdlScan'],
+			[ProjectOpenPhase.SchemaVersionResolve, 'schemaVersionResolve'],
+			[ProjectOpenPhase.MigrationApply, 'migrationApply'],
+			[ProjectOpenPhase.RegistryLoad, 'registryLoad'],
+			[ProjectOpenPhase.FunctionScan, 'functionScan'],
+			[ProjectOpenPhase.AssetScan, 'assetScan'],
+		];
+		for (const [phase, stepName] of stepByPhase) {
+			const log: string[] = [];
+			const steps: IProjectOpenSteps = { ...recordingSteps(log), [stepName]: undefined };
+
+			const result = await openProjectDirectory(fileService, root, steps);
+
+			assert.strictEqual(result.status, ProjectOpenStatus.Incomplete, stepName);
+			assert.ok(!result.phases.includes(ProjectOpenPhase.EditorReady), stepName);
+			if (result.status === ProjectOpenStatus.Incomplete) {
+				assert.deepStrictEqual(result.missingPhases, [phase], stepName);
+			}
+			assert.deepStrictEqual(log, [], stepName);
+			assert.strictEqual(await fileService.exists(joinPath(root, PROJECT_SQLITE_FILE_NAME)), false, stepName);
+		}
+	});
+
+	test('the storage step required follows the mode', async () => {
+		const created = await openProjectDirectory(fileService, root, { ...recordingSteps([]), openStorage: undefined });
+		assert.strictEqual(created.status, ProjectOpenStatus.Ready);
+		assert.strictEqual(created.mode, ProjectOpenMode.Create);
+
+		const reopened = await openProjectDirectory(fileService, root, { ...recordingSteps([]), createStorage: undefined });
+		assert.strictEqual(reopened.status, ProjectOpenStatus.Ready);
+		assert.strictEqual(reopened.mode, ProjectOpenMode.Open);
+
+		const incomplete = await openProjectDirectory(fileService, root, { ...recordingSteps([]), openStorage: undefined });
+		assert.strictEqual(incomplete.status, ProjectOpenStatus.Incomplete);
+		if (incomplete.status === ProjectOpenStatus.Incomplete) {
+			assert.deepStrictEqual(incomplete.missingPhases, [ProjectOpenPhase.Open]);
+		}
 	});
 
 	test('Directory Scan performs no writes', async () => {
@@ -186,7 +251,7 @@ suite('Primitive App Editor - Project Open (3. Open)', () => {
 
 		const other = URI.from({ scheme: 'pae-test', path: '/other' });
 		await fileService.createFolder(joinPath(other, PROJECT_SQLITE_FILE_NAME));
-		assert.ok(await rejection(() => openProjectDirectory(fileService, other)) instanceof ProjectDirectoryError);
+		assert.ok(await rejection(() => openProjectDirectory(fileService, other, recordingSteps([]))) instanceof ProjectDirectoryError);
 	});
 
 	test('a failing step stops the lifecycle before Editor Ready', async () => {

@@ -13,10 +13,10 @@ import { Artifact, AuthorityConcern, AuthoritySource, isAuthorityFor } from './a
  * `Project = Working Directory`. This module owns the directory layout of a project and
  * the `Open` lifecycle that turns a selected Working Directory into `Editor Ready`.
  *
- * Steps after `Create` / `Open` (Editor DDL Scan, Schema Version Resolve, Migration Apply,
- * Registry Load, Function Scan, Asset Scan) and the physical `project.sqlite` storage are
- * owned by their own services; this lifecycle only orders them and passes them the scanned
- * Working Directory.
+ * The physical `project.sqlite` storage and the steps after `Create` / `Open` (Editor DDL Scan,
+ * Schema Version Resolve, Migration Apply, Registry Load, Function Scan, Asset Scan) are owned
+ * by their own services; this lifecycle orders them, passes them the scanned Working Directory,
+ * and reports `Editor Ready` only after all of them completed.
  */
 
 // #region 3. Project Working Directory
@@ -213,7 +213,8 @@ export interface IProjectOpenContext {
 /**
  * Services owning each `Open` step. `createStorage` / `openStorage` own `project.sqlite`;
  * the remaining steps own Editor DDL, schema versions, migrations, Registry, Function and
- * Asset discovery. A step that is not provided is reported as skipped in the result.
+ * Asset discovery. Every step required by the open mode must be supplied: an open with a
+ * missing step is incomplete and never reaches `Editor Ready`.
  */
 export interface IProjectOpenSteps {
 	createStorage?(context: IProjectOpenContext): Promise<void>;
@@ -226,22 +227,75 @@ export interface IProjectOpenSteps {
 	assetScan?(context: IProjectOpenContext): Promise<void>;
 }
 
-export interface IProjectOpenResult {
+type ProjectOpenStep = (context: IProjectOpenContext) => Promise<void>;
+
+/**
+ * Phases between `Directory Scan` and `Editor Ready` that must complete for `mode`, in
+ * specification order.
+ */
+export function getRequiredOpenPhases(mode: ProjectOpenMode): readonly ProjectOpenPhase[] {
+	return Object.freeze([
+		mode === ProjectOpenMode.Create ? ProjectOpenPhase.Create : ProjectOpenPhase.Open,
+		ProjectOpenPhase.EditorDdlScan,
+		ProjectOpenPhase.SchemaVersionResolve,
+		ProjectOpenPhase.MigrationApply,
+		ProjectOpenPhase.RegistryLoad,
+		ProjectOpenPhase.FunctionScan,
+		ProjectOpenPhase.AssetScan,
+	]);
+}
+
+function getOpenStep(steps: IProjectOpenSteps, phase: ProjectOpenPhase): ProjectOpenStep | undefined {
+	switch (phase) {
+		case ProjectOpenPhase.Create: return steps.createStorage?.bind(steps);
+		case ProjectOpenPhase.Open: return steps.openStorage?.bind(steps);
+		case ProjectOpenPhase.EditorDdlScan: return steps.editorDdlScan?.bind(steps);
+		case ProjectOpenPhase.SchemaVersionResolve: return steps.schemaVersionResolve?.bind(steps);
+		case ProjectOpenPhase.MigrationApply: return steps.migrationApply?.bind(steps);
+		case ProjectOpenPhase.RegistryLoad: return steps.registryLoad?.bind(steps);
+		case ProjectOpenPhase.FunctionScan: return steps.functionScan?.bind(steps);
+		case ProjectOpenPhase.AssetScan: return steps.assetScan?.bind(steps);
+		default: return undefined;
+	}
+}
+
+export const enum ProjectOpenStatus {
+	/** Every required phase completed; the last phase is `editorReady`. */
+	Ready = 'ready',
+	/** A required step was not supplied; no step ran and `editorReady` was not reached. */
+	Incomplete = 'incomplete',
+}
+
+interface IProjectOpenResultBase {
 	readonly mode: ProjectOpenMode;
 	readonly paths: IProjectPaths;
 	readonly scan: IProjectDirectoryScan;
 	/** Layout directories created during this open. */
 	readonly createdDirectories: readonly IProjectEntry[];
-	/** Phases in the order they completed, ending with `editorReady`. */
+	/** Phases in the order they completed. */
 	readonly phases: readonly ProjectOpenPhase[];
-	/** Phases whose owning service was not supplied. */
-	readonly skippedPhases: readonly ProjectOpenPhase[];
 }
+
+export interface IProjectOpenReadyResult extends IProjectOpenResultBase {
+	readonly status: ProjectOpenStatus.Ready;
+}
+
+export interface IProjectOpenIncompleteResult extends IProjectOpenResultBase {
+	readonly status: ProjectOpenStatus.Incomplete;
+	/** Required phases whose owning step was not supplied. */
+	readonly missingPhases: readonly ProjectOpenPhase[];
+}
+
+export type IProjectOpenResult = IProjectOpenReadyResult | IProjectOpenIncompleteResult;
 
 /**
  * `Open`: Working Directory Select -> Directory Scan -> (Create | Open) -> Editor DDL Scan ->
  * Schema Version Resolve -> Migration Apply -> Registry Load -> (Function Scan || Asset Scan)
- * -> Editor Ready. A failing step rejects the whole open; `Editor Ready` is never reached.
+ * -> Editor Ready.
+ *
+ * `Editor Ready` is reached only when every required phase actually completed. When a required
+ * step is not supplied the open is `incomplete`: it stops after `Directory Scan` without writing
+ * to the Working Directory or running any step. A failing step rejects the whole open.
  */
 export async function openProjectDirectory(fileService: IFileService, root: URI, steps: IProjectOpenSteps = {}): Promise<IProjectOpenResult> {
 	if (!isAuthorityFor(AuthorityConcern.ProjectStorage, AuthoritySource.WorkingDirectory)) {
@@ -249,46 +303,49 @@ export async function openProjectDirectory(fileService: IFileService, root: URI,
 	}
 
 	const phases: ProjectOpenPhase[] = [ProjectOpenPhase.WorkingDirectorySelect];
-	const skippedPhases: ProjectOpenPhase[] = [];
 
 	const scan = await scanProjectDirectory(fileService, root);
 	phases.push(ProjectOpenPhase.DirectoryScan);
 
 	const mode = scan.sqliteExists ? ProjectOpenMode.Open : ProjectOpenMode.Create;
+	const requiredPhases = getRequiredOpenPhases(mode);
+	const missingPhases = requiredPhases.filter(phase => !getOpenStep(steps, phase));
+	if (missingPhases.length) {
+		return Object.freeze({
+			status: ProjectOpenStatus.Incomplete,
+			mode,
+			paths: scan.paths,
+			scan,
+			createdDirectories: Object.freeze([]),
+			phases: Object.freeze(phases),
+			missingPhases: Object.freeze(missingPhases),
+		});
+	}
+
 	const createdDirectories = await ensureProjectDirectories(fileService, scan);
 	const context: IProjectOpenContext = Object.freeze({ mode, paths: scan.paths, scan });
 
-	const run = async (phase: ProjectOpenPhase, step: ((context: IProjectOpenContext) => Promise<void>) | undefined) => {
-		if (step) {
-			await step(context);
-		} else {
-			skippedPhases.push(phase);
-		}
+	const run = async (phase: ProjectOpenPhase) => {
+		await getOpenStep(steps, phase)!(context);
 		phases.push(phase);
 	};
 
-	if (mode === ProjectOpenMode.Create) {
-		await run(ProjectOpenPhase.Create, steps.createStorage?.bind(steps));
-	} else {
-		await run(ProjectOpenPhase.Open, steps.openStorage?.bind(steps));
-	}
-	await run(ProjectOpenPhase.EditorDdlScan, steps.editorDdlScan?.bind(steps));
-	await run(ProjectOpenPhase.SchemaVersionResolve, steps.schemaVersionResolve?.bind(steps));
-	await run(ProjectOpenPhase.MigrationApply, steps.migrationApply?.bind(steps));
-	await run(ProjectOpenPhase.RegistryLoad, steps.registryLoad?.bind(steps));
-	await Promise.all([
-		run(ProjectOpenPhase.FunctionScan, steps.functionScan?.bind(steps)),
-		run(ProjectOpenPhase.AssetScan, steps.assetScan?.bind(steps)),
-	]);
+	const [storage, editorDdlScan, schemaVersionResolve, migrationApply, registryLoad, functionScan, assetScan] = requiredPhases;
+	await run(storage);
+	await run(editorDdlScan);
+	await run(schemaVersionResolve);
+	await run(migrationApply);
+	await run(registryLoad);
+	await Promise.all([run(functionScan), run(assetScan)]);
 	phases.push(ProjectOpenPhase.EditorReady);
 
 	return Object.freeze({
+		status: ProjectOpenStatus.Ready,
 		mode,
 		paths: scan.paths,
 		scan,
 		createdDirectories,
 		phases: Object.freeze(phases),
-		skippedPhases: Object.freeze(skippedPhases),
 	});
 }
 
