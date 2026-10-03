@@ -150,11 +150,12 @@ export default defineConfig(
 			]
 		},
 	},
-	// Primitive App Editor original tooling is not Code OSS source and does not
+	// Primitive App Editor original code is not Code OSS source and does not
 	// carry the Microsoft copyright header.
 	{
 		files: [
 			'tools/primitive-app-editor/**',
+			'src/vs/workbench/contrib/primitiveAppEditor/**',
 		],
 		rules: {
 			'header/header': 'off',
