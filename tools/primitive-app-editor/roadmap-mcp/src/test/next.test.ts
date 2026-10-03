@@ -12,11 +12,14 @@ import { parse } from 'yaml';
 import { blockedMessage, conflictMessage, noCandidateMessage, roadmapNext } from '../next';
 import { nextPromptTemplate } from '../promptTemplate';
 import { RoadmapError } from '../roadmap';
-import { realRoadmapPath, realRoadmapWithToolingReset, repositoryRoot, roadmapYaml, writeFixture } from './fixture';
+import { isSelected, realRoadmapPath, realRoadmapWithToolingReset, repositoryRoot, roadmapYaml, writeFixture } from './fixture';
 
 function selectedId(roadmap: string): string | undefined {
 	const result = roadmapNext(writeFixture(roadmap));
-	return 'id' in result ? result.id : undefined;
+	if (isSelected(result)) {
+		return result.id;
+	}
+	return result.status === 'blocked' ? result.id : undefined;
 }
 
 describe('roadmap.next', () => {
@@ -72,7 +75,7 @@ describe('roadmap.next', () => {
 				],
 			}],
 		}])));
-		assert.ok('prompt' in result);
+		assert.ok(isSelected(result));
 		assert.deepStrictEqual(result.specifications, [
 			{ source: './spec.md', role: 'boundary', sections: ['Tool First'], content: '## Tool First\ntool first body with {{ source }} kept verbatim' },
 			{ source: './spec.md', role: 'implementation', sections: ['§2 Runtime / Load', '§1 Rule'], content: '### Load\nruntime load\n\n### Rule\nauthority rule' },
@@ -144,7 +147,7 @@ describe('roadmap.next', () => {
 		fs.writeFileSync(path.join(docs, 'roadmap.yaml'), roadmap);
 
 		const result = roadmapNext(path.join(docs, 'roadmap.yaml'));
-		assert.ok('specifications' in result);
+		assert.ok(isSelected(result));
 		assert.deepStrictEqual({
 			id: result.id,
 			specifications: result.specifications.map(specification => [specification.source, specification.role, specification.content.split('\n')[0]]),

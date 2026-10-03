@@ -150,6 +150,16 @@ export default defineConfig(
 			]
 		},
 	},
+	// Primitive App Editor original tooling is not Code OSS source and does not
+	// carry the Microsoft copyright header.
+	{
+		files: [
+			'tools/primitive-app-editor/**',
+		],
+		rules: {
+			'header/header': 'off',
+		},
+	},
 	// Disallow bracket notation for property names that can use dot notation.
 	{
 		files: [
