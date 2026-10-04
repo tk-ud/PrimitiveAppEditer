@@ -52,15 +52,59 @@ export class EditorDdlError extends Error {
 
 const resourceNamePattern = /^(\d{3})_[a-z][a-z0-9]*(?:_[a-z0-9]+)*\.sql$/;
 
+/** Keywords that start a transaction control statement. */
+const transactionControlKeywords: ReadonlySet<string> = new Set(['BEGIN', 'COMMIT', 'END', 'ROLLBACK', 'SAVEPOINT', 'RELEASE']);
+
+/**
+ * Leading keyword of every top-level statement in `sql`. Comments and quoted strings /
+ * identifiers are ignored, and a `CREATE TRIGGER ... BEGIN ... END` body belongs to its
+ * trigger statement, so its `BEGIN` / `END` are not statements of their own.
+ */
+function topLevelStatementKeywords(sql: string): readonly string[] {
+	const tokens = sql
+		.replace(/--[^\n]*|\/\*[\s\S]*?\*\/|'(?:[^']|'')*'|"(?:[^"]|"")*"|`(?:[^`]|``)*`|\[[^\]]*\]/g, ' ')
+		.match(/[A-Za-z_][A-Za-z0-9_$]*|;/g) ?? [];
+	const keywords: string[] = [];
+	let statement: string[] = [];
+	let inTriggerBody = false;
+	let atBodyStatementStart = false;
+	for (const token of tokens) {
+		const word = token.toUpperCase();
+		if (inTriggerBody) {
+			if (word === ';') {
+				atBodyStatementStart = true;
+				continue;
+			}
+			if (atBodyStatementStart && word === 'END') {
+				inTriggerBody = false;
+			}
+			atBodyStatementStart = false;
+			continue;
+		}
+		if (word === ';') {
+			statement = [];
+			continue;
+		}
+		if (!statement.length) {
+			keywords.push(word);
+		}
+		statement.push(word);
+		if (word === 'BEGIN' && statement[0] === 'CREATE' && (statement[1] === 'TRIGGER' || statement[2] === 'TRIGGER')) {
+			inTriggerBody = true;
+			atBodyStatementStart = true;
+		}
+	}
+	return keywords;
+}
+
 /**
  * Statements a built-in resource must not contain: the migration runner owns the SQLite
- * transaction, DB triggers are not used, and the SQLite schema feature is not used
- * (logical namespaces are flat `<schema>__<table>` names).
+ * transaction, and the SQLite schema feature is not used (logical namespaces are flat
+ * `<schema>__<table>` names).
  */
-const forbiddenStatements: readonly { readonly pattern: RegExp; readonly reason: string }[] = Object.freeze([
-	{ pattern: /\bCREATE\s+(TEMP\s+|TEMPORARY\s+)?TRIGGER\b/i, reason: 'DB Trigger is not used' },
-	{ pattern: /\b(BEGIN|COMMIT|ROLLBACK|END\s+TRANSACTION|SAVEPOINT|RELEASE)\b/i, reason: 'transaction control is owned by Migration Apply' },
-	{ pattern: /\b(ATTACH|DETACH)\b/i, reason: 'the SQLite schema feature is not used' },
+const forbiddenStatements: readonly { readonly test: (sql: string) => boolean; readonly reason: string }[] = Object.freeze([
+	{ test: (sql: string) => topLevelStatementKeywords(sql).some(keyword => transactionControlKeywords.has(keyword)), reason: 'transaction control is owned by Migration Apply' },
+	{ test: (sql: string) => /\b(ATTACH|DETACH)\b/i.test(sql), reason: 'the SQLite schema feature is not used' },
 ]);
 
 export function computeEditorDdlChecksum(sql: string): string {
@@ -83,8 +127,8 @@ export function scanEditorDdlResources(resources: readonly IEditorDdlResource[])
 		if (!resource.sql.trim()) {
 			throw new EditorDdlError(`Editor DDL resource '${resource.name}' is empty`);
 		}
-		for (const { pattern, reason } of forbiddenStatements) {
-			if (pattern.test(resource.sql)) {
+		for (const { test, reason } of forbiddenStatements) {
+			if (test(resource.sql)) {
 				throw new EditorDdlError(`Editor DDL resource '${resource.name}' is rejected: ${reason}`);
 			}
 		}

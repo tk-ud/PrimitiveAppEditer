@@ -47,7 +47,13 @@ suite('Primitive App Editor - Editor DDL (5. Editor DDL)', () => {
 		assert.throws(() => scanEditorDdlResources([{ name: '001_a.sql', sql: ddl }, { name: '001_b.sql', sql: ddl }]), /contiguous/);
 		assert.throws(() => scanEditorDdlResources([{ name: '001_project.sql', sql: '  \n' }]), /empty/);
 		assert.throws(() => scanEditorDdlResources([{ name: '001_project.sql', sql: `BEGIN; ${ddl}; COMMIT;` }]), /transaction control/);
-		assert.throws(() => scanEditorDdlResources([{ name: '001_project.sql', sql: 'CREATE TRIGGER t AFTER INSERT ON x BEGIN SELECT 1; END' }]), /DB Trigger/);
+		assert.throws(() => scanEditorDdlResources([{ name: '001_project.sql', sql: `${ddl};\nend transaction;` }]), /transaction control/);
+		assert.throws(() => scanEditorDdlResources([{ name: '001_project.sql', sql: `SAVEPOINT s; ${ddl}; RELEASE s;` }]), /transaction control/);
+		assert.throws(() => scanEditorDdlResources([{ name: '001_project.sql', sql: `${ddl}; ROLLBACK` }]), /transaction control/);
+		// DB Trigger restriction is a Registry DDL contract (registry.service), not a Built-in DDL rule:
+		// a trigger body's BEGIN / END is not transaction control.
+		assert.strictEqual(scanEditorDdlResources([{ name: '001_project.sql', sql: `${ddl}; CREATE TEMP TRIGGER t AFTER INSERT ON "x" BEGIN SELECT CASE WHEN 1 THEN 'begin' END; SELECT 2; END; CREATE TABLE "y" ("a" TEXT);` }]).length, 1);
+		assert.throws(() => scanEditorDdlResources([{ name: '001_project.sql', sql: `CREATE TRIGGER t AFTER INSERT ON "x" BEGIN SELECT 1; END; COMMIT;` }]), /transaction control/);
 		assert.throws(() => scanEditorDdlResources([{ name: '001_project.sql', sql: `ATTACH DATABASE 'a' AS items` }]), /schema feature/);
 	});
 
