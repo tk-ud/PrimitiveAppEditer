@@ -9,13 +9,11 @@ import { URI } from '../../../../base/common/uri.js';
 import { Artifact, assertBoundaryFlow, AuthorityConcern, AuthoritySource, BoundaryNode, isAuthorityFor } from './authority.js';
 import {
 	ISaveDataCurrent,
-	ISaveDataTable,
 	ISaveDataWrite,
 	ISaveEvent,
 	logsSaveDataTable,
 	registryCurrentTable,
 	registryCurrentUpsertConflictTarget,
-	SaveDataColumnType,
 	SaveDataJson,
 	upsertSaveDataCurrent,
 } from './persistenceBoundary.js';
@@ -27,10 +25,10 @@ import { IProjectOpenContext, IProjectOpenSteps, ProjectOpenMode } from './proje
  * This module owns the `project.sqlite` storage: its role and content areas, the logical
  * namespaces (independent of the SQLite schema feature), physical table name resolution for
  * Core storage tables, the database contract used by every service writing to `project.sqlite`,
- * the `Create` / `Open` storage steps of the project `Open` lifecycle, and the physical
- * Runtime Save Data tables (`registry.current`, `logs.savedata`) with their UPSERT / Save Event
- * primitives. Editor DDL, schema versions, migrations and Registry contents are owned by later
- * services that use this storage.
+ * the `Create` / `Open` storage steps of the project `Open` lifecycle (create / open only), and
+ * the Runtime Save Data (`registry.current`, `logs.savedata`) physical names with their UPSERT /
+ * Save Event primitives. Editor DDL (including the Save Data tables), schema versions, migrations
+ * and Registry contents are owned by later services that use this storage.
  */
 
 // #region 4. SQLite
@@ -190,43 +188,8 @@ export class ProjectSqliteError extends Error {
 
 // #region Runtime Save Data storage (32. Persistence Boundary)
 
-function physicalTableName(table: ISaveDataTable, resolver: IPhysicalTableNameResolver): string {
-	return resolver.resolve(table.schema, table.table);
-}
-
 export const registryCurrentPhysicalTable = corePhysicalTableNameResolver.resolve(registryCurrentTable.schema, registryCurrentTable.table);
 export const logsSaveDataPhysicalTable = corePhysicalTableNameResolver.resolve(logsSaveDataTable.schema, logsSaveDataTable.table);
-
-/**
- * `CREATE TABLE` for a Runtime Save Data contract. `uuid` is the Machine Identity primary key,
- * contract `unique` columns are `UNIQUE`, json columns must hold valid JSON. Logical references
- * (`saveId -> logs.savedata.uuid`) are not turned into physical foreign keys.
- */
-export function createSaveDataTableDdl(table: ISaveDataTable, resolver: IPhysicalTableNameResolver = corePhysicalTableNameResolver): string {
-	const columns = table.columns.map(column => {
-		const name = quoteIdentifier(column.name);
-		const constraints = ['TEXT', 'NOT NULL'];
-		if (column.name === 'uuid') {
-			constraints.push('PRIMARY KEY');
-		} else if (table.unique.includes(column.name)) {
-			constraints.push('UNIQUE');
-		}
-		if (column.type === SaveDataColumnType.Json) {
-			constraints.push(`CHECK (json_valid(${name}))`);
-		}
-		return `${name} ${constraints.join(' ')}`;
-	});
-	return `CREATE TABLE IF NOT EXISTS ${quoteIdentifier(physicalTableName(table, resolver))} (${columns.join(', ')})`;
-}
-
-export const saveDataStorageTables: readonly ISaveDataTable[] = Object.freeze([logsSaveDataTable, registryCurrentTable]);
-
-/** Creates the physical `logs.savedata` and `registry.current` tables when missing. */
-export async function ensureSaveDataStorage(database: IProjectSqliteStatements): Promise<void> {
-	for (const table of saveDataStorageTables) {
-		await database.exec(createSaveDataTableDdl(table));
-	}
-}
 
 /** Physical tables present in `project.sqlite`. */
 export async function listPhysicalTables(database: IProjectSqliteStatements): Promise<readonly string[]> {
@@ -300,8 +263,9 @@ export async function upsertSaveDataCurrentRow(database: IProjectSqliteStatement
 
 /**
  * The `Create` / `Open` steps of the project `Open` lifecycle: `project.sqlite exists?` decides
- * the mode, `Create` creates the file and `Open` opens it. Both leave the Core storage tables
- * in place and keep the database open for the following steps.
+ * the mode, `Create` creates the file and `Open` opens it. Both only create / open the database
+ * and keep it open for the following steps; no DDL is applied here. Editor fixed-schema DDL
+ * (including the Runtime Save Data tables) is applied by `Editor DDL Scan` / `Migration Apply`.
  */
 export class ProjectSqliteStorage implements Required<Pick<IProjectOpenSteps, 'createStorage' | 'openStorage'>> {
 
@@ -351,14 +315,7 @@ export class ProjectSqliteStorage implements Required<Pick<IProjectOpenSteps, 'c
 		if (this._database) {
 			throw new ProjectSqliteError(`project.sqlite is already open: ${this._database.resource.toString()}`, resource);
 		}
-		const database = await this.factory.open(resource, mode);
-		try {
-			await database.transaction(statements => ensureSaveDataStorage(statements));
-		} catch (error) {
-			await database.close();
-			throw error;
-		}
-		this._database = database;
+		this._database = await this.factory.open(resource, mode);
 	}
 }
 

@@ -7,12 +7,10 @@ import assert from 'assert';
 import { URI } from '../../../../../base/common/uri.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { AuthorityBoundaryError } from '../../common/authority.js';
-import { logsSaveDataTable, registryCurrentTable } from '../../common/persistenceBoundary.js';
 import { IProjectOpenContext, ProjectOpenMode, resolveProjectPaths } from '../../common/projectDirectory.js';
 import {
 	assertProjectSqliteAccess,
 	corePhysicalTableNameResolver,
-	createSaveDataTableDdl,
 	IProjectSqliteDatabase,
 	IProjectSqliteDatabaseFactory,
 	IProjectSqliteStatements,
@@ -34,11 +32,8 @@ import {
 class RecordingDatabase implements IProjectSqliteDatabase {
 	readonly executed: string[] = [];
 	closed = false;
-	constructor(readonly resource: URI, private readonly failOn?: string) { }
+	constructor(readonly resource: URI) { }
 	async exec(sql: string): Promise<void> {
-		if (this.failOn && sql.includes(this.failOn)) {
-			throw new Error('exec failed');
-		}
 		this.executed.push(sql);
 	}
 	async run() { return { changes: 0 }; }
@@ -50,9 +45,8 @@ class RecordingDatabase implements IProjectSqliteDatabase {
 
 class RecordingFactory implements IProjectSqliteDatabaseFactory {
 	readonly opened: { resource: URI; mode: ProjectSqliteOpenMode; database: RecordingDatabase }[] = [];
-	constructor(private readonly failOn?: string) { }
 	async open(resource: URI, mode: ProjectSqliteOpenMode): Promise<IProjectSqliteDatabase> {
-		const database = new RecordingDatabase(resource, this.failOn);
+		const database = new RecordingDatabase(resource);
 		this.opened.push({ resource, mode, database });
 		return database;
 	}
@@ -103,37 +97,31 @@ suite('Primitive App Editor - project.sqlite (4. SQLite)', () => {
 			assert.throws(() => corePhysicalTableNameResolver.resolve(schema, table), ProjectSqliteNameError);
 		}
 	});
-
-	test('Runtime Save Data DDL: uuid primary key, UNIQUE key, JSON data, no physical foreign key', () => {
-		const current = createSaveDataTableDdl(registryCurrentTable);
-		assert.strictEqual(current, 'CREATE TABLE IF NOT EXISTS "registry__current" ("uuid" TEXT NOT NULL PRIMARY KEY, "saveId" TEXT NOT NULL, "key" TEXT NOT NULL UNIQUE, "data" TEXT NOT NULL CHECK (json_valid("data")))');
-		assert.ok(!/REFERENCES|FOREIGN KEY/i.test(current));
-		assert.strictEqual(createSaveDataTableDdl(logsSaveDataTable), 'CREATE TABLE IF NOT EXISTS "logs__savedata" ("uuid" TEXT NOT NULL PRIMARY KEY, "timestamptz" TEXT NOT NULL)');
-	});
 });
 
 suite('Primitive App Editor - project.sqlite Create / Open steps', () => {
 	ensureNoDisposablesAreLeakedInTestSuite();
 
-	test('Create opens project.sqlite in create mode and creates the Save Data tables', async () => {
+	test('Create only creates project.sqlite: no DDL is applied in the Create phase', async () => {
 		const factory = new RecordingFactory();
 		const storage = new ProjectSqliteStorage(factory);
 		await storage.createStorage(openContext(ProjectOpenMode.Create));
 		assert.strictEqual(factory.opened.length, 1);
 		assert.strictEqual(factory.opened[0].mode, ProjectSqliteOpenMode.Create);
 		assert.strictEqual(factory.opened[0].resource.path, '/work/game/project.sqlite');
-		assert.deepStrictEqual(factory.opened[0].database.executed, [createSaveDataTableDdl(logsSaveDataTable), createSaveDataTableDdl(registryCurrentTable)]);
+		assert.deepStrictEqual(factory.opened[0].database.executed, []);
 		assert.strictEqual(storage.database, factory.opened[0].database);
 		await storage.close();
 		assert.ok(factory.opened[0].database.closed);
 		assert.throws(() => storage.database, ProjectSqliteError);
 	});
 
-	test('Open opens project.sqlite in open mode', async () => {
+	test('Open only opens project.sqlite: no DDL is applied in the Open phase', async () => {
 		const factory = new RecordingFactory();
 		const storage = new ProjectSqliteStorage(factory);
 		await storage.openStorage(openContext(ProjectOpenMode.Open));
 		assert.strictEqual(factory.opened[0].mode, ProjectSqliteOpenMode.Open);
+		assert.deepStrictEqual(factory.opened[0].database.executed, []);
 		assert.ok(storage.isOpen);
 		await assert.rejects(storage.openStorage(openContext(ProjectOpenMode.Open)), ProjectSqliteError);
 		await storage.close();
@@ -146,11 +134,9 @@ suite('Primitive App Editor - project.sqlite Create / Open steps', () => {
 		assert.ok(!storage.isOpen);
 	});
 
-	test('a failing storage DDL closes the database and leaves the storage closed', async () => {
-		const factory = new RecordingFactory('registry__current');
-		const storage = new ProjectSqliteStorage(factory);
-		await assert.rejects(storage.createStorage(openContext(ProjectOpenMode.Create)), /exec failed/);
-		assert.ok(factory.opened[0].database.closed);
+	test('a failing open leaves the storage closed', async () => {
+		const storage = new ProjectSqliteStorage({ open: () => Promise.reject(new ProjectSqliteError('open failed', undefined)) });
+		await assert.rejects(storage.createStorage(openContext(ProjectOpenMode.Create)), /open failed/);
 		assert.ok(!storage.isOpen);
 	});
 });

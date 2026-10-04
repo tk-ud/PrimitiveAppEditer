@@ -29,6 +29,15 @@ import {
 } from '../../common/projectSqlite.js';
 import { ProjectSqliteDatabaseFactory } from '../../node/projectSqliteDatabase.js';
 
+/**
+ * Test fixture standing in for the Editor DDL step (foundation.editor-ddl), which owns the
+ * Runtime Save Data table DDL. foundation.sqlite Create / Open never apply it.
+ */
+const saveDataFixtureDdl = [
+	'CREATE TABLE "logs__savedata" ("uuid" TEXT NOT NULL PRIMARY KEY, "timestamptz" TEXT NOT NULL)',
+	'CREATE TABLE "registry__current" ("uuid" TEXT NOT NULL PRIMARY KEY, "saveId" TEXT NOT NULL, "key" TEXT NOT NULL UNIQUE, "data" TEXT NOT NULL CHECK (json_valid("data")))',
+];
+
 suite('Primitive App Editor - project.sqlite on disk', () => {
 	const disposables = new DisposableStore();
 	let fileService: FileService;
@@ -52,12 +61,12 @@ suite('Primitive App Editor - project.sqlite on disk', () => {
 
 	ensureNoDisposablesAreLeakedInTestSuite();
 
-	function openSteps(storage: ProjectSqliteStorage): IProjectOpenSteps {
+	function openSteps(storage: ProjectSqliteStorage, editorDdlScan: () => Promise<void> = async () => { }): IProjectOpenSteps {
 		const done = async () => { };
 		return {
 			createStorage: context => storage.createStorage(context),
 			openStorage: context => storage.openStorage(context),
-			editorDdlScan: done,
+			editorDdlScan,
 			schemaVersionResolve: done,
 			migrationApply: done,
 			registryLoad: done,
@@ -66,22 +75,34 @@ suite('Primitive App Editor - project.sqlite on disk', () => {
 		};
 	}
 
+	/** Open steps whose Editor DDL Scan applies {@link saveDataFixtureDdl} once, on Create. */
+	function openStepsWithSaveData(storage: ProjectSqliteStorage): IProjectOpenSteps {
+		return openSteps(storage, async () => {
+			if ((await listPhysicalTables(storage.database)).length === 0) {
+				await storage.database.transaction(async tx => {
+					for (const ddl of saveDataFixtureDdl) {
+						await tx.exec(ddl);
+					}
+				});
+			}
+		});
+	}
+
 	function newStorage(): ProjectSqliteStorage {
 		const storage = new ProjectSqliteStorage(factory);
 		storages.push(storage);
 		return storage;
 	}
 
-	test('project Open lifecycle: Create creates project.sqlite, the next open is Open', async () => {
+	test('project Open lifecycle: Create only creates project.sqlite, the next open is Open; neither applies DDL', async () => {
 		const created = newStorage();
 		const first = await openProjectDirectory(fileService, root, openSteps(created));
 		assert.strictEqual(first.status, ProjectOpenStatus.Ready);
 		assert.strictEqual(first.mode, ProjectOpenMode.Create);
 		assert.strictEqual(first.phases[2], ProjectOpenPhase.Create);
 		assert.ok((await fs.stat(join(root.fsPath, 'project.sqlite'))).isFile());
-		assert.deepStrictEqual(await listPhysicalTables(created.database), ['logs__savedata', 'registry__current']);
-		// Static / Initial data is never duplicated into registry.current automatically.
-		assert.deepStrictEqual(await listSaveDataCurrent(created.database), []);
+		// Create does not apply Editor fixed-schema DDL (owned by Editor DDL Scan / Migration Apply).
+		assert.deepStrictEqual(await listPhysicalTables(created.database), []);
 		await created.close();
 
 		const reopened = newStorage();
@@ -89,12 +110,26 @@ suite('Primitive App Editor - project.sqlite on disk', () => {
 		assert.strictEqual(second.status, ProjectOpenStatus.Ready);
 		assert.strictEqual(second.mode, ProjectOpenMode.Open);
 		assert.strictEqual(second.phases[2], ProjectOpenPhase.Open);
+		assert.deepStrictEqual(await listPhysicalTables(reopened.database), []);
+	});
+
+	test('Create / Open leave tables created by Editor DDL Scan untouched', async () => {
+		const created = newStorage();
+		await openProjectDirectory(fileService, root, openStepsWithSaveData(created));
+		assert.deepStrictEqual(await listPhysicalTables(created.database), ['logs__savedata', 'registry__current']);
+		// Static / Initial data is never duplicated into registry.current automatically.
+		assert.deepStrictEqual(await listSaveDataCurrent(created.database), []);
+		await created.close();
+
+		const reopened = newStorage();
+		const result = await openProjectDirectory(fileService, root, openSteps(reopened));
+		assert.strictEqual(result.mode, ProjectOpenMode.Open);
 		assert.deepStrictEqual(await listPhysicalTables(reopened.database), ['logs__savedata', 'registry__current']);
 	});
 
 	test('registry.current UPSERT on key keeps uuid and moves saveId (player.hp Save-A -> Save-B), persisted across reopen', async () => {
 		const storage = newStorage();
-		await openProjectDirectory(fileService, root, openSteps(storage));
+		await openProjectDirectory(fileService, root, openStepsWithSaveData(storage));
 		const db = storage.database;
 
 		const saveA = createSaveEvent(generateUuid(), new Date('2026-01-01T00:00:00Z'));
@@ -113,7 +148,7 @@ suite('Primitive App Editor - project.sqlite on disk', () => {
 
 		await storage.close();
 		const reopened = newStorage();
-		await openProjectDirectory(fileService, root, openSteps(reopened));
+		await openProjectDirectory(fileService, root, openStepsWithSaveData(reopened));
 		const rows = await listSaveDataCurrent(reopened.database);
 		assert.deepStrictEqual(rows, [{ uuid: before.uuid, key: 'player.hp', saveId: saveB.uuid, data: { value: 80 } }]);
 		// logs.savedata holds Save Events only (no payload), one per save.
@@ -126,7 +161,7 @@ suite('Primitive App Editor - project.sqlite on disk', () => {
 
 	test('key is UNIQUE and the only conflict target; saveId must name a Save Event', async () => {
 		const storage = newStorage();
-		await openProjectDirectory(fileService, root, openSteps(storage));
+		await openProjectDirectory(fileService, root, openStepsWithSaveData(storage));
 		const db = storage.database;
 		const save = createSaveEvent(generateUuid(), new Date());
 
@@ -146,7 +181,7 @@ suite('Primitive App Editor - project.sqlite on disk', () => {
 
 	test('a failing save rolls back the Save Event and the current mutation', async () => {
 		const storage = newStorage();
-		await openProjectDirectory(fileService, root, openSteps(storage));
+		await openProjectDirectory(fileService, root, openStepsWithSaveData(storage));
 		const db = storage.database;
 		const save = createSaveEvent(generateUuid(), new Date());
 
