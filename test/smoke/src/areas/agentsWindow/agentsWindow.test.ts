@@ -208,10 +208,17 @@ export function setup(logger: Logger, quality: Quality) {
 	});
 
 	const runDevContainerSuite = quality !== Quality.Exploration;
+	// The Dev Container fixture (prepareDevContainerWorkspace) installs the latest Insiders CLI
+	// from update.code.visualstudio.com at test time, so these suites track an external moving
+	// target instead of the checked-out build. CI that pins its own baseline opts out explicitly.
+	const skipLatestInsidersDevContainer = process.env.VSCODE_SMOKE_TEST_SKIP_LATEST_INSIDERS_DEV_CONTAINER === '1';
+	const skipLatestInsidersDevContainerReason = 'VSCODE_SMOKE_TEST_SKIP_LATEST_INSIDERS_DEV_CONTAINER=1 (fixture depends on the latest Insiders CLI)';
 	if (!runDevContainerSuite) {
 		logger.log('Skipping Agents Window (Dev Container AgentHost) on Exploration builds');
+	} else if (skipLatestInsidersDevContainer) {
+		logger.log(`Skipping Agents Window (Dev Container AgentHost): ${skipLatestInsidersDevContainerReason}`);
 	}
-	(runDevContainerSuite ? describe : describe.skip)('Agents Window (Dev Container AgentHost)', () => {
+	(runDevContainerSuite && !skipLatestInsidersDevContainer ? describe : describe.skip)('Agents Window (Dev Container AgentHost)', () => {
 		installDockerPrerequisite(logger, process.platform === 'linux');
 
 		const devContainer = setupAgentHostSuite(logger, {
@@ -298,9 +305,10 @@ export function setup(logger: Logger, quality: Quality) {
 		const required = transport === 'wsl' && process.env.VSCODE_SMOKE_TEST_WSL_REQUIRED === '1';
 		const supportedPlatform = transport === 'wsl' ? process.platform === 'win32' : process.platform !== 'win32' && (!isCI || process.platform === 'linux');
 		const requested = transport === 'ssh' || (transport === 'wsl' ? !!process.env.VSCODE_SMOKE_TEST_WSL_DISTRO : !!process.env.VSCODE_SMOKE_TEST_TUNNEL_TOKEN);
-		const enabled = runDevContainerSuite && (required || (supportedPlatform && requested));
+		const skippedLatestInsiders = transport === 'ssh' && skipLatestInsidersDevContainer;
+		const enabled = runDevContainerSuite && !skippedLatestInsiders && (required || (supportedPlatform && requested));
 		if (!enabled) {
-			logger.log(`Skipping Agents Window (${label} Dev Container AgentHost): ${!runDevContainerSuite ? 'not supported on Exploration builds' : !supportedPlatform ? 'unsupported platform' : transport === 'wsl' ? 'set VSCODE_SMOKE_TEST_WSL_DISTRO to enable the WSL fixture' : 'set VSCODE_SMOKE_TEST_TUNNEL_TOKEN to enable the real tunnel fixture'}`);
+			logger.log(`Skipping Agents Window (${label} Dev Container AgentHost): ${!runDevContainerSuite ? 'not supported on Exploration builds' : skippedLatestInsiders ? skipLatestInsidersDevContainerReason : !supportedPlatform ? 'unsupported platform' : transport === 'wsl' ? 'set VSCODE_SMOKE_TEST_WSL_DISTRO to enable the WSL fixture' : 'set VSCODE_SMOKE_TEST_TUNNEL_TOKEN to enable the real tunnel fixture'}`);
 		}
 		(enabled ? describe : describe.skip)(`Agents Window (${label} Dev Container AgentHost)`, () => {
 			if (transport !== 'wsl') {

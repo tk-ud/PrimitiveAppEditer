@@ -417,6 +417,9 @@ jobs:
         env:
           DISPLAY: ":10"
           VSCODE_SMOKE_TEST_POLICY: '1'
+          # Agents Window (Dev Container / SSH Dev Container AgentHost) install the latest
+          # Insiders CLI at test time; not part of the Primitive App Editor CI baseline.
+          VSCODE_SMOKE_TEST_SKIP_LATEST_INSIDERS_DEV_CONTAINER: '1'
 
       - name: Clean up native policy smoke fixture
         if: ${{ always() && steps.policy-fixture.outputs.created == 'true' }}
