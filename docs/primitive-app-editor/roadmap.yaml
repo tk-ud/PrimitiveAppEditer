@@ -95,7 +95,7 @@ section:
               - "Status"
         depends_on:
           - "tooling.roadmap-agent"
-        status: "implemented"
+        status: "partial"
         evidence:
           - "Code OSS snapshot baseline is established from revision 2be8d96dfdb."
           - "Private-repository checkout permission for Monaco Editor checks was corrected in commit e31a0e1725c by granting contents: read."
@@ -107,9 +107,8 @@ section:
           - "Required integration fix (commit e3c26d06): retained eslint exposed 16 problems in tools/primitive-app-editor/roadmap-mcp (tooling.roadmap-agent); exempted tools/primitive-app-editor/** from the Microsoft header/header rule in eslint.config.js and replaced `in` narrowing in roadmap-mcp tests with an isSelected() guard; roadmap-mcp npm test 16/16 pass; full-repo eslint and hygiene pass locally."
           - "actionlint v1.7.7 reports no errors on the retained workflows."
           - "PR #17 CI on e3c26d06 is green on GitHub-hosted runners: Code OSS (Compile & Hygiene + Linux Electron-Unit / Electron / Electron-Smoke / Browser / Remote), Monaco Editor checks, Component Fixtures, CodeQL."
-          - "Main push CI after PR #17 merge (a7e8a240) is green on GitHub-hosted runners: Code OSS run 37104427250, Component Fixtures run 37104427140, Monaco Editor checks run 37104427133, CodeQL run 37104427135."
-          - "Push-only paths verified in Code OSS run 37104427250: Save node_modules cache succeeded in Compile & Hygiene and Linux / Electron-Unit; built-in extensions cache saved (Post Restore built-in extensions cache); Check Codex protocol client is in sync succeeded with github.event.before; Detect Agent Host E2E changes skipped on push and Linux / Electron integration tests ran and passed."
-        remaining: []
+        remaining:
+          - "Verify the first push-triggered Code OSS / Component Fixtures / CodeQL / Monaco runs on main after PR #17 merges (push-only paths: node_modules and built-in extension cache seeding, Codex sync base via github.event.before, Agent Host E2E detection skipped on push)."
 
   - name: "Foundation"
     bundle:
