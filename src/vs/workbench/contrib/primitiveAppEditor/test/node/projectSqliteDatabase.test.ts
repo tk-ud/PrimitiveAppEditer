@@ -14,6 +14,8 @@ import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/tes
 import { FileService } from '../../../../../platform/files/common/fileService.js';
 import { DiskFileSystemProvider } from '../../../../../platform/files/node/diskFileSystemProvider.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
+import { EditorDdlMigrator } from '../../common/editorDdl.js';
+import { editorDdlResources } from '../../common/editorDdlResources.js';
 import { createSaveEvent } from '../../common/persistenceBoundary.js';
 import { IProjectOpenSteps, openProjectDirectory, ProjectOpenMode, ProjectOpenPhase, ProjectOpenStatus } from '../../common/projectDirectory.js';
 import {
@@ -28,15 +30,6 @@ import {
 	upsertSaveDataCurrentRow,
 } from '../../common/projectSqlite.js';
 import { ProjectSqliteDatabaseFactory } from '../../node/projectSqliteDatabase.js';
-
-/**
- * Test fixture standing in for the Editor DDL step (foundation.editor-ddl), which owns the
- * Runtime Save Data table DDL. foundation.sqlite Create / Open never apply it.
- */
-const saveDataFixtureDdl = [
-	'CREATE TABLE "logs__savedata" ("uuid" TEXT NOT NULL PRIMARY KEY, "timestamptz" TEXT NOT NULL)',
-	'CREATE TABLE "registry__current" ("uuid" TEXT NOT NULL PRIMARY KEY, "saveId" TEXT NOT NULL, "key" TEXT NOT NULL UNIQUE, "data" TEXT NOT NULL CHECK (json_valid("data")))',
-];
 
 suite('Primitive App Editor - project.sqlite on disk', () => {
 	const disposables = new DisposableStore();
@@ -75,17 +68,15 @@ suite('Primitive App Editor - project.sqlite on disk', () => {
 		};
 	}
 
-	/** Open steps whose Editor DDL Scan applies {@link saveDataFixtureDdl} once, on Create. */
+	/** Open steps with the built-in Editor DDL (foundation.editor-ddl), which creates the Runtime Save Data tables. */
 	function openStepsWithSaveData(storage: ProjectSqliteStorage): IProjectOpenSteps {
-		return openSteps(storage, async () => {
-			if ((await listPhysicalTables(storage.database)).length === 0) {
-				await storage.database.transaction(async tx => {
-					for (const ddl of saveDataFixtureDdl) {
-						await tx.exec(ddl);
-					}
-				});
-			}
-		});
+		const migrator = new EditorDdlMigrator(storage, editorDdlResources);
+		return {
+			...openSteps(storage),
+			editorDdlScan: context => migrator.editorDdlScan(context),
+			schemaVersionResolve: context => migrator.schemaVersionResolve(context),
+			migrationApply: context => migrator.migrationApply(context),
+		};
 	}
 
 	function newStorage(): ProjectSqliteStorage {
@@ -113,10 +104,10 @@ suite('Primitive App Editor - project.sqlite on disk', () => {
 		assert.deepStrictEqual(await listPhysicalTables(reopened.database), []);
 	});
 
-	test('Create / Open leave tables created by Editor DDL Scan untouched', async () => {
+	test('Create / Open leave tables created by Editor DDL / Migration Apply untouched', async () => {
 		const created = newStorage();
 		await openProjectDirectory(fileService, root, openStepsWithSaveData(created));
-		assert.deepStrictEqual(await listPhysicalTables(created.database), ['logs__savedata', 'registry__current']);
+		assert.deepStrictEqual(await listPhysicalTables(created.database), ['editor__schema_version', 'logs__savedata', 'registry__current']);
 		// Static / Initial data is never duplicated into registry.current automatically.
 		assert.deepStrictEqual(await listSaveDataCurrent(created.database), []);
 		await created.close();
@@ -124,7 +115,7 @@ suite('Primitive App Editor - project.sqlite on disk', () => {
 		const reopened = newStorage();
 		const result = await openProjectDirectory(fileService, root, openSteps(reopened));
 		assert.strictEqual(result.mode, ProjectOpenMode.Open);
-		assert.deepStrictEqual(await listPhysicalTables(reopened.database), ['logs__savedata', 'registry__current']);
+		assert.deepStrictEqual(await listPhysicalTables(reopened.database), ['editor__schema_version', 'logs__savedata', 'registry__current']);
 	});
 
 	test('registry.current UPSERT on key keeps uuid and moves saveId (player.hp Save-A -> Save-B), persisted across reopen', async () => {
