@@ -221,8 +221,16 @@ section:
               - "§7 Rename"
         depends_on:
           - "foundation.editor-ddl"
-        status: "not started"
-        evidence: []
+        status: "implemented"
+        evidence:
+          - "src/vs/workbench/contrib/primitiveAppEditor/common/registryIdentity.ts encodes §7 UUID Identity: IRegistryIdentity {uuid = Machine Identity, name = Human Identifier, label? = Human Display}; isRegistryUuid / normalizeRegistryUuid (UUID validation, lower-case storage form); RegistryIdentityError."
+          - "§7 Generate: ensureRegistryIdentity implements Registry INSERT -> UUID missing? -> Generate (vs/base/common/uuid generateUuid, injectable) / present -> Keep (validated, never regenerated); IRegistryIdentityInput has an optional uuid so Seed never requires UUID hand entry; prepareRegistryInsert prepares Seed / INSERT rows (generate missing, keep supplied, extra row fields preserved) and rejects only a duplicate uuid against the batch and existing entries."
+          - "§7 Rename: diffRegistryIdentities pairs OLD / NEW entries by Machine Identity only -> uuid same: Rename (name changed) / Relabel (display only) / Keep; uuid different: Delete + Add even when the name is identical; renameRegistryIdentity keeps the uuid and changes only the name."
+          - "Storage = UUID / Editor Display = name / label: getRegistryDisplayText (label, else name, never UUID) and RegistryIdentityIndex keyed by UUID only (get: UUID -> identity, display: UUID -> label / name; duplicate uuid rejected), so a rename does not rewrite what is stored. Runtime UUID -> Memory Address resolve is left to Runtime Addressing (boundary only; the module guarantees a stable UUID per entry)."
+          - "Audit fix: §7 defines neither name uniqueness nor a name -> UUID reverse lookup, so prepareRegistryInsert no longer rejects duplicate names and RegistryIdentityIndex no longer indexes or resolves by name (resolveName removed); duplicate uuid rejection, Generate / Keep, Rename / Delete + Add and Editor Display behavior are unchanged."
+          - "Tests: src/vs/workbench/contrib/primitiveAppEditor/test/common/registryIdentity.test.ts (7 tests: generate vs keep, validation, Seed without UUID + duplicate uuid rejected while duplicate names are accepted (in batch and against existing), fatigue -> tiredness rename with uuid A kept, same-name different-uuid -> delete + add, diff pairing by uuid incl. relabel / name swap / duplicate uuid rejection, UUID -> identity / display across a rename and for two identities sharing a name)."
+          - "Verification: TypeScript 6 (@typescript/typescript6, repo src/tsconfig.base.json strict settings) compile of registryIdentity.ts + tests reports 0 errors in primitiveAppEditor; mocha --ui tdd on the compiled primitiveAppEditor common tests -> 12 passing (registryIdentity 7 + persistenceBoundary 5). PR #23 CI on the pre-audit head 26a24a61 was green on all 13 checks (incl. Compile & Hygiene)."
+          - "No earlier producer bundle required an integration fix: foundation.editor-ddl / foundation.sqlite / persistenceBoundary are unchanged; table_registry storage and Registry Service mutation remain owned by registry.table / registry.service."
         remaining: []
 
       - id: "registry.table"
