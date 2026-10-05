@@ -234,7 +234,7 @@ section:
         remaining: []
 
       - id: "registry.table"
-        title: "table_registry contract (+ table_registry Registry Load primitive)"
+        title: "table_registry contract"
         reference:
           - source: "./App Editer.md"
             role: "implementation"
@@ -294,7 +294,7 @@ section:
         remaining: []
 
       - id: "registry.enum"
-        title: "enum_registry (+ enum_registry Registry Load primitive)"
+        title: "enum_registry"
         reference:
           - source: "./App Editer.md"
             role: "implementation"
@@ -313,7 +313,7 @@ section:
         remaining: []
 
       - id: "registry.relation"
-        title: "relation_registry and logical join resolution (+ relation_registry Registry Load primitive)"
+        title: "relation_registry and logical join resolution"
         reference:
           - source: "./App Editer.md"
             role: "implementation"
@@ -366,7 +366,7 @@ section:
   - name: "Function Definition"
     bundle:
       - id: "function.registry"
-        title: "function_registry (+ function_registry Registry Load primitive)"
+        title: "function_registry"
         reference:
           - source: "./App Editer.md"
             role: "implementation"
@@ -561,7 +561,6 @@ section:
           - source: "./App Editer.md"
             role: "implementation"
             sections:
-              - "§22 Function Runtime"
               - "§22 Execute"
               - "§22 Loop"
           - source: "./App Editer.md"
@@ -578,18 +577,18 @@ section:
   - name: "Renderer and Assets"
     bundle:
       - id: "renderer.registry"
-        title: "renderer_registry and renderer binding (+ renderer_registry Registry Load primitive)"
+        title: "renderer_registry and renderer binding"
         reference:
           - source: "./App Editer.md"
             role: "implementation"
             sections:
-              - "§27 Renderer"
               - "§28 renderer_registry"
               - "§28 Binding"
           - source: "./App Editer.md"
             role: "boundary"
             sections:
               - "§3 Open"
+              - "§27 Renderer"
           - source: "./Editor UI.md"
             role: "boundary"
             sections:
@@ -634,12 +633,12 @@ section:
           - source: "./App Editer.md"
             role: "implementation"
             sections:
-              - "§37 Core Flow"
+              - "§27 Renderer"
           - source: "./App Editer.md"
             role: "boundary"
             sections:
-              - "§27 Renderer"
               - "§29 Asset"
+              - "§37 Core Flow"
         depends_on:
           - "renderer.registry"
           - "asset.registry"
@@ -674,6 +673,10 @@ section:
               - "§16 Dynamic Generation"
               - "§17 Boundary"
           - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "§39 App Editor API / Application Language Boundary"
+          - source: "./App Editer.md"
             role: "boundary"
             sections:
               - "§6 Registry Service"
@@ -681,7 +684,6 @@ section:
               - "§12 Raw Data"
               - "§32 Runtime Save Data"
               - "§34 Boundary Rules"
-              - "§39 App Editor API / Application Language Boundary"
         depends_on:
           - "registry.service"
           - "data.raw"
@@ -899,7 +901,6 @@ section:
           - source: "./App Editer.md"
             role: "implementation"
             sections:
-              - "§31 Build"
               - "§31 Build Validation"
         depends_on:
           - "registry.relation"
@@ -952,10 +953,15 @@ section:
             role: "implementation"
             sections:
               - "§31 Web Application Program"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
+              - "§39 App Editor API / Application Language Boundary"
         depends_on:
           - "build.postgresql"
           - "function.dispatcher"
           - "renderer.registry"
+          - "resolver.operation"
         status: "not started"
         evidence: []
         remaining: []
@@ -995,12 +1001,11 @@ section:
   - name: "Workbench"
     bundle:
       - id: "workbench.integration"
-        title: "Code-OSS / VS Code workbench integration and Project Open IProjectOpenSteps wiring"
+        title: "Code-OSS / VS Code workbench integration and Project Open IProjectOpenSteps wiring (Registry Load / Function Scan / Asset Scan)"
         reference:
           - source: "./App Editer.md"
             role: "implementation"
             sections:
-              - "§39 UI"
               - "§39 Working Directory Integration"
           - source: "./App Editer.md"
             role: "boundary"
