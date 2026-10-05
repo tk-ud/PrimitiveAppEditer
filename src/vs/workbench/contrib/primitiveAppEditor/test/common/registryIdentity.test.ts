@@ -51,7 +51,7 @@ suite('Primitive App Editor - Registry Identity (7. UUID Identity)', () => {
 		assert.strictEqual(ensureRegistryIdentity({ name: 'fatigue', label: '' }, sequence(A)).label, undefined);
 	});
 
-	test('Seed does not require UUID hand entry; uuid and name are unique per scope', () => {
+	test('Seed does not require UUID hand entry; uuid is unique, name is not constrained', () => {
 		const rows = prepareRegistryInsert([
 			{ name: 'hp', kind: 'int' },
 			{ uuid: B, name: 'fatigue', label: 'Fatigue', kind: 'float' },
@@ -62,8 +62,8 @@ suite('Primitive App Editor - Registry Identity (7. UUID Identity)', () => {
 		]);
 
 		assert.throws(() => prepareRegistryInsert([{ uuid: A, name: 'x' }, { uuid: A, name: 'y' }]), /duplicate uuid/);
-		assert.throws(() => prepareRegistryInsert([{ name: 'x' }, { name: 'x' }]), /duplicate name/);
-		assert.throws(() => prepareRegistryInsert([{ name: 'hp' }], [{ uuid: A, name: 'hp' }]), /duplicate name/);
+		assert.deepStrictEqual(prepareRegistryInsert([{ name: 'x' }, { name: 'x' }], [], sequence(A, B)), [{ uuid: A, name: 'x' }, { uuid: B, name: 'x' }]);
+		assert.deepStrictEqual(prepareRegistryInsert([{ name: 'hp' }], [{ uuid: A, name: 'hp' }], sequence(B)), [{ uuid: B, name: 'hp' }]);
 		assert.throws(() => prepareRegistryInsert([{ uuid: A, name: 'mp' }], [{ uuid: A, name: 'hp' }]), /duplicate uuid/);
 	});
 
@@ -106,18 +106,21 @@ suite('Primitive App Editor - Registry Identity (7. UUID Identity)', () => {
 		assert.strictEqual(getRegistryDisplayText({ name: 'fatigue', label: 'Fatigue' }), 'Fatigue');
 
 		const before = new RegistryIdentityIndex([{ uuid: A, name: 'fatigue', label: 'Fatigue' }, { uuid: B, name: 'hp' }]);
-		const stored = before.resolveName('fatigue');
-		assert.strictEqual(stored, A);
-		assert.strictEqual(before.resolveName('missing'), undefined);
+		assert.deepStrictEqual(before.get(A.toUpperCase()), { uuid: A, name: 'fatigue', label: 'Fatigue' });
+		assert.strictEqual(before.display(A), 'Fatigue');
 		assert.strictEqual(before.display(B), 'hp');
+		assert.strictEqual(before.get(C), undefined);
 		assert.strictEqual(before.display('not-a-uuid'), undefined);
 
-		// a rename does not rewrite the stored reference; it is displayed by the new name
+		// a rename does not rewrite the stored UUID; it is displayed by the new name
 		const after = new RegistryIdentityIndex([renameRegistryIdentity({ uuid: A, name: 'fatigue' }, 'tiredness'), { uuid: B, name: 'hp' }]);
-		assert.strictEqual(after.display(stored!), 'tiredness');
-		assert.strictEqual(after.resolveName('fatigue'), undefined);
+		assert.strictEqual(after.display(A), 'tiredness');
 
-		assert.throws(() => new RegistryIdentityIndex([{ uuid: A, name: 'x' }, { uuid: B, name: 'x' }]), /duplicate name/);
+		// the same name under different UUIDs is allowed; each UUID resolves to its own identity
+		const sameName = new RegistryIdentityIndex([{ uuid: A, name: 'x' }, { uuid: B, name: 'x', label: 'X2' }]);
+		assert.strictEqual(sameName.display(A), 'x');
+		assert.strictEqual(sameName.display(B), 'X2');
+
 		assert.throws(() => new RegistryIdentityIndex([{ uuid: A, name: 'x' }, { uuid: A, name: 'y' }]), /duplicate uuid/);
 	});
 });

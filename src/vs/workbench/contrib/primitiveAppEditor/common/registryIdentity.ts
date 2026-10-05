@@ -88,9 +88,9 @@ export function ensureRegistryIdentity(input: IRegistryIdentityInput, generateUu
 }
 
 /**
- * Prepares a set of Registry INSERT / Seed rows that share one naming scope (e.g. the columns
- * of a table): missing UUIDs are generated, supplied UUIDs are kept, and both the Machine
- * Identity and the Human Identifier must be unique within the scope.
+ * Prepares a set of Registry INSERT / Seed rows: missing UUIDs are generated, supplied UUIDs
+ * are kept, and the Machine Identity must be unique against the batch and `existing`.
+ * Name uniqueness is not part of this contract.
  */
 export function prepareRegistryInsert<T extends IRegistryIdentityInput>(
 	rows: readonly T[],
@@ -98,17 +98,12 @@ export function prepareRegistryInsert<T extends IRegistryIdentityInput>(
 	generateUuid: () => string = generateRandomUuid,
 ): (Omit<T, 'uuid' | 'name' | 'label'> & IRegistryIdentity)[] {
 	const uuids = new Set(existing.map(identity => normalizeRegistryUuid(identity.uuid)));
-	const names = new Set(existing.map(identity => identity.name));
 	return rows.map(row => {
 		const identity = ensureRegistryIdentity(row, generateUuid);
 		if (uuids.has(identity.uuid)) {
 			throw new RegistryIdentityError(`duplicate uuid for '${identity.name}'`);
 		}
-		if (names.has(identity.name)) {
-			throw new RegistryIdentityError(`duplicate name '${identity.name}'`);
-		}
 		uuids.add(identity.uuid);
-		names.add(identity.name);
 		const prepared: Omit<T, 'uuid' | 'name' | 'label'> & { uuid: string; name: string; label?: string } = { ...row, uuid: identity.uuid, name: identity.name };
 		if (identity.label === undefined) {
 			delete prepared.label;
@@ -202,13 +197,12 @@ export function getRegistryDisplayText(identity: Pick<IRegistryIdentity, 'name' 
 }
 
 /**
- * Translates between Editor-facing names and stored UUIDs within one naming scope.
- * `Storage = UUID`: references authored by name in the Editor are stored as the referent's UUID,
- * and stored UUIDs are displayed back as name / label, so a rename never rewrites references.
+ * Looks up Registry identities by stored Machine Identity.
+ * `Storage = UUID`: a stored UUID resolves to its identity and is displayed as name / label,
+ * so a rename never rewrites what is stored. Names are not a lookup key.
  */
 export class RegistryIdentityIndex {
 	private readonly byUuid = new Map<string, IRegistryIdentity>();
-	private readonly byName = new Map<string, IRegistryIdentity>();
 
 	constructor(identities: readonly IRegistryIdentity[]) {
 		for (const identity of identities) {
@@ -216,20 +210,11 @@ export class RegistryIdentityIndex {
 			if (this.byUuid.has(uuid)) {
 				throw new RegistryIdentityError(`duplicate uuid for '${identity.name}'`);
 			}
-			if (this.byName.has(identity.name)) {
-				throw new RegistryIdentityError(`duplicate name '${identity.name}'`);
-			}
 			this.byUuid.set(uuid, identity);
-			this.byName.set(identity.name, identity);
 		}
 	}
 
-	/** Editor input (Human Identifier) -> stored Machine Identity. */
-	resolveName(name: string): string | undefined {
-		const identity = this.byName.get(name);
-		return identity ? normalizeRegistryUuid(identity.uuid) : undefined;
-	}
-
+	/** Stored Machine Identity -> identity. */
 	get(uuid: string): IRegistryIdentity | undefined {
 		return isRegistryUuid(uuid) ? this.byUuid.get(uuid.toLowerCase()) : undefined;
 	}
