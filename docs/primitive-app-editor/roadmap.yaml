@@ -711,7 +711,7 @@ section:
         remaining: []
 
       - id: "resolver.dynamic"
-        title: "Dynamic Resolve: Selection -> Registry / Binding / UI Definition -> Component / Action mapping"
+        title: "Dynamic Resolve: Selection -> UUID Resolve -> Registry / Binding Resolve -> Kind / Surface Resolve -> Component / Action Resolve"
         reference:
           - source: "./App Editer.md"
             role: "implementation"
