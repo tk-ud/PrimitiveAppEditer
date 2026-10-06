@@ -583,7 +583,6 @@ Build Target
 Runtime / Storage Target
 Seed Data inclusion
 Raw Data inclusion / exclusion
-Editor / Preview Data exclusion
 Assets
 Functions
 Scripts
@@ -595,9 +594,9 @@ Build / Export Action
 
 Seed Data / Raw Data / Assets / Functions / Scripts / Config等の対象はcheckbox list、select等の明示的Controlでinclusion / exclusionを選択できるものとする。
 
-Editor / Preview専用DataはProduction Application Seedから常に除外する。Build UIは`Excluded`等の状態を表示し、Tooltip / Popover等からProduction Application SeedへExportされないことを説明できるものとする。この状態をcheckbox / toggle / select等でincludeへ変更する操作は提供しない。
+Editor / Preview用途のDataは独立したData分類として判別せず、Build ConfigurationでSeedへ選択しない、またはRow単位で明示的に除外する（`App Editer.md` §31 Build Configuration / Build Target Filter）。Build UIは選択されていない / 除外されたDataを`Excluded`等の状態で表示し、Tooltip / Popover等からProduction Application SeedへExportされないことを説明できるものとする。
 
-TargetとRuntime / Storage Targetの選択に応じて利用可能な項目はRegistry / Build Definitionから解決する。不定な組み合わせ、未解決のOutput Path、欠落したAsset / Function / Script / Config、Dependency / Runtime Address等はBuild Validationで明示する。Build / Export ActionはValidation結果と対象Selectionを人間が確認できる状態で実行する。
+TargetとRuntime / Storage Targetの選択に応じて利用可能な項目は、Build Target（`App Editer.md` §31 Build Configuration）とRegistryから解決する。不定な組み合わせ、未解決のOutput Path、欠落したAsset / Function / Script / Config、Dependency / Runtime Address等はBuild Validationで明示する。Build / Export ActionはValidation結果と対象Selectionを人間が確認できる状態で実行する。
 
 個々のControl配置やField集合を固定UI Schemaとせず、本SectionはUI Responsibility / Interaction Regulationとする。Registry-driven kind dispatchと既存Componentを優先し、Build TargetごとのApplication固有Hardcoded Formを増殖させない。
 

@@ -150,7 +150,14 @@ section:
             sections:
               - "§3 Project Working Directory"
               - "§3 Open"
-              - "§32 Persistence Boundary"
+              - "§32 Authoring Persistent"
+              - "§32 Runtime Transient"
+              - "§32 Rule"
+              - "§32 Runtime Save Data"
+              - "§32 Save Identity"
+              - "§32 Application Responsibility"
+              - "§32 Save Payload"
+              - "§32 Static / Initial Data Boundary"
         depends_on:
           - "foundation.authority"
         status: "implemented"
@@ -172,7 +179,17 @@ section:
             sections:
               - "§4 SQLite"
               - "§4 Logical Namespace"
-              - "§32 Persistence Boundary"
+              - "§32 Save / Load Operation"
+              - "§32 Transaction / Integrity"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
+              - "§32 Rule"
+              - "§32 Runtime Save Data"
+              - "§32 Save Identity"
+              - "§32 Application Responsibility"
+              - "§32 Save Payload"
+              - "§32 Static / Initial Data Boundary"
         depends_on:
           - "foundation.project-directory"
         status: "implemented"
@@ -193,7 +210,6 @@ section:
           - source: "./App Editer.md"
             role: "implementation"
             sections:
-              - "§5 Editor DDL"
               - "§5 Built-in DDL"
         depends_on:
           - "foundation.sqlite"
@@ -242,6 +258,10 @@ section:
               - "§8 table_registry"
               - "§8 kind"
               - "§8 Semantic Type"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
+              - "§3 Open"
         depends_on:
           - "registry.identity"
         status: "not started"
@@ -298,6 +318,10 @@ section:
               - "§11 enum_registry"
               - "§11 Physical"
               - "§11 Usage"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
+              - "§3 Open"
         depends_on:
           - "registry.table"
         status: "not started"
@@ -313,6 +337,10 @@ section:
               - "§10 relation_registry"
               - "§10 Resolve"
               - "§10 Validate"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
+              - "§3 Open"
         depends_on:
           - "registry.table"
           - "registry.identity"
@@ -329,6 +357,9 @@ section:
             role: "implementation"
             sections:
               - "§12 Raw Data"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
               - "§9 Physical Table Expansion"
           - source: "./Resolver.md"
             role: "boundary"
@@ -359,6 +390,10 @@ section:
               - "§13 Function"
               - "§14 function_registry"
               - "§15 Function Definition Contract"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
+              - "§3 Open"
         depends_on:
           - "registry.identity"
         status: "not started"
@@ -371,9 +406,12 @@ section:
           - source: "./App Editer.md"
             role: "implementation"
             sections:
-              - "§15 Function Definition Contract"
               - "§16 Linear"
               - "§17 Function Catalog"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
+              - "§15 Function Definition Contract"
         depends_on:
           - "function.registry"
         status: "not started"
@@ -394,13 +432,17 @@ section:
         remaining: []
 
       - id: "function.program-scan"
-        title: "Function and program discovery"
+        title: "Function and program discovery (+ Function Scan open step primitive)"
         reference:
           - source: "./App Editer.md"
             role: "implementation"
             sections:
               - "§30 Function / Program Scan"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
               - "§3 Project Working Directory"
+              - "§3 Open"
         depends_on:
           - "function.registry"
           - "foundation.project-directory"
@@ -419,7 +461,7 @@ section:
               - "§19 Function Binding"
               - "§19 Source"
               - "§19 Human Display"
-              - "§23 Runtime Addressing"
+              - "§23 Persistent Address"
           - source: "./Resolver.md"
             role: "boundary"
             sections:
@@ -491,8 +533,13 @@ section:
           - source: "./App Editer.md"
             role: "implementation"
             sections:
-              - "§23 Runtime Addressing"
+              - "§23 Load"
+              - "§23 Runtime"
               - "§24 Runtime State"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
+              - "§23 Persistent Address"
               - "§32 Persistence Boundary"
               - "§33 Runtime Authority"
         depends_on:
@@ -508,9 +555,13 @@ section:
           - source: "./App Editer.md"
             role: "implementation"
             sections:
+              - "§22 Function Runtime / Load"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
               - "§20 Plan"
               - "§20 Order"
-              - "§22 Function Runtime / Load"
+              - "§23 Load"
         depends_on:
           - "binding.dependency"
           - "function.dispatcher"
@@ -526,9 +577,11 @@ section:
           - source: "./App Editer.md"
             role: "implementation"
             sections:
-              - "§22 Function Runtime"
               - "§22 Execute"
               - "§22 Loop"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
               - "§24 Runtime State"
         depends_on:
           - "runtime.execution-plan"
@@ -545,9 +598,13 @@ section:
           - source: "./App Editer.md"
             role: "implementation"
             sections:
-              - "§27 Renderer"
               - "§28 renderer_registry"
               - "§28 Binding"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
+              - "§3 Open"
+              - "§27 Renderer"
           - source: "./Editor UI.md"
             role: "boundary"
             sections:
@@ -568,13 +625,17 @@ section:
         remaining: []
 
       - id: "asset.registry"
-        title: "Asset model and directory scan"
+        title: "Asset model and directory scan (+ Asset Scan open step primitive)"
         reference:
           - source: "./App Editer.md"
             role: "implementation"
             sections:
               - "§29 Asset"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
               - "§3 Project Working Directory"
+              - "§3 Open"
         depends_on:
           - "foundation.project-directory"
           - "registry.identity"
@@ -589,12 +650,93 @@ section:
             role: "implementation"
             sections:
               - "§27 Renderer"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
               - "§29 Asset"
               - "§37 Core Flow"
         depends_on:
           - "renderer.registry"
           - "asset.registry"
           - "runtime.loop"
+        status: "not started"
+        evidence: []
+        remaining: []
+
+  - name: "Resolver"
+    bundle:
+      - id: "resolver.operation"
+        title: "Generic Resolver primitives (create / alter / truncate / drop / insert / delete / update / upsert / select), Registry Resolve, Service Dispatch and Dynamic Generation"
+        reference:
+          - source: "./Resolver.md"
+            role: "implementation"
+            sections:
+              - "§1 Scope"
+              - "§2 Core Operations"
+              - "§3 Request Model"
+              - "§4 Dispatch Flow"
+              - "§5 create"
+              - "§6 alter"
+              - "§7 truncate"
+              - "§8 drop"
+              - "§9 insert"
+              - "§10 delete"
+              - "§11 update"
+              - "§12 upsert"
+              - "§13 select"
+              - "§14 Registry Resolve"
+              - "§15 Service Dispatch"
+              - "§16 Dynamic Generation"
+              - "§17 Boundary"
+          - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "§39 App Editor API / Application Language Boundary"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
+              - "§6 Registry Service"
+              - "§9 Physical Table Expansion"
+              - "§12 Raw Data"
+              - "§32 Runtime Save Data"
+              - "§34 Boundary Rules"
+        depends_on:
+          - "registry.service"
+          - "data.raw"
+          - "binding.function"
+          - "binding.dependency"
+          - "renderer.registry"
+        status: "not started"
+        evidence: []
+        remaining: []
+
+      - id: "resolver.dynamic"
+        title: "Dynamic Resolve: Selection -> UUID Resolve -> Registry / Binding Resolve -> Kind / Surface Resolve -> Component / Action Resolve"
+        reference:
+          - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "Dynamic Resolve"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
+              - "§25 Kind Dispatch"
+              - "§39 Inspector"
+          - source: "./Resolver.md"
+            role: "boundary"
+            sections:
+              - "§14 Registry Resolve"
+              - "§16 Dynamic Generation"
+              - "§17 Boundary"
+          - source: "./Editor UI.md"
+            role: "boundary"
+            sections:
+              - "§3 Workbench Placement"
+              - "§4 Registry Driven Inspector"
+              - "§15 UI Responsibility Boundary"
+        depends_on:
+          - "resolver.operation"
+          - "editor.registry-ui"
         status: "not started"
         evidence: []
         remaining: []
@@ -617,18 +759,26 @@ section:
             role: "implementation"
             sections:
               - "§6 Component Editing Regulation"
+              - "§16 Explanation / Help and General Workbench Rules"
           - source: "./Editor UI.md"
             role: "boundary"
             sections:
               - "§1 Scope"
+              - "§2 Core Interaction Model"
               - "§4 Registry Driven Inspector"
               - "§15 UI Responsibility Boundary"
+          - source: "./Resolver.md"
+            role: "boundary"
+            sections:
+              - "§11 update"
+              - "§17 Boundary"
         depends_on:
           - "registry.table"
           - "registry.enum"
           - "registry.relation"
           - "function.registry"
           - "renderer.registry"
+          - "resolver.operation"
         status: "not started"
         evidence: []
         remaining: []
@@ -665,14 +815,15 @@ section:
             role: "implementation"
             sections:
               - "§39 Function Graph"
-              - "§20 Function Dependency"
           - source: "./App Editer.md"
             role: "boundary"
             sections:
+              - "§20 Function Dependency"
               - "§21 Target Merge"
           - source: "./Editor UI.md"
             role: "boundary"
             sections:
+              - "§2 Core Interaction Model"
               - "§10 Editor Area Regulation"
               - "§11 Function Binding and Function Graph Boundary"
           - source: "./Function Graph.md"
@@ -682,18 +833,18 @@ section:
               - "§3 Graph Model"
               - "§5 Front Dynamic Processing"
               - "§8 Edge"
+              - "§6 Node"
               - "§9 Graph Mutation"
               - "§11 Selection"
+              - "§13 Save Model"
           - source: "./Function Graph.md"
             role: "boundary"
             sections:
               - "§2 Placement"
               - "§4 Persistent Definition"
-              - "§6 Node"
               - "§7 Parameter Editing Boundary"
               - "§10 Selection and Function Binding Boundary"
               - "§12 Runtime / Preview Boundary"
-              - "§13 Save Model"
               - "§14 Boundary"
         depends_on:
           - "binding.function"
@@ -715,9 +866,11 @@ section:
           - source: "./Editor UI.md"
             role: "implementation"
             sections:
+              - "§2 Core Interaction Model"
               - "§4 Registry Driven Inspector"
               - "§5 Binding Section"
               - "§7 Inspector Layout"
+              - "§8 Icon Button Regulation"
               - "§11 Function Binding and Function Graph Boundary"
               - "§12 Renderer and Asset Binding"
           - source: "./Editor UI.md"
@@ -728,6 +881,7 @@ section:
         depends_on:
           - "editor.registry-ui"
           - "editor.data-ui"
+          - "resolver.dynamic"
         status: "not started"
         evidence: []
         remaining: []
@@ -760,12 +914,13 @@ section:
   - name: "Build"
     bundle:
       - id: "build.validation"
-        title: "Build validation pipeline"
+        title: "Build Configuration contract, Build Target Filter and build validation pipeline"
         reference:
           - source: "./App Editer.md"
             role: "implementation"
             sections:
-              - "§31 Build"
+              - "§31 Build Configuration"
+              - "§31 Build Target Filter"
               - "§31 Build Validation"
         depends_on:
           - "registry.relation"
@@ -783,6 +938,11 @@ section:
             role: "implementation"
             sections:
               - "§31 Application Output"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
+              - "§31 Build Configuration"
+              - "§31 Build Target Filter"
               - "§37 Core Flow"
         depends_on:
           - "build.validation"
@@ -800,6 +960,11 @@ section:
               - "§31 PostgreSQL Web Application Output"
               - "§31 PostgreSQL DDL"
               - "§31 PostgreSQL Seed Data"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
+              - "§31 Build Configuration"
+              - "§31 Build Target Filter"
         depends_on:
           - "build.application-output"
           - "registry.physical-expansion"
@@ -815,24 +980,49 @@ section:
             role: "implementation"
             sections:
               - "§31 Web Application Program"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
+              - "§39 App Editor API / Application Language Boundary"
         depends_on:
           - "build.postgresql"
           - "function.dispatcher"
           - "renderer.registry"
+          - "resolver.operation"
         status: "not started"
         evidence: []
         remaining: []
 
       - id: "build.deploy"
-        title: "Deployable application artifact layout"
+        title: "Deployable application artifact layout and Build / Export Configuration surface"
         reference:
           - source: "./App Editer.md"
             role: "implementation"
             sections:
               - "§31 Deploy"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
+              - "§31 Build Configuration"
+              - "§31 Build Target Filter"
+              - "§31 Build Validation"
               - "§31 Application Output"
+              - "§31 PostgreSQL Seed Data"
+          - source: "./Editor UI.md"
+            role: "implementation"
+            sections:
+              - "§13 Export / Build Configuration"
+          - source: "./Editor UI.md"
+            role: "boundary"
+            sections:
+              - "§3 Workbench Placement"
+              - "§9 Primary Side Bar Regulation"
+              - "§10 Editor Area Regulation"
+              - "§14 Debug Viewer and Bottom Panel"
+              - "§15 UI Responsibility Boundary"
         depends_on:
           - "build.web-program"
+          - "workbench.views"
         status: "not started"
         evidence: []
         remaining: []
@@ -840,16 +1030,17 @@ section:
   - name: "Workbench"
     bundle:
       - id: "workbench.integration"
-        title: "Code-OSS / VS Code workbench integration"
+        title: "Code-OSS / VS Code workbench integration and Project Open IProjectOpenSteps wiring (Registry Load / Function Scan / Asset Scan)"
         reference:
           - source: "./App Editer.md"
             role: "implementation"
             sections:
-              - "§39 UI"
+              - "§39 Workbench Base"
               - "§39 Working Directory Integration"
           - source: "./App Editer.md"
             role: "boundary"
             sections:
+              - "§3 Open"
               - "§39 Structure"
               - "§39 Boundary"
           - source: "./Editor UI.md"
@@ -860,6 +1051,15 @@ section:
               - "§16 Explanation / Help and General Workbench Rules"
         depends_on:
           - "foundation.project-directory"
+          - "foundation.sqlite"
+          - "foundation.editor-ddl"
+          - "registry.table"
+          - "registry.enum"
+          - "registry.relation"
+          - "function.registry"
+          - "function.program-scan"
+          - "renderer.registry"
+          - "asset.registry"
           - "editor.registry-ui"
           - "editor.data-ui"
         status: "not started"
@@ -883,6 +1083,10 @@ section:
               - "§9 Primary Side Bar Regulation"
               - "§10 Editor Area Regulation"
               - "§14 Debug Viewer and Bottom Panel"
+          - source: "./Function Graph.md"
+            role: "implementation"
+            sections:
+              - "§2 Placement"
         depends_on:
           - "workbench.integration"
           - "editor.function-graph"
@@ -925,8 +1129,13 @@ section:
             sections:
               - "§2 Overall Structure"
               - "§37 Core Flow"
-              - "§38 Core Definition"
               - "§39 Purpose"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
+              - "§5 Editor DDL"
+              - "§31 Build"
+              - "§38 Core Definition"
           - source: "./Editor UI.md"
             role: "boundary"
             sections:
