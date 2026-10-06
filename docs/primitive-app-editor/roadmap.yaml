@@ -150,7 +150,14 @@ section:
             sections:
               - "§3 Project Working Directory"
               - "§3 Open"
-              - "§32 Persistence Boundary"
+              - "§32 Authoring Persistent"
+              - "§32 Runtime Transient"
+              - "§32 Rule"
+              - "§32 Runtime Save Data"
+              - "§32 Save Identity"
+              - "§32 Application Responsibility"
+              - "§32 Save Payload"
+              - "§32 Static / Initial Data Boundary"
         depends_on:
           - "foundation.authority"
         status: "implemented"
@@ -172,7 +179,17 @@ section:
             sections:
               - "§4 SQLite"
               - "§4 Logical Namespace"
-              - "§32 Persistence Boundary"
+              - "§32 Save / Load Operation"
+              - "§32 Transaction / Integrity"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
+              - "§32 Rule"
+              - "§32 Runtime Save Data"
+              - "§32 Save Identity"
+              - "§32 Application Responsibility"
+              - "§32 Save Payload"
+              - "§32 Static / Initial Data Boundary"
         depends_on:
           - "foundation.project-directory"
         status: "implemented"
@@ -714,6 +731,7 @@ section:
           - source: "./Editor UI.md"
             role: "boundary"
             sections:
+              - "§3 Workbench Placement"
               - "§4 Registry Driven Inspector"
               - "§15 UI Responsibility Boundary"
         depends_on:
@@ -741,6 +759,7 @@ section:
             role: "implementation"
             sections:
               - "§6 Component Editing Regulation"
+              - "§16 Explanation / Help and General Workbench Rules"
           - source: "./Editor UI.md"
             role: "boundary"
             sections:
@@ -814,18 +833,18 @@ section:
               - "§3 Graph Model"
               - "§5 Front Dynamic Processing"
               - "§8 Edge"
+              - "§6 Node"
               - "§9 Graph Mutation"
               - "§11 Selection"
+              - "§13 Save Model"
           - source: "./Function Graph.md"
             role: "boundary"
             sections:
               - "§2 Placement"
               - "§4 Persistent Definition"
-              - "§6 Node"
               - "§7 Parameter Editing Boundary"
               - "§10 Selection and Function Binding Boundary"
               - "§12 Runtime / Preview Boundary"
-              - "§13 Save Model"
               - "§14 Boundary"
         depends_on:
           - "binding.function"
@@ -895,11 +914,13 @@ section:
   - name: "Build"
     bundle:
       - id: "build.validation"
-        title: "Build validation pipeline"
+        title: "Build Configuration contract, Build Target Filter and build validation pipeline"
         reference:
           - source: "./App Editer.md"
             role: "implementation"
             sections:
+              - "§31 Build Configuration"
+              - "§31 Build Target Filter"
               - "§31 Build Validation"
         depends_on:
           - "registry.relation"
@@ -920,6 +941,8 @@ section:
           - source: "./App Editer.md"
             role: "boundary"
             sections:
+              - "§31 Build Configuration"
+              - "§31 Build Target Filter"
               - "§37 Core Flow"
         depends_on:
           - "build.validation"
@@ -937,6 +960,11 @@ section:
               - "§31 PostgreSQL Web Application Output"
               - "§31 PostgreSQL DDL"
               - "§31 PostgreSQL Seed Data"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
+              - "§31 Build Configuration"
+              - "§31 Build Target Filter"
         depends_on:
           - "build.application-output"
           - "registry.physical-expansion"
@@ -975,6 +1003,8 @@ section:
           - source: "./App Editer.md"
             role: "boundary"
             sections:
+              - "§31 Build Configuration"
+              - "§31 Build Target Filter"
               - "§31 Build Validation"
               - "§31 Application Output"
               - "§31 PostgreSQL Seed Data"
@@ -1005,6 +1035,7 @@ section:
           - source: "./App Editer.md"
             role: "implementation"
             sections:
+              - "§39 Workbench Base"
               - "§39 Working Directory Integration"
           - source: "./App Editer.md"
             role: "boundary"
@@ -1052,6 +1083,10 @@ section:
               - "§9 Primary Side Bar Regulation"
               - "§10 Editor Area Regulation"
               - "§14 Debug Viewer and Bottom Panel"
+          - source: "./Function Graph.md"
+            role: "implementation"
+            sections:
+              - "§2 Placement"
         depends_on:
           - "workbench.integration"
           - "editor.function-graph"
@@ -1098,6 +1133,8 @@ section:
           - source: "./App Editer.md"
             role: "boundary"
             sections:
+              - "§5 Editor DDL"
+              - "§31 Build"
               - "§38 Core Definition"
           - source: "./Editor UI.md"
             role: "boundary"

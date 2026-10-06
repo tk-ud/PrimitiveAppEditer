@@ -19,8 +19,13 @@ Dispatch
 Resolver自体はApplication固有の意味論をAuthorityとして保持しない。
 
 ```text
-Registry / Binding / UI Definition
+Registry / Binding
   = Authority
+
+UI Placement / Interaction
+  = Editor UI.md Regulation
+  = Editor Implementation Responsibility
+  != Project Persistent Authority
 
 Resolver
   = Derived Dispatch / Mapping
@@ -556,7 +561,7 @@ insert / delete / update / upsert / select
 Resolver Mappingは手書きのApplication固有実装をAuthorityとせず、Structured Definitionから導出可能とする。
 
 ```text
-Registry / Binding / UI Definition
+Registry / Binding
         ↓
 Structured Definition / YAML
         ↓
@@ -565,7 +570,7 @@ Script
 Resolver / Mapping
 ```
 
-生成物はDerivedであり、Registry / Binding / UI Definitionの意味論を再定義しない。
+生成物はDerivedであり、Registry / Bindingの意味論を再定義しない。UI Placement / Interactionは`Editor UI.md`のRegulationに従うEditor実装責務であり、生成物のAuthorityにも独立したProject Persistent Authorityにもしない（`App Editer.md` Dynamic Resolve）。
 
 ---
 
@@ -578,8 +583,10 @@ Registry
 Binding
   = Concrete Composition Data
 
-UI Definition
-  = UI Placement / Interaction Definition
+Editor UI Regulation
+  = UI Placement / Interaction Regulation
+  = Editor Implementation Responsibility
+  != Project Persistent Authority
 
 Resolver
   = Request Dispatch / Derived Mapping
@@ -647,5 +654,8 @@ Physical Schema
   -X-> Registry Authorityを逆生成
 
 Generated Resolver
-  -X-> Registry / Binding / UI Definitionを再定義
+  -X-> Registry / Bindingを再定義
+
+Resolver
+  -X-> UI Placement / InteractionをProject Persistent Authority化
 ```

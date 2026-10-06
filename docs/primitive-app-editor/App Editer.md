@@ -234,6 +234,15 @@ SQLite
   != Runtime Loop Storage
 ```
 
+`Project Metadata`は`project.sqlite`が保持するcontent areaの分類であり、Coreは固定schemaを要求しない。Project Metadata専用のRegistry / Application Tableは定義しない。
+
+```text
+Project Metadata
+  = project.sqlite content area
+  != Core固定schema
+  != Registry / Application Table
+```
+
 ### Logical Namespace
 
 SQLite Schema機能には依存しない。
@@ -1721,9 +1730,130 @@ Working Directory
 Application Output
 ```
 
+### Build Configuration
+
+Build ConfigurationはBuild / Export Selectionであり、Application AuthorityでもAuthoring Authorityでもない。Build ConfigurationはRegistry / Raw Data / Bindingを変更せず、Registry / Raw Data / Bindingへ保存しない。保存位置とserialization形式はBuild実装の責務とする。`§39 AI Development`の`Build Definition`はこのBuild Configurationを指す。
+
+最小Contract：
+
+```yaml
+build_configuration:
+  build_target: text
+  runtime_storage_target: text
+
+  seed_data:
+    include: bool
+    raw_data:
+      tables: [table_registry.uuid]
+      exclude_rows: [row uuid]
+
+  include:
+    assets: [asset.uuid]
+    functions: [Working Directory relative path]
+    scripts: [Working Directory relative path]
+    config: [Working Directory relative path]
+
+  output_path: Working Directory relative path
+```
+
+具体的なfield名 / serializationはBuild実装で拡張可能とする。ただし以下の意味論は変更しない。
+
+```text
+build_target
+  = Build実装が提供するApplication Output Projectionの識別子
+  = 現行SSOTで定義済みのTarget: PostgreSQL Web Application Output
+
+runtime_storage_target
+  = build_targetが対応するRuntime / Storageの組
+  = PostgreSQL Web Application Output
+      -> ASP.NET Core API + Next.js UI / PostgreSQL
+  = build_targetが対応しない組み合わせ -> Build Validation reject
+
+seed_data.include
+  = Raw DataをSeed Projectionへ出力するか
+
+seed_data.raw_data.tables
+  = Seedへ含めるPhysical Table
+  = 列挙されないTableのRaw DataはSeedへ含めない
+
+seed_data.raw_data.exclude_rows
+  = 含めたTableから明示的に除外するRow
+
+include.assets / functions / scripts / config
+  = Application Outputへ含めるWorking Directory content
+  = 列挙されないcontentは含めない
+
+output_path
+  = <Project>/build/ 配下のWorking Directory相対Path
+  = build/ 外 -> Build Validation reject
+```
+
+Editor / Preview専用DataというData分類はRegistry / Raw Dataに持たせず、推測もしない。Production SeedへExportしないDataは、Build ConfigurationでSeedへ選択しない、または`exclude_rows`で明示的に除外する。
+
+```text
+Editor / Preview Data
+  = Build ConfigurationでSeedへ選択されないRaw Data
+  != Registry / Raw Data上の分類
+```
+
+### Build Target Filter
+
+```text
+Authoring Data
+├─ Registry
+├─ Raw Data
+├─ Function Binding / Function Dependency / Renderer Binding
+└─ Working Directory content
+   (assets / functions / scripts / config)
+        +
+Build Configuration
+        |
+        v
+Build Target Filter
+        |
+        v
+Selected Authoring View
+        |
+        v
+Application Output Projection
+```
+
+```text
+Registry
+  -> filter対象外
+  -> Build TargetのSchema Projectionへ全体を渡す
+
+Function Binding / Function Dependency / Renderer Binding
+  -> filter対象外
+  -> Application Projectionへ全体を渡す
+
+Raw Data
+  -> seed_data.include
+     && seed_data.raw_data.tablesに含まれるTable
+     && exclude_rowsに含まれないRow
+     のみ選択
+
+assets / functions / scripts / config
+  -> include.*で列挙されたcontentのみ選択
+```
+
+```text
+Build Target Filter
+  = deterministic
+  = read-only
+
+Build Target Filter
+  -X-> Authoring Authority変更
+  -X-> Registry / Raw Data / Binding書き換え
+  -X-> Raw DataのEditor / Preview分類を推測
+```
+
 ### Build Validation
 
 ```text
+Build Configuration Validate
+        |
+        v
 Registry Validate
         |
         v
@@ -1749,6 +1879,24 @@ Asset Validate
         |
         v
 Build
+```
+
+Build Configurationに関するValidation：
+
+```text
+Build Configuration Validate
+  = build_target / runtime_storage_targetの対応
+  = output_pathがbuild/配下
+  = 列挙されたTable / Row / Asset / Pathが存在
+
+Function Executor Validate
+  = 必要なexecutorのProgramがinclude.functionsに含まれる
+
+Runtime Address Validate
+  = Bindingが参照するRowがBuild Target Filterで除外されていない
+
+Asset Validate
+  = Renderer Bindingが参照するAssetがinclude.assetsに含まれる
 ```
 
 ### Application Output
@@ -1920,7 +2068,7 @@ Initial Configuration
 Initial Application Data
 ```
 
-Editor / Preview専用DataはApplication Seedへ含めない。
+Build ConfigurationでSeedへ選択されないRaw Data（Editor / Preview用途のDataを含む）はApplication Seedへ含めない（`§31 Build Configuration`）。
 
 ### Web Application Program
 
@@ -2570,6 +2718,8 @@ Multiplayer
 
 ## 39. UI
 
+### Workbench Base
+
 Editor UIはVS Code系Workbenchをforkして構成する。
 
 ```text
@@ -3049,12 +3199,12 @@ API Transport / Invocation
 
 Resolverは固定のApplication固有実装をAuthorityとしない。
 
-Registry / Binding / UI Definitionから、必要な解決規則を動的に導出する。
+Registry / Bindingから、必要な解決規則を動的に導出する。UIの配置先とInteractionは`Editor UI.md`のRegulationに従うEditor実装責務であり、独立したProject Persistent Authorityではない。
 
-Resolverは導出物であり、Registry / Binding / UI Definitionが持つ意味論を重複して定義しない。
+Resolverは導出物であり、Registry / Bindingが持つ意味論を重複して定義しない。
 
 ```text
-Registry / Binding / UI Definition
+Registry / Binding
         ↓
 Dynamic Resolve
         ↓
@@ -3063,8 +3213,6 @@ Selection / Component / Action Mapping
 
 ### Resolve Principle
 
-UIの配置先と機能を先に定義し、Resolverはその定義とRegistry / Bindingから導出する。
-
 ```text
 Selection
    ↓
@@ -3072,12 +3220,29 @@ UUID Resolve
    ↓
 Registry / Binding Resolve
    ↓
-UI Definition Resolve
+Kind / Surface Resolve
    ↓
 Component / Action Resolve
 ```
 
 ```text
+Kind Resolve
+  = §25 Kind Dispatch
+
+Surface Resolve
+  = Editor UI.md Placement / Interaction Regulationに従うEditor実装
+
+Component / Action Resolve
+  = Registry-driven Component / Editor Action
+  = MutationはResolver Primitiveへdispatch
+```
+
+```text
+UI Placement / Interaction
+  = Editor UI.md Regulation
+  = Editor Implementation Responsibility
+  != Project Persistent Authority
+
 Resolver
   = Derived Mapping
 
@@ -3090,7 +3255,7 @@ Resolverの具体的な生成方法は実装責務とする。
 例：
 
 ```text
-Registry / Binding / UI Definition
+Registry / Binding
         ↓
 Structured Definition
         ↓
@@ -3104,12 +3269,19 @@ Application固有のResolverを手書きで増殖させない。
 ### Boundary
 
 ```text
-Registry / Binding / UI Definition
+Registry / Binding
   = Authority
+
+Editor UI Regulation
+  = UI Placement / Interaction Regulation
+  = Editor Implementation Responsibility
 
 Resolver / Mapping
   = Derived
 
 Generated Resolver
-  -X-> Registry / Binding / UI Definition の意味論を再定義
+  -X-> Registry / Binding の意味論を再定義
+
+Resolver
+  -X-> UI Placement / InteractionをProject Persistent Authority化
 ```
