@@ -193,7 +193,6 @@ section:
           - source: "./App Editer.md"
             role: "implementation"
             sections:
-              - "§5 Editor DDL"
               - "§5 Built-in DDL"
         depends_on:
           - "foundation.sqlite"
