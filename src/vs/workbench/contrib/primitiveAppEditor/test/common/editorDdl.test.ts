@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
  *  Primitive App Editor - Editor built-in DDL and migrations (foundation.editor-ddl)
- *  Specification SSOT: docs/primitive-app-editor/App Editer.md (5. Editor DDL, 5. Built-in DDL)
+ *  Specification SSOT: docs/primitive-app-editor/App Editer.md (5. Built-in DDL)
  *--------------------------------------------------------------------------------------------*/
 
 import assert from 'assert';
@@ -20,7 +20,7 @@ function applied(migration: IEditorDdlMigration): IAppliedEditorDdlMigration {
 	return { version: migration.version, name: migration.name, checksum: migration.checksum, appliedAt: '2026-01-01T00:00:00.000Z' };
 }
 
-suite('Primitive App Editor - Editor DDL (5. Editor DDL)', () => {
+suite('Primitive App Editor - Editor DDL (5. Built-in DDL)', () => {
 
 	ensureNoDisposablesAreLeakedInTestSuite();
 

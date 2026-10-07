@@ -1,6 +1,7 @@
 /*---------------------------------------------------------------------------------------------
  *  Primitive App Editor - project.sqlite authoring storage (foundation.sqlite)
- *  Specification SSOT: docs/primitive-app-editor/App Editer.md (4. SQLite, 32. Persistence Boundary)
+ *  Specification SSOT: docs/primitive-app-editor/App Editer.md
+ *  (4. SQLite, 32. Save / Load Operation, 32. Transaction / Integrity)
  *--------------------------------------------------------------------------------------------*/
 
 import assert from 'assert';

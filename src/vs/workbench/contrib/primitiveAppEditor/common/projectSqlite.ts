@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------------------
  *  Primitive App Editor - project.sqlite authoring storage (foundation.sqlite)
  *  Specification SSOT: docs/primitive-app-editor/App Editer.md
- *  (4. SQLite, 4. Logical Namespace, 32. Persistence Boundary)
+ *  (4. SQLite, 4. Logical Namespace, 32. Save / Load Operation, 32. Transaction / Integrity)
  *--------------------------------------------------------------------------------------------*/
 
 import { generateUuid } from '../../../../base/common/uuid.js';
@@ -186,7 +186,7 @@ export class ProjectSqliteError extends Error {
 
 // #endregion
 
-// #region Runtime Save Data storage (32. Persistence Boundary)
+// #region Runtime Save Data storage (32. Save / Load Operation; contract: 32. Runtime Save Data)
 
 export const registryCurrentPhysicalTable = corePhysicalTableNameResolver.resolve(registryCurrentTable.schema, registryCurrentTable.table);
 export const logsSaveDataPhysicalTable = corePhysicalTableNameResolver.resolve(logsSaveDataTable.schema, logsSaveDataTable.table);

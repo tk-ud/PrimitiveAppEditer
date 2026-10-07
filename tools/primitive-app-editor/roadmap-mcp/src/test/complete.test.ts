@@ -9,7 +9,7 @@ import * as path from 'path';
 import { describe, test } from 'node:test';
 import { CompleteValidationError, roadmapComplete } from '../complete';
 import { roadmapNext } from '../next';
-import { loadRoadmap } from '../roadmap';
+import { loadRoadmap, selectBundle } from '../roadmap';
 import { isSelected, realRoadmapWithToolingReset, roadmapYaml, writeFixture } from './fixture';
 
 const fixture = () => roadmapYaml([
@@ -164,10 +164,17 @@ describe('roadmap.complete', () => {
 		const original = realRoadmapWithToolingReset();
 		const roadmapPath = writeFixture(original);
 		const result = roadmapComplete(roadmapPath, { id: 'tooling.roadmap-agent', status: 'implemented', evidence: ['tools/primitive-app-editor/roadmap-mcp'], remaining: [] });
+		// The next executable bundle depends on the current roadmap progress, so derive it from the
+		// updated roadmap instead of hard-coding it; this test only guards the unrelated content.
+		const selection = selectBundle(loadRoadmap(roadmapPath));
+		if (selection.kind !== 'selected') {
+			assert.fail(`expected an executable bundle after completion, got ${selection.kind}`);
+		}
+		assert.notStrictEqual(selection.bundle.id, 'tooling.roadmap-agent');
 		assert.deepStrictEqual({ result, changed: changedRegion(original, fs.readFileSync(roadmapPath, 'utf8')) }, {
 			result: {
 				id: 'tooling.roadmap-agent', status: 'implemented', next_action: 'restart',
-				message: 'Bundle \'tooling.roadmap-agent\' recorded as implemented. Call roadmap.next again (next executable bundle: \'repository.ci-baseline\').',
+				message: `Bundle 'tooling.roadmap-agent' recorded as implemented. Call roadmap.next again (next executable bundle: '${selection.bundle.id}').`,
 			},
 			changed: {
 				removed: ['        status: "not started"', '        evidence: []'],

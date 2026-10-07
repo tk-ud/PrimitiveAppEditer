@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
  *  Primitive App Editor - Editor built-in DDL resources (foundation.editor-ddl)
- *  Specification SSOT: docs/primitive-app-editor/App Editer.md (5. Editor DDL, 5. Built-in DDL)
+ *  Specification SSOT: docs/primitive-app-editor/App Editer.md (5. Built-in DDL)
  *--------------------------------------------------------------------------------------------*/
 
 import { IEditorDdlResource } from './editorDdl.js';
@@ -17,7 +17,7 @@ import { IEditorDdlResource } from './editorDdl.js';
 export const editorDdlResources: readonly IEditorDdlResource[] = Object.freeze([
 	Object.freeze({
 		name: '001_savedata.sql',
-		// 32. Persistence Boundary: `logs.savedata` = Save Event only, `registry.current` = Save Data current
+		// 32. Runtime Save Data / Save Identity: `logs.savedata` = Save Event only, `registry.current` = Save Data current
 		// (UNIQUE key = UPSERT conflict target; saveId -> logs.savedata.uuid is a logical reference, no physical FK).
 		sql: [
 			'CREATE TABLE "logs__savedata" (',

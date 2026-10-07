@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
  *  Primitive App Editor - Editor built-in DDL and migrations (foundation.editor-ddl)
- *  Specification SSOT: docs/primitive-app-editor/App Editer.md (5. Editor DDL, 5. Built-in DDL)
+ *  Specification SSOT: docs/primitive-app-editor/App Editer.md (5. Built-in DDL)
  *--------------------------------------------------------------------------------------------*/
 
 import { StringSHA1 } from '../../../../base/common/hash.js';
