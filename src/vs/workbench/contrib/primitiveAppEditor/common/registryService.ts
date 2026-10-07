@@ -45,7 +45,7 @@ import {
  * The SQLite Physical Schema is a Registry Projection: it is generated from the Registry, compared
  * against it, and never reverse-generated into it. No DB trigger is generated or tolerated.
  *
- * Physical naming (4. "Physical Table名はRegistry Serviceでresolveする"): a table is
+ * Physical naming (4. Logical Namespace: the Registry Service resolves physical table names): a table is
  * `<schema>__<name>` and a column is its `name`, so a Registry rename is a physical rename while
  * Registry pairing stays by UUID (7. Rename). Every physical table carries the Raw Data row identity
  * column `uuid`.

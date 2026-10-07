@@ -190,7 +190,7 @@ suite('Primitive App Editor - Registry Service on project.sqlite', () => {
 		assert.deepStrictEqual(await readTableRegistry(db), [player]);
 		assert.ok((await listPhysicalTables(db)).includes('items__player'));
 
-		// A trigger on a Registry-projected table fails Physical Schema Validate (DB Triggerは使用しない).
+		// A trigger on a Registry-projected table fails Physical Schema Validate (5. Registry DDL: no DB triggers).
 		await db.exec(`CREATE TRIGGER "player_audit" AFTER INSERT ON "items__player" BEGIN SELECT 1; END`);
 		await assert.rejects(service.alter({ ...player, label: 'Player' }), /DB triggers are not used/);
 		assert.deepStrictEqual(await readTableRegistry(db), [player]);
