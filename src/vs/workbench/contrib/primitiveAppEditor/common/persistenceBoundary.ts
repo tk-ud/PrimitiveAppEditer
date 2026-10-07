@@ -1,6 +1,8 @@
 /*---------------------------------------------------------------------------------------------
  *  Primitive App Editor - Persistence boundary (foundation.project-directory)
- *  Specification SSOT: docs/primitive-app-editor/App Editer.md (32. Persistence Boundary)
+ *  Specification SSOT: docs/primitive-app-editor/App Editer.md
+ *  (32. Authoring Persistent, Runtime Transient, Rule, Runtime Save Data, Save Identity,
+ *  Application Responsibility, Save Payload, Static / Initial Data Boundary)
  *--------------------------------------------------------------------------------------------*/
 
 import { Artifact, ArtifactLifecycle, getArtifactLifecycle } from './authority.js';
@@ -11,8 +13,10 @@ import { getProjectEntry, IProjectEntry, PROJECT_SQLITE_FILE_NAME } from './proj
  * `Runtime State Persistence = explicit only`, `Every Frame Persistence = prohibited`.
  *
  * The Runtime Save Data model (`registry.current` / `logs.savedata`) is encoded as a contract
- * plus its UPSERT semantics. The physical tables are created by the project.sqlite storage;
- * what / when / scope of a save is Application Responsibility and is not decided here.
+ * plus its UPSERT semantics. `project.sqlite` (foundation.sqlite) provides the storage; the physical
+ * `registry.current` / `logs.savedata` tables are created by the Editor Built-in DDL
+ * (foundation.editor-ddl, `001_savedata.sql`). What / when / scope of a save is Application
+ * Responsibility and is not decided here.
  */
 
 // #region Authoring Persistent / Runtime Transient

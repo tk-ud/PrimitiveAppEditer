@@ -1,6 +1,8 @@
 /*---------------------------------------------------------------------------------------------
  *  Primitive App Editor - Persistence boundary (foundation.project-directory)
- *  Specification SSOT: docs/primitive-app-editor/App Editer.md (32. Persistence Boundary)
+ *  Specification SSOT: docs/primitive-app-editor/App Editer.md
+ *  (32. Authoring Persistent, Runtime Transient, Rule, Runtime Save Data, Save Identity,
+ *  Application Responsibility, Save Payload, Static / Initial Data Boundary)
  *--------------------------------------------------------------------------------------------*/
 
 import assert from 'assert';
@@ -26,7 +28,7 @@ import {
 	upsertSaveDataCurrent,
 } from '../../common/persistenceBoundary.js';
 
-suite('Primitive App Editor - Persistence Boundary (32. Persistence Boundary)', () => {
+suite('Primitive App Editor - Persistence contract (32. Authoring Persistent / Runtime Transient / Rule / Runtime Save Data / Save Identity)', () => {
 	ensureNoDisposablesAreLeakedInTestSuite();
 
 	test('Authoring Persistent is the Working Directory without build/', () => {
