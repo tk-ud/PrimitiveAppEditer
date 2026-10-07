@@ -121,7 +121,7 @@ export function isDateValue(value: unknown): value is string {
 	return date.toISOString().slice(0, 10) === value;
 }
 
-/** `timestamp value`: an ISO 8601 date-time with an explicit zone (`Z` or `±hh:mm`). */
+/** `timestamp value`: an ISO 8601 date-time with an explicit zone (`Z` or `+hh:mm` / `-hh:mm`). */
 export function isTimestampValue(value: unknown): value is string {
 	return typeof value === 'string' && timestampPattern.test(value) && isDateValue(value.slice(0, 10)) && !Number.isNaN(Date.parse(value));
 }
