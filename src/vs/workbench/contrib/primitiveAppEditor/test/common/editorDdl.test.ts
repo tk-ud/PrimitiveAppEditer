@@ -26,7 +26,8 @@ suite('Primitive App Editor - Editor DDL (5. Built-in DDL)', () => {
 
 	test('built-in resources scan into contiguous versions and own the Runtime Save Data tables', () => {
 		const migrations = scanEditorDdlResources(editorDdlResources);
-		assert.deepStrictEqual(migrations.map(m => [m.version, m.name]), [[1, '001_savedata.sql']]);
+		assert.deepStrictEqual(migrations.map(m => [m.version, m.name]), [[1, '001_savedata.sql'], [2, '002_table_registry.sql']]);
+		assert.ok(/CREATE TABLE "registry__table_registry"/.test(migrations[1].sql));
 		assert.ok(/CREATE TABLE "logs__savedata"/.test(migrations[0].sql));
 		assert.ok(/CREATE TABLE "registry__current"/.test(migrations[0].sql));
 		assert.strictEqual(migrations[0].checksum, computeEditorDdlChecksum(migrations[0].sql));
