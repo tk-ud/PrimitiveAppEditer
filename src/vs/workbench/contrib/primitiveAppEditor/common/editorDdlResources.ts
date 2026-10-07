@@ -32,4 +32,20 @@ export const editorDdlResources: readonly IEditorDdlResource[] = Object.freeze([
 			');',
 		].join('\n'),
 	}),
+	Object.freeze({
+		name: '002_table_registry.sql',
+		// 8. table_registry: Registry authority of application tables (`schema` = logical namespace items | logs,
+		// `columns` = one JSON list). Application Physical Schema generated from it is not declared here.
+		sql: [
+			'CREATE TABLE "registry__table_registry" (',
+			'\t"uuid" TEXT NOT NULL PRIMARY KEY,',
+			'\t"index" INTEGER NOT NULL,',
+			'\t"schema" TEXT NOT NULL CHECK ("schema" IN (\'items\', \'logs\')),',
+			'\t"name" TEXT NOT NULL,',
+			'\t"label" TEXT NOT NULL,',
+			'\t"columns" TEXT NOT NULL CHECK (json_valid("columns") AND json_type("columns") = \'array\'),',
+			'\t"created_at" TEXT NOT NULL',
+			');',
+		].join('\n'),
+	}),
 ]);

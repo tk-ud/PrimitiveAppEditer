@@ -108,7 +108,7 @@ suite('Primitive App Editor - project.sqlite on disk', () => {
 	test('Create / Open leave tables created by Editor DDL / Migration Apply untouched', async () => {
 		const created = newStorage();
 		await openProjectDirectory(fileService, root, openStepsWithSaveData(created));
-		assert.deepStrictEqual(await listPhysicalTables(created.database), ['editor__schema_version', 'logs__savedata', 'registry__current']);
+		assert.deepStrictEqual(await listPhysicalTables(created.database), ['editor__schema_version', 'logs__savedata', 'registry__current', 'registry__table_registry']);
 		// Static / Initial data is never duplicated into registry.current automatically.
 		assert.deepStrictEqual(await listSaveDataCurrent(created.database), []);
 		await created.close();
@@ -116,7 +116,7 @@ suite('Primitive App Editor - project.sqlite on disk', () => {
 		const reopened = newStorage();
 		const result = await openProjectDirectory(fileService, root, openSteps(reopened));
 		assert.strictEqual(result.mode, ProjectOpenMode.Open);
-		assert.deepStrictEqual(await listPhysicalTables(reopened.database), ['editor__schema_version', 'logs__savedata', 'registry__current']);
+		assert.deepStrictEqual(await listPhysicalTables(reopened.database), ['editor__schema_version', 'logs__savedata', 'registry__current', 'registry__table_registry']);
 	});
 
 	test('registry.current UPSERT on key keeps uuid and moves saveId (player.hp Save-A -> Save-B), persisted across reopen', async () => {
