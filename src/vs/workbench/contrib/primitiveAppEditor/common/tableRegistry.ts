@@ -413,6 +413,24 @@ export function getTableRegistryInsert(entry: ITableRegistryEntry): { readonly s
 	});
 }
 
+/** `UPDATE` statement and parameters replacing the stored entry with Machine Identity `entry.uuid`. */
+export function getTableRegistryUpdate(entry: ITableRegistryEntry): { readonly sql: string; readonly params: readonly (string | number)[] } {
+	const row = encodeTableRegistryRow(entry);
+	const assigned = storedColumns.filter(column => column !== 'uuid');
+	return Object.freeze({
+		sql: `UPDATE ${quoteIdentifier(tableRegistryPhysicalTable)} SET ${assigned.map(column => `${quoteIdentifier(column)} = ?`).join(', ')} WHERE "uuid" = ?`,
+		params: Object.freeze([...assigned.map(column => row[column] as string | number), entry.uuid]),
+	});
+}
+
+/** `DELETE` statement and parameters removing the stored entry with Machine Identity `uuid`. */
+export function getTableRegistryDelete(uuid: string): { readonly sql: string; readonly params: readonly string[] } {
+	return Object.freeze({
+		sql: `DELETE FROM ${quoteIdentifier(tableRegistryPhysicalTable)} WHERE "uuid" = ?`,
+		params: Object.freeze([normalizeRegistryUuid(uuid)]),
+	});
+}
+
 /**
  * Reads every `table_registry` entry from `project.sqlite` in Registry order for `Registry Load`.
  * Each stored row is validated against the contract and table UUIDs must be unique.
