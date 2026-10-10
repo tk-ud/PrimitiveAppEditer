@@ -138,6 +138,61 @@ suite('Primitive App Editor - Physical Table Expansion on project.sqlite', () =>
 		const expanded = await service.expand();
 		assert.deepStrictEqual(expanded.created, []);
 		assert.deepStrictEqual(expanded.schema.tables[0].columns.map(c => `${c.name} ${c.type}`), ['uuid TEXT', 'hp INTEGER', 'speed TEXT', 'note TEXT']);
+
+		// Every DDL Migration shape (RENAME TO, RENAME COLUMN, DROP COLUMN, ADD COLUMN, NOT NULL rebuild) leaves a table the expansion accepts, with its Raw Data.
+		await db.run(`INSERT INTO "items__player" ("uuid", "hp", "speed", "note") VALUES (?, ?, ?, ?)`, [ROW, 50, 'fast', 'a']);
+		await service.alter({ ...player, schema: LogicalNamespace.Logs, name: 'hero', columns: [column(HP, 0, 'life', TableColumnKind.Int, true), column(SPEED, 1, 'speed', TableColumnKind.Text, true), column(BATTLE, 2, 'rank', TableColumnKind.Int)] });
+		assert.deepStrictEqual((await service.expand()).created, []);
+		assert.deepStrictEqual(await db.all(`SELECT "uuid", "life", "speed", "rank" FROM "logs__hero"`), [{ uuid: ROW, life: 50, speed: 'fast', rank: null }]);
+	});
+
+	/** Seeds player + battle, adds an out-of-band `logs__battle`, and asserts expand() rejects it and rolls back. */
+	async function assertRejectsExistingTable(createSql: readonly string[], message: RegExp): Promise<void> {
+		const { storage } = await open();
+		const db = storage.database;
+		await db.transaction(statements => seedRegistry(statements, [player, battle]));
+		for (const sql of createSql) {
+			await db.exec(sql);
+		}
+		await db.run(`INSERT INTO "logs__battle" ("uuid") VALUES (?)`, [ROW]);
+		const rows = await db.all(`SELECT * FROM "logs__battle"`);
+		const tables = await listPhysicalTables(db);
+		const definition = await db.get(`SELECT "sql" FROM sqlite_master WHERE "name" = 'logs__battle'`);
+
+		await assert.rejects(new RegistryService(db).expand(), (error: Error) => error instanceof RegistryServiceError && message.test(error.message));
+		assert.deepStrictEqual(await listPhysicalTables(db), tables, 'items__player created in the same transaction was rolled back');
+		assert.deepStrictEqual(await db.get(`SELECT "sql" FROM sqlite_master WHERE "name" = 'logs__battle'`), definition, 'never silently rebuilt');
+		assert.deepStrictEqual(await db.all(`SELECT * FROM "logs__battle"`), rows, 'Raw Data untouched');
+		assert.deepStrictEqual(await readTableRegistry(db), [player, battle], 'never reverse-generated into the Registry');
+		await storage.close();
+		await fs.rm(join(tempRoot, 'game'), { recursive: true, force: true });
+	}
+
+	test('an existing table whose pragma_table_info matches but which has an extra GENERATED column is rejected with ROLLBACK', async () => {
+		await assertRejectsExistingTable([`CREATE TABLE "logs__battle" ("uuid" TEXT PRIMARY KEY NOT NULL, "damage" INTEGER, "double_damage" INTEGER GENERATED ALWAYS AS ("damage" * 2) VIRTUAL)`], /'double_damage' is a generated \/ hidden column/);
+		await assertRejectsExistingTable([`CREATE TABLE "logs__battle" ("uuid" TEXT PRIMARY KEY NOT NULL, "damage" INTEGER, "stored" INTEGER GENERATED ALWAYS AS (1) STORED)`], /'stored' is a generated \/ hidden column/);
+		// A Registry column redefined as GENERATED keeps the same name / type / notnull / pk.
+		await assertRejectsExistingTable([`CREATE TABLE "logs__battle" ("uuid" TEXT PRIMARY KEY NOT NULL, "damage" INTEGER GENERATED ALWAYS AS (3) STORED)`], /generated \/ hidden column|'damage' has the definition/);
+	});
+
+	test('an existing table whose columns match but which has a CHECK or other unprojected constraint is rejected with ROLLBACK', async () => {
+		await assertRejectsExistingTable([`CREATE TABLE "logs__battle" ("uuid" TEXT PRIMARY KEY NOT NULL, "damage" INTEGER CHECK ("damage" >= 0))`], /column 'damage' has the definition .*CHECK/);
+		await assertRejectsExistingTable([`CREATE TABLE "logs__battle" ("uuid" TEXT PRIMARY KEY NOT NULL, "damage" INTEGER, CHECK ("damage" < 100))`], /has the definition 'CHECK/);
+		await assertRejectsExistingTable([`CREATE TABLE "logs__battle" ("uuid" TEXT PRIMARY KEY NOT NULL, "damage" INTEGER, CONSTRAINT "positive" CHECK ("damage" > 0))`], /has the definition 'CONSTRAINT/);
+		await assertRejectsExistingTable([`CREATE TABLE "logs__battle" ("uuid" TEXT PRIMARY KEY NOT NULL, "damage" INTEGER DEFAULT 0)`], /DEFAULT/);
+		await assertRejectsExistingTable([`CREATE TABLE "logs__battle" ("uuid" TEXT PRIMARY KEY NOT NULL, "damage" INTEGER UNIQUE)`], /UNIQUE/);
+		await assertRejectsExistingTable([`CREATE TABLE "logs__battle" ("uuid" TEXT PRIMARY KEY NOT NULL, "damage" INTEGER) STRICT`], /not defined by a plain CREATE TABLE/);
+		await assertRejectsExistingTable([`CREATE TABLE "logs__battle" ("uuid" TEXT PRIMARY KEY NOT NULL, "damage" INTEGER)`, `CREATE UNIQUE INDEX "battle_damage" ON "logs__battle" ("damage")`], /has the index 'battle_damage'/);
+	});
+
+	test('a matching existing table written in another SQL style (unquoted, comments, case) is accepted', async () => {
+		const { storage } = await open();
+		const db = storage.database;
+		await db.transaction(statements => seedRegistry(statements, [player, battle]));
+		await db.exec(`create table logs__battle ( -- projected by hand\n uuid text not null primary key, /* row */ [damage] integer )`);
+		await db.run(`INSERT INTO "logs__battle" ("uuid", "damage") VALUES (?, ?)`, [ROW, 3]);
+		assert.deepStrictEqual((await new RegistryService(db).expand()).created, ['items__player']);
+		assert.deepStrictEqual(await db.all(`SELECT "uuid", "damage" FROM "logs__battle"`), [{ uuid: ROW, damage: 3 }]);
 	});
 
 	test('Physical Schema is not the Authority: a mismatching table rejects the expansion with ROLLBACK and the Registry is unchanged', async () => {
