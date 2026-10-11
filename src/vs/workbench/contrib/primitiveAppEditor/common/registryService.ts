@@ -7,15 +7,24 @@ import { generateUuid as generateRandomUuid } from '../../../../base/common/uuid
 import { assertBoundaryFlow, BoundaryNode } from './authority.js';
 import {
 	assertProjectSqliteAccess,
-	corePhysicalTableNameResolver,
 	IProjectSqliteDatabase,
 	IProjectSqliteStatements,
 	ProjectSqliteAccessor,
-	ProjectSqliteNameError,
 	ProjectSqliteValue,
 	quoteIdentifier,
 } from './projectSqlite.js';
 import { diffRegistryIdentities, RegistryIdentityChangeKind } from './registryIdentity.js';
+import {
+	expandRegistryPhysicalSchema,
+	generateRegistryColumnDefinition,
+	generateRegistryCreateTable,
+	IRegistryPhysicalSchema,
+	IRegistryPhysicalTable,
+	projectRegistryPhysicalTable,
+	resolveRegistryPhysicalTable,
+	ROW_IDENTITY_COLUMN,
+	RegistryServiceError,
+} from './registryPhysicalExpansion.js';
 import {
 	compareTableRegistryOrder,
 	createTableRegistryEntry,
@@ -29,8 +38,9 @@ import {
 	readTableRegistry,
 	TableColumnKind,
 	TableRegistryError,
-	validateTableRegistry,
 } from './tableRegistry.js';
+
+export { getRegistryPhysicalColumnType, resolveRegistryPhysicalTable, ROW_IDENTITY_COLUMN, RegistryServiceError } from './registryPhysicalExpansion.js';
 
 /**
  * App Editor Registry Service = the Mutation Executor of the Registry (Authority). Every Registry
@@ -48,17 +58,11 @@ import {
  * Physical naming (4. Logical Namespace: the Registry Service resolves physical table names): a table is
  * `<schema>__<name>` and a column is its `name`, so a Registry rename is a physical rename while
  * Registry pairing stays by UUID (7. Rename). Every physical table carries the Raw Data row identity
- * column `uuid`.
+ * column `uuid`. Naming, Kind Dispatch and CREATE TABLE DDL are the Physical Table Expansion
+ * (registryPhysicalExpansion.ts); `expand` projects the whole Registry onto project.sqlite.
  */
 
 // #region Errors
-
-export class RegistryServiceError extends Error {
-	constructor(message: string) {
-		super(`Primitive App Editor Registry Service: ${message}`);
-		this.name = 'RegistryServiceError';
-	}
-}
 
 /** `Invalid existing data -> migration reject`. */
 export class RegistryMigrationRejectedError extends RegistryServiceError {
@@ -88,51 +92,8 @@ export type TableRegistryMutation =
 
 // #region Physical naming
 
-/** Raw Data row identity column present in every physical table. */
-export const ROW_IDENTITY_COLUMN = 'uuid';
-
-const columnNamePattern = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/;
-
-/** Physical table name of a `table_registry` entry: `<schema>__<name>`. */
-export function resolveRegistryPhysicalTable(entry: Pick<ITableRegistryEntry, 'schema' | 'name'>): string {
-	try {
-		return corePhysicalTableNameResolver.resolve(entry.schema, entry.name);
-	} catch (error) {
-		throw error instanceof ProjectSqliteNameError ? new RegistryServiceError(`table '${entry.name}': ${error.message}`) : error;
-	}
-}
-
-/** SQLite declared type of a column `kind`. */
-export function getRegistryPhysicalColumnType(kind: TableColumnKind): string {
-	switch (kind) {
-		case TableColumnKind.Int:
-		case TableColumnKind.Bool:
-			return 'INTEGER';
-		case TableColumnKind.Double:
-			return 'REAL';
-		case TableColumnKind.Uuid:
-		case TableColumnKind.Text:
-		case TableColumnKind.Date:
-		case TableColumnKind.Timestamp:
-		case TableColumnKind.Enum:
-		case TableColumnKind.Json:
-			return 'TEXT';
-		default:
-			throw new RegistryServiceError(`unknown kind '${kind}'`);
-	}
-}
-
-function orderedColumns(entry: ITableRegistryEntry): readonly ITableRegistryColumn[] {
-	return [...entry.columns].sort(compareTableRegistryOrder);
-}
-
-function columnDefinition(column: Pick<ITableRegistryColumn, 'name' | 'kind' | 'not_null'>, notNull = column.not_null): string {
-	return `${quoteIdentifier(column.name)} ${getRegistryPhysicalColumnType(column.kind)}${notNull ? ' NOT NULL' : ''}`;
-}
-
 function createTableSql(physicalTable: string, entry: ITableRegistryEntry): string {
-	const definitions = [`${quoteIdentifier(ROW_IDENTITY_COLUMN)} TEXT PRIMARY KEY NOT NULL`, ...orderedColumns(entry).map(column => columnDefinition(column))];
-	return `CREATE TABLE ${quoteIdentifier(physicalTable)} (${definitions.join(', ')})`;
+	return generateRegistryCreateTable(projectRegistryPhysicalTable(entry), physicalTable);
 }
 
 // #endregion
@@ -349,7 +310,7 @@ export function generateRegistryDdl(diff: TableRegistryDiff): readonly RegistryD
 	}
 	const added = diff.columns.filter(change => has(change, ColumnRegistryChangeKind.Add));
 	for (const change of added) {
-		steps.push(statement(`ALTER TABLE ${quotedTable} ADD COLUMN ${columnDefinition(change.after!, false)}`));
+		steps.push(statement(`ALTER TABLE ${quotedTable} ADD COLUMN ${generateRegistryColumnDefinition(change.after!, false)}`));
 	}
 
 	const migrated = diff.columns.filter(change =>
@@ -361,7 +322,7 @@ export function generateRegistryDdl(diff: TableRegistryDiff): readonly RegistryD
 			kind: RegistryDdlStepKind.Rebuild,
 			physicalTable: table,
 			createSql: createTableSql(table + temporarySuffix, diff.after),
-			columns: Object.freeze(orderedColumns(diff.after).map(column => Object.freeze({
+			columns: Object.freeze([...diff.after.columns].sort(compareTableRegistryOrder).map(column => Object.freeze({
 				name: column.name,
 				from: before.has(column.uuid) ? before.get(column.uuid) : old.get(column.uuid),
 				to: column,
@@ -407,19 +368,128 @@ export async function applyRegistryDdl(statements: IProjectSqliteStatements, ste
 
 // #region Physical Schema Validate
 
+/** SQL tokens of a stored table definition: comments and whitespace dropped, identifiers unquoted. */
+function tokenizeTableSql(sql: string): { readonly kind: 'word' | 'identifier' | 'literal' | 'symbol'; readonly text: string }[] {
+	const tokens: { kind: 'word' | 'identifier' | 'literal' | 'symbol'; text: string }[] = [];
+	let i = 0;
+	const until = (end: string, from: number) => {
+		const index = sql.indexOf(end, from);
+		return index < 0 ? sql.length : index;
+	};
+	while (i < sql.length) {
+		const char = sql[i];
+		if (/\s/.test(char)) {
+			i++;
+		} else if (sql.startsWith('--', i)) {
+			i = until('\n', i);
+		} else if (sql.startsWith('/*', i)) {
+			i = until('*/', i + 2) + 2;
+		} else if (char === '"' || char === '`' || char === '\'') {
+			let text = '';
+			let j = i + 1;
+			while (j < sql.length) {
+				if (sql[j] === char) {
+					if (sql[j + 1] === char) {
+						text += char;
+						j += 2;
+						continue;
+					}
+					break;
+				}
+				text += sql[j++];
+			}
+			tokens.push({ kind: char === '\'' ? 'literal' : 'identifier', text });
+			i = j + 1;
+		} else if (char === '[') {
+			const end = until(']', i);
+			tokens.push({ kind: 'identifier', text: sql.slice(i + 1, end) });
+			i = end + 1;
+		} else if (/[A-Za-z0-9_]/.test(char)) {
+			let j = i;
+			while (j < sql.length && /[A-Za-z0-9_$]/.test(sql[j])) {
+				j++;
+			}
+			tokens.push({ kind: 'word', text: sql.slice(i, j) });
+			i = j;
+		} else {
+			tokens.push({ kind: 'symbol', text: char });
+			i++;
+		}
+	}
+	return tokens;
+}
+
+/**
+ * The stored definition of a projected physical table may only contain what the projection
+ * generates (`CREATE TABLE <name> (<column> <TYPE> [PRIMARY KEY] [NOT NULL], ...)`), which is also
+ * all that the Registry Service DDL Migration (ADD / RENAME / DROP COLUMN, RENAME TO, rebuild)
+ * leaves in `sqlite_master.sql`. Anything else (GENERATED, CHECK, DEFAULT, COLLATE, UNIQUE,
+ * REFERENCES, a table constraint, WITHOUT ROWID / STRICT, a virtual table) or an index other than
+ * the row identity PRIMARY KEY index is structure the Registry does not project, so it is rejected.
+ */
+async function validateRegistryPhysicalTableStructure(statements: IProjectSqliteStatements, projected: IRegistryPhysicalTable): Promise<void> {
+	const table = projected.name;
+	const reject = (detail: string) => new RegistryServiceError(`physical table '${table}' ${detail}, which the Registry does not project`);
+	const stored = await statements.get(`SELECT "sql" FROM sqlite_master WHERE "type" = 'table' AND "name" = ?`, [table]);
+	const tokens = tokenizeTableSql(typeof stored?.sql === 'string' ? stored.sql : '');
+	const word = (index: number, text: string) => tokens[index]?.kind === 'word' && tokens[index].text.toUpperCase() === text;
+	const name = tokens[2];
+	if (!word(0, 'CREATE') || !word(1, 'TABLE') || !name || (name.kind !== 'identifier' && name.kind !== 'word') || name.text.toLowerCase() !== table.toLowerCase() || tokens[3]?.text !== '(' || tokens[tokens.length - 1]?.text !== ')') {
+		throw reject('is not defined by a plain CREATE TABLE (e.g. a virtual table, WITHOUT ROWID or STRICT)');
+	}
+	const expected = new Map(projected.columns.map(column => [column.name, column]));
+	const body = tokens.slice(4, -1);
+	const definitions: (typeof body)[] = [[]];
+	for (const token of body) {
+		if (token.kind === 'symbol' && token.text === ',') {
+			definitions.push([]);
+		} else {
+			definitions[definitions.length - 1].push(token);
+		}
+	}
+	for (const definition of definitions) {
+		const [column, type, ...constraints] = definition;
+		const label = column?.text ?? '';
+		const columnSpec = column && (column.kind === 'identifier' || column.kind === 'word') ? expected.get(column.text) : undefined;
+		if (!columnSpec) {
+			throw reject(`has the definition '${definition.map(token => token.text).join(' ')}'`);
+		}
+		const clauses = constraints.map(token => token.kind === 'word' ? token.text.toUpperCase() : `\u0000${token.text}`).join(' ');
+		const allowed = [columnSpec.primaryKey ? 'PRIMARY KEY' : undefined, columnSpec.notNull ? 'NOT NULL' : undefined].filter(clause => clause !== undefined);
+		const orders = allowed.length === 2 ? [allowed.join(' '), [...allowed].reverse().join(' ')] : [allowed.join(' ')];
+		if (type?.kind !== 'word' || type.text.toUpperCase() !== columnSpec.type || !orders.includes(clauses)) {
+			throw reject(`column '${label}' has the definition '${definition.map(token => token.text).join(' ')}'`);
+		}
+	}
+	const indexes = await statements.all(`SELECT "name", "origin" FROM pragma_index_list(?)`, [table]);
+	const index = indexes.find(row => row.origin !== 'pk');
+	if (index) {
+		throw reject(`has the index '${String(index.name)}'`);
+	}
+}
+
+
 /**
  * Physical Schema Validate: the physical table of every entry has exactly the row identity column
- * and the Registry columns with their declared type and NOT NULL, no trigger is defined on a
- * Registry-projected table, and no migration table is left. The Physical Schema is only compared, never read back into the Registry.
+ * and the Registry columns with their declared type and NOT NULL and no structure / constraint the
+ * projection does not generate (see {@link validateRegistryPhysicalTableStructure}), no trigger is
+ * defined on a Registry-projected table, and no migration table is left. The Physical Schema is only
+ * compared, never read back into the Registry.
  */
 export async function validateRegistryPhysicalSchema(statements: IProjectSqliteStatements, entries: readonly ITableRegistryEntry[], dropped: readonly ITableRegistryEntry[] = []): Promise<void> {
 	for (const entry of entries) {
-		const table = resolveRegistryPhysicalTable(entry);
-		const actual = await statements.all(`SELECT "name", "type", "notnull", "pk" FROM pragma_table_info(?) ORDER BY "cid"`, [table]);
+		const projected = projectRegistryPhysicalTable(entry);
+		const table = projected.name;
+		// table_xinfo also lists hidden (GENERATED) columns that table_info omits.
+		const actual = await statements.all(`SELECT "name", "type", "notnull", "pk", "hidden" FROM pragma_table_xinfo(?) ORDER BY "cid"`, [table]);
 		if (!actual.length) {
 			throw new RegistryServiceError(`physical table '${table}' of '${entry.name}' does not exist`);
 		}
-		const expected = new Map<string, string>([[ROW_IDENTITY_COLUMN, 'TEXT 1 1'], ...entry.columns.map(column => [column.name, `${getRegistryPhysicalColumnType(column.kind)} ${column.not_null ? 1 : 0} 0`] as [string, string])]);
+		const hidden = actual.find(row => Number(row.hidden) !== 0);
+		if (hidden) {
+			throw new RegistryServiceError(`physical table '${table}' column '${String(hidden.name)}' is a generated / hidden column, which the Registry does not project`);
+		}
+		const expected = new Map(projected.columns.map(column => [column.name, `${column.type} ${column.notNull ? 1 : 0} ${column.primaryKey ? 1 : 0}`]));
 		const found = new Map(actual.map(row => [String(row.name), `${String(row.type).toUpperCase()} ${row.notnull} ${Number(row.pk) > 0 ? 1 : 0}`]));
 		for (const [name, definition] of expected) {
 			if (found.get(name) !== definition) {
@@ -431,6 +501,7 @@ export async function validateRegistryPhysicalSchema(statements: IProjectSqliteS
 				throw new RegistryServiceError(`physical table '${table}' has column '${name}' that is not in the Registry`);
 			}
 		}
+		await validateRegistryPhysicalTableStructure(statements, projected);
 	}
 	for (const entry of dropped) {
 		const table = resolveRegistryPhysicalTable(entry);
@@ -455,32 +526,12 @@ export async function validateRegistryPhysicalSchema(statements: IProjectSqliteS
 // #region Registry Validate
 
 /**
- * Registry Validate of the NEW Registry: `table_registry` contract (unique table UUIDs), physical
- * table / column names that resolve and are unique, and no column named like the row identity.
+ * Registry Validate of the NEW Registry = its Physical Table Expansion: `table_registry` contract
+ * (unique table UUIDs), Schema Validate (items | logs, physical table names that resolve and are
+ * unique), Column Validate (valid unique column names, never the row identity) and Kind Dispatch.
  */
-export function validateRegistryProjection(entries: readonly ITableRegistryEntry[]): void {
-	validateTableRegistry(entries);
-	const tables = new Map<string, string>();
-	for (const entry of entries) {
-		const table = resolveRegistryPhysicalTable(entry);
-		if (tables.has(table)) {
-			throw new RegistryServiceError(`tables '${tables.get(table)}' and '${entry.name}' resolve to the same physical table '${table}'`);
-		}
-		tables.set(table, entry.name);
-		const columns = new Set<string>();
-		for (const column of entry.columns) {
-			if (!columnNamePattern.test(column.name)) {
-				throw new RegistryServiceError(`table '${entry.name}' column name must match ${columnNamePattern.source}: '${column.name}'`);
-			}
-			if (column.name === ROW_IDENTITY_COLUMN) {
-				throw new RegistryServiceError(`table '${entry.name}' column '${column.name}' is the Raw Data row identity column`);
-			}
-			if (columns.has(column.name)) {
-				throw new RegistryServiceError(`table '${entry.name}' has two columns resolving to physical column '${column.name}'`);
-			}
-			columns.add(column.name);
-		}
-	}
+export function validateRegistryProjection(entries: readonly ITableRegistryEntry[]): IRegistryPhysicalSchema {
+	return expandRegistryPhysicalSchema(entries);
 }
 
 // #endregion
@@ -509,6 +560,13 @@ export interface IRegistryMutationResult {
 	readonly ddl: readonly RegistryDdlStep[];
 }
 
+export interface IRegistryExpansionResult {
+	/** Physical Schema expanded from the whole Registry. */
+	readonly schema: IRegistryPhysicalSchema;
+	/** Physical tables created by this expansion (tables already projected are kept with their Raw Data). */
+	readonly created: readonly string[];
+}
+
 export class RegistryService {
 
 	private readonly generateUuid: () => string;
@@ -534,6 +592,39 @@ export class RegistryService {
 	/** Table DELETE -> DROP TABLE -> Logical dependency cleanup. */
 	drop(uuid: string): Promise<IRegistryMutationResult> {
 		return this.mutate({ kind: RegistryMutationKind.Delete, uuid });
+	}
+
+	/**
+	 * Physical Table Expansion of the whole Registry in one transaction:
+	 *
+	 * ```text
+	 * table_registry -> Schema Validate -> Column Validate -> Kind Dispatch -> DDL Generate
+	 *                -> Physical Table (CREATE TABLE when missing) -> Physical Schema Validate
+	 * ```
+	 *
+	 * The Registry is the Authority: it is only read. A physical table that already exists keeps its
+	 * Raw Data and must match the Registry; a mismatching one rejects the expansion (ROLLBACK) and is
+	 * never read back into the Registry nor silently rebuilt.
+	 */
+	expand(): Promise<IRegistryExpansionResult> {
+		assertProjectSqliteAccess(ProjectSqliteAccessor.Authoring);
+		assertBoundaryFlow(BoundaryNode.Registry, BoundaryNode.PhysicalSchema);
+		return this.database.transaction(async statements => {
+			const registry = await readTableRegistry(statements);
+			const schema = expandRegistryPhysicalSchema(registry);
+			const created: string[] = [];
+			for (const table of schema.tables) {
+				const existing = await statements.get(`SELECT "type" FROM sqlite_master WHERE "name" = ?`, [table.name]);
+				if (!existing) {
+					await statements.exec(generateRegistryCreateTable(table));
+					created.push(table.name);
+				} else if (existing.type !== 'table') {
+					throw new RegistryServiceError(`physical name '${table.name}' is used by a ${String(existing.type)} in project.sqlite`);
+				}
+			}
+			await validateRegistryPhysicalSchema(statements, registry);
+			return Object.freeze({ schema, created: Object.freeze(created) });
+		});
 	}
 
 	/** Runs the whole pipeline in one transaction; any failure rolls back Registry and DDL together. */
