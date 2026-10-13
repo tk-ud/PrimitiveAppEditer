@@ -218,19 +218,19 @@ section:
               to_verify:
                 - "Which surface (Status Bar item id or data-pae-marker) exposes the open state."
             - id: "GD-GAP-03"
-              title: "No PAE UI marker convention exists in code"
+              title: "No PAE UI marker / Item Identity convention exists in code"
               related_bundles:
                 - "tooling.gui-debugger"
               target:
-                - "src/vs/workbench/** (no data-pae-marker usage)"
+                - "src/vs/workbench/** (no data-pae-marker / data-pae-item usage)"
                 - "src/vs/workbench/services/layout/browser/layoutService.ts (Parts: workbench.parts.*)"
                 - "test/automation/src/*.ts (existing selectors by part / view / panel / status bar ids)"
-              expected: "Existing Code OSS identifiers first; data-pae-marker only where they cannot identify the target (Editor UI.md §19 UI Marker Regulation)."
-              current: "Code OSS identifiers exist (workbench.parts.*, workbench.view.*, workbench.panel.*, status.*); there is no PAE marker attribute or helper."
-              missing: "A PAE marker attribute convention / helper in PAE-owned UI code."
+              expected: "Existing Code OSS identifiers first; data-pae-marker only where they cannot identify the target; data-pae-item (read-only reflection of the item UUID, not displayed) on item elements so same-name items are identifiable (Editor UI.md §19 UI Marker Regulation / Item Identity)."
+              current: "Code OSS identifiers exist (workbench.parts.*, workbench.view.*, workbench.panel.*, status.*); there is no PAE marker or Item Identity attribute or helper."
+              missing: "A PAE marker / Item Identity attribute convention / helper in PAE-owned UI code."
               follow_up: "Introduce it in PAE-owned UI code at first need; do not modify Code OSS core UI for markers."
               confirmed:
-                - "grep for data-pae-marker / pae-marker in src/vs/workbench returns no match."
+                - "grep for data-pae-marker / pae-marker / data-pae-item in src/vs/workbench returns no match."
               to_verify: []
             - id: "GD-GAP-04"
               title: "No verified launch procedure exposes a CDP endpoint for Python Playwright"

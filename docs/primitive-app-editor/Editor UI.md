@@ -884,7 +884,7 @@ Marker値は以下を満たす。
 - locale / Display Labelに依存しない固定文字列
 - UUID / Raw Data値 / Project固有値を含まない
 - DOM位置 / 表示順序に依存しない
-- 同一Surface内で一意 (List / Tree Itemは種別Markerとし、項目は表示name / labelで特定する)
+- 同一Surface内で一意 (List / Tree / Grid Itemは項目ごとではなく種別Markerとする)
 ```
 
 UI Markerを追加してもLayout、Interaction、Accessible Label、Tooltipを変更しない。Icon-only ControlのTooltip / Accessible Label (§16) はMarkerと独立に維持する。
@@ -902,3 +902,36 @@ UI Marker / 既存識別子
 UI MarkerはPrimitive App Editor所有のUI codeに付与し、UI Marker付与を目的としたCode OSS本体の改変を行わない。
 
 Markerの解決方法とGUI Mapでの利用は`GUI Debug Tool.md`が定義する。
+
+### Item Identity
+
+registry.identity (`App Editer.md` §7) はname重複を許容するため、表示name / labelだけでは同名項目を識別できない。Registry / Raw Data / Binding等を表す項目要素はItem Identityを持つ。
+
+```text
+Item Identity
+  = data-pae-item="<項目が表すUUID>"
+  = AuthorityのUUIDを読み取り専用で反映する
+  = 項目要素 (List / Tree / Grid Row / Select候補等) に付与する
+
+data-pae-marker
+  = 固定のUI要素 / Item種別識別子
+  = UUIDを含まない
+
+data-pae-item
+  = 項目単位の識別子
+  = Markerとは別属性とする
+```
+
+Item Identityは以下を満たす。
+
+```text
+- UUIDをPrimary UIに表示しない
+  (表示text / Tooltip / Accessible Label / Inspector Header Valueに含めない)
+- UUIDを生成 / 変更せず、Registry等のUUID Identity Authorityを再定義しない
+- name / labelからUUIDを推測しない (§15 UI Responsibility Boundary)
+- DOM位置 / 表示順序に依存しない
+```
+
+同名項目の識別はItem Identityで行う。表示name / labelによる項目特定は、候補内で一意な場合に限る。
+
+Item Identityの解決方法とGUI Mapでの指定は`GUI Debug Tool.md`が定義する。

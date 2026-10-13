@@ -431,11 +431,89 @@ locator:
 within
   = 親Locator内に検索範囲を限定する
 
-item.text
-  = List / Tree / Grid内の項目を表示name / labelで特定する
+target (data-pae-marker等)
+  = 固定のUI要素 / Item種別を特定する
+
+item
+  = target内の候補から1項目を特定する
 ```
 
-List / Tree内の項目はMarkerでItem種別を特定し、表示されたname / labelで項目を特定する。UUIDやDOM位置indexで項目を特定しない。
+List / Tree / Grid / Select候補等の項目は、targetでItem種別を特定し、`item`で項目を特定する。
+
+```yaml
+item:
+  identity: "<Item Identity値 | {{ inputs.<name> }} | {{ captures.<name> }}>"
+  text: "<表示name / label>"
+```
+
+```text
+item.identity
+  = Editor UI.md §19 Item Identity (data-pae-item) の完全一致
+  = 同名項目を含む全ての項目を一意に特定する
+
+item.text
+  = 表示name / label (whitespace正規化後の完全一致)
+  = 一意解決を要求する場合、候補内で一意な場合のみ特定に使用できる
+  = resolve: count (### Expectation) では一致件数を数える
+
+item.identity + item.text
+  = identityで特定し、textを表示値の追加照合に使用する
+```
+
+`item.identity`と`item.text`の少なくとも一方を指定する。DOM位置index、表示順序、固定座標で項目を特定しない。
+
+### Item Identity
+
+同名項目 (registry.identityはname重複を許容する) は表示name / labelでは識別できないため、Item Identityで識別する。
+
+```text
+Item Identity
+  = UI項目要素のdata-pae-item属性
+  = 項目が表すRegistry / Raw Data / Binding等のUUIDをそのまま反映した値
+  = 表示しない (Primary UI / Tooltip / Accessible Labelに含めない)
+
+UUID Identity Authority
+  = Registry (App Editer.md §7 UUID Identity)
+
+Item Identity
+  = AuthorityのUUIDを読み取り専用で反映するのみ
+  = UUIDを生成 / 変更 / 再定義しない
+```
+
+GUI MapはItem Identity値を次のいずれかで与える。
+
+```text
+inputs.<name>
+  = preconditions.workspaceの検証用Working Directoryに既知のUUID
+    (Seed / INSERTで指定したUUIDはKeepされる: App Editer.md §7 Generate)
+
+captures.<name>
+  = 実行中に取得したItem Identity
+  = 先行stepのcaptureで取得する
+```
+
+Capture：
+
+```yaml
+capture:
+  name: "<capture name>"
+  mode: "item | new_item"
+  target: "<marker alias>"
+  item:                       # mode: item の場合
+    text: "<表示name / label>"
+```
+
+```text
+mode: item
+  = step完了後、target + itemで一意に解決した項目のdata-pae-itemを取得
+
+mode: new_item
+  = step action実行前後でtarget内のdata-pae-item集合を比較し、
+    新規に出現した項目がちょうど1件の場合にそのdata-pae-itemを取得
+  = 0件 / 2件以上は expectation_failed
+```
+
+`new_item`により、UUIDが自動生成される新規項目 (同名を含む) をGUI Map作成時にUUIDを知らずに特定できる。
 
 ### Resolution Result
 
@@ -448,6 +526,10 @@ List / Tree内の項目はMarkerでItem種別を特定し、表示されたname 
 
 2件以上 (unique要求時)
   -> marker_ambiguous
+
+item.textのみで候補が2件以上 (同名項目)
+  -> marker_ambiguous
+  -> 先頭 / 任意の1件を選択しない
 ```
 
 ### Prohibited
@@ -457,7 +539,8 @@ List / Tree内の項目はMarkerでItem種別を特定し、表示されたname 
 固定座標 / Window相対座標
 DOM位置index依存 (nth-child等)
 locale未固定のLocalized Text単独
-UUID / Raw Data値をMarker値として使用
+UUID / Raw Data値をMarker値 (data-pae-marker) として使用
+同名候補からの位置 / 順序による選択
 ```
 
 ---
@@ -501,7 +584,7 @@ gui_map:
       within: "<parent alias>"
       justification: "<css時必須>"
 
-  inputs:                               # 入力値
+  inputs:                               # 入力値 (文字列 / 整数)
     <name>: "<value>"
 
   steps:                                # 操作順序
@@ -509,13 +592,21 @@ gui_map:
       title: "<操作説明>"
       action: "<action>"
       target: "<marker alias>"
-      item:
+      item:                             # §8 Scope / Item
+        identity: "{{ captures.<name> }}"
         text: "<表示name / label>"
       value: "{{ inputs.<name> }}"
       timeout_ms: 5000
       continue_on_error: false          # true の場合のみFailed後に次stepへ継続可能
-      expect:                           # 期待結果
-        - "<expectation>": "<marker alias>"
+      capture:                          # §8 Item Identity
+        name: "<capture name>"
+        mode: "item | new_item"
+        target: "<marker alias>"
+      expect:                           # 期待結果 (### Expectation)
+        - assert: "<expectation kind>"
+          target: "<marker alias>"
+          item: { identity: "...", text: "..." }
+          # kind別field: source / op / name / value
       report:                           # Error時の報告定義 (step単位)
         summary: "<症状>"
         category: "<分類>"
@@ -546,12 +637,153 @@ screenshot  (明示的証跡取得)
 
 ### Expectation
 
+各Expectationは1つのmappingとし、`assert` (種別)、`target` / `item` (操作対象)、種別ごとの比較値 / 比較方法fieldを持つ。
+
+```yaml
+expectation:
+  common:
+    assert: "<kind>"               # 必須
+    target: "<marker alias>"       # 必須
+    item:                          # 任意 (§8 Scope / Item)
+      identity: "<...>"
+      text: "<...>"
+
+  kinds:
+    visible:   { resolve: "unique", fields: [] }
+    hidden:    { resolve: "unique", fields: [] }
+    enabled:   { resolve: "unique", fields: [] }
+    disabled:  { resolve: "unique", fields: [] }
+    focused:   { resolve: "unique", fields: [] }
+    absent:    { resolve: "count",  fields: [] }
+
+    text_equals:
+      resolve: "unique"
+      fields:
+        value:  { type: "string", required: true }
+        source: { enum: ["text", "input_value"], default: "text" }
+    text_contains:
+      resolve: "unique"
+      fields:
+        value:  { type: "string", required: true }
+        source: { enum: ["text", "input_value"], default: "text" }
+
+    attribute:
+      resolve: "unique"
+      fields:
+        name:  { type: "string", required: true }
+        op:    { enum: ["equals", "contains", "present", "absent"], required: true }
+        value: { type: "string", required_when: ["equals", "contains"], forbidden_when: ["present", "absent"] }
+
+    count:
+      resolve: "count"
+      fields:
+        op:    { enum: ["eq", "ne", "ge", "gt", "le", "lt"], required: true }
+        value: { type: "integer", minimum: 0, required: true }
+```
+
+比較方法：
+
 ```text
-visible / hidden / absent
+resolve: unique
+  = target (+ item) が1件に解決すること
+  = 0件 -> marker_not_found / 2件以上 -> marker_ambiguous
+
+resolve: count
+  = 解決件数を数える (0件もerrorにしない)
+
+visible / hidden
+  = 1件に解決し、表示状態 / 非表示状態であること
+
+absent
+  = 解決件数が0件であること (marker_not_foundとしない)
+
 enabled / disabled / focused
-text_equals / text_contains
-attribute
-count
+  = 1件に解決し、要素が該当状態であること
+
+source: text
+  = 要素の表示text
+
+source: input_value
+  = 入力要素 (text field / number field / select等) の現在値
+
+text_equals
+  = 実測値 == value
+
+text_contains
+  = valueが実測値の部分文字列
+
+text比較の正規化
+  = 実測値 / value とも前後空白除去 + 連続空白を1文字へ
+  = 大文字小文字を区別する
+
+attribute op
+  = equals   : 属性値 == value
+  = contains : valueが属性値の部分文字列
+  = present  : 属性が存在
+  = absent   : 属性が存在しない
+
+count op
+  = 解決件数 <op> value (整数比較)
+
+value内の {{ inputs.<name> }} / {{ captures.<name> }}
+  = 比較前に置換する
+```
+
+期待結果はstepのtimeout_ms内で成立するまで再評価し、timeout時点の最終観測値を`measured.actual`、比較式を`measured.expected`として記録する (§12 Roadmap Diagnostics)。
+
+例 (未実装UIを想定した記述例であり、Marker値は実装時に確定する)：
+
+```yaml
+gui_map:
+  version: 1
+  checkpoint:
+    id: "cp.registry.duplicate-name-table"
+    title: "同名Tableを作成し、それぞれを識別して編集できる"
+    bundles: ["workbench.views", "editor.inspector"]
+    condition:
+      require:
+        - { bundle: "workbench.views", status: ["implemented"] }
+        - { bundle: "editor.inspector", status: ["implemented"] }
+    regression: true
+  preconditions:
+    workspace: "fixture:registry-enemy"
+    markers: ["registry.tree"]
+  markers:
+    registry.tree:     { kind: "marker", value: "registry.tree" }
+    registry.table:    { kind: "marker", value: "registry.tree.table", within: "registry.tree" }
+    registry.add:      { kind: "marker", value: "registry.tree.add-table" }
+    inspector.name:    { kind: "marker", value: "inspector.field.name" }
+    inspector.header:  { kind: "marker", value: "inspector.header.label" }
+  inputs:
+    existing_enemy_uuid: "0b6c1f0e-1a2b-4c3d-8e9f-000000000001"
+    table_name: "Enemy"
+  steps:
+    - id: "s01"
+      title: "同名TableをRegistryへ追加する"
+      action: "click"
+      target: "registry.add"
+      capture: { name: "new_enemy", mode: "new_item", target: "registry.table" }
+      expect:
+        - { assert: "count", target: "registry.table", item: { text: "{{ inputs.table_name }}" }, op: "eq", value: 2 }
+    - id: "s02"
+      title: "既存Enemyを選択する"
+      action: "click"
+      target: "registry.table"
+      item: { identity: "{{ inputs.existing_enemy_uuid }}", text: "{{ inputs.table_name }}" }
+      expect:
+        - { assert: "text_equals", target: "inspector.header", value: "{{ inputs.table_name }}" }
+        - { assert: "text_equals", target: "inspector.name", source: "input_value", value: "{{ inputs.table_name }}" }
+        - { assert: "attribute", target: "registry.table", item: { identity: "{{ inputs.existing_enemy_uuid }}" }, name: "aria-selected", op: "equals", value: "true" }
+        - { assert: "attribute", target: "registry.table", item: { identity: "{{ captures.new_enemy }}" }, name: "aria-selected", op: "equals", value: "false" }
+      report:
+        summary: "同名Tableのうち既存Enemyを選択できない"
+        category: "selection"
+        suspected_bundles: ["workbench.views", "editor.inspector"]
+  report:
+    destination: "roadmap.diagnostics"
+    summary: "同名Registry項目の識別 / 選択に失敗"
+    category: "registry"
+    suspected_bundles: ["workbench.views"]
 ```
 
 ### Report Definition
@@ -572,7 +804,16 @@ GUI Map読込時に以下を検証し、不正なGUI Mapは実行しない。
 ```text
 - checkpoint.idがファイル名と一致し、全GUI Map間で一意
 - bundles / condition.require[].bundleがroadmap.yamlに存在
-- step.target / within / preconditions.markersが定義済みalias
+- step.target / within / preconditions.markers / expect[].target / capture.targetが定義済みalias
+- expect[].assertが§9 Expectationの種別であり、種別ごとのrequired / forbidden fieldを満たす
+- attribute.op present / absent でvalueが無く、equals / contains でvalueが存在
+- count.valueが0以上の整数、text_* / attribute.valueが文字列
+- resolve: count の種別 (count / absent) 以外でのみ一意解決を要求する
+- item指定時はidentity / textの少なくとも一方が存在
+- item.identityが UUID形式 / inputs参照 / captures参照 のいずれか
+- {{ inputs.<name> }} がinputsに定義済み
+- {{ captures.<name> }} が参照stepより前のstepのcaptureで定義済み、capture.nameが一意
+- capture.mode: item でitemが存在し、new_item でitemが存在しない
 - css locatorにjustificationが存在
 - role locator使用時にpreconditions.localeが存在
 - 固定座標 / 画像指定のfieldが存在しない
