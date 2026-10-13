@@ -10,6 +10,7 @@ authority:
     - "Tool command / validation / lifecycle are defined only by this document"
     - "README.md defines Tool First development policy and must not redefine Tool behavior"
     - "roadmap.yaml defines Tool implementation bundle / dependency / progress and must not redefine Tool behavior"
+    - "roadmap.yaml diagnostics write contract is defined only by GUI Debug Tool.md"
 ```
 
 ## roadmap Tool
@@ -32,7 +33,9 @@ tool:
     - "Implementation-role references define selected bundle implementation scope"
     - "Boundary-role references constrain implementation and never add implementation scope"
     - "Agent must not modify roadmap.yaml directly"
-    - "Roadmap mutation must be performed only by roadmap.complete"
+    - "Roadmap progress mutation (section[].bundle[] status / evidence / remaining) must be performed only by roadmap.complete"
+    - "roadmap.yaml diagnostics is written only by GUI Debug Tool (./GUI Debug Tool.md) and is neither selection nor validation input of roadmap.next / roadmap.complete"
+    - "roadmap.complete must preserve roadmap.yaml content outside the target bundle status / evidence / remaining, including diagnostics and bundle extension keys"
     - "depends_on is defined only by roadmap.yaml"
     - "implemented bundles must never be selected again"
     - "partial bundles remain selectable"

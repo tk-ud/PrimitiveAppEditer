@@ -121,6 +121,15 @@ implementation:
       - Bundle Selection
       - Specification Extraction
       - Evidence Update
+
+  docs/primitive-app-editor/GUI Debug Tool.md:
+    purpose: Roadmap Driven GUI Debug Toolの個別把握
+    authority: GUI Debug Tool仕様SSOT
+    defines:
+      - Checkpoint
+      - UI Marker Resolution
+      - GUI Map YAML
+      - Roadmap Diagnostics
 ```
 
 ## Development Model
@@ -220,6 +229,38 @@ bootstrap:
     - 全後続Bundleはdepends_onによりtooling.roadmap-agentのimplemented後に選択可能となる
     - tooling.roadmap-agent自身はTool未実装のため、Agent tool.mdのroadmap.next sequenceに従い手動でSpecificationを取得する
     - 完了更新は実装したroadmap.completeで行い、Tool検証のEvidenceとする
+```
+
+## GUI Debug
+
+Roadmap Driven GUI Debug Toolによる開発時GUI検証の責務分離。
+
+```yaml
+GUI Debug Tool:
+  role: 手動GUIデバッグを置き換える開発用GUI自動検証Tool
+  runtime: Python独立GUI Application (Code OSS統合ターミナルから起動)
+  reads:
+    - roadmap.yaml Bundle status (read-only)
+    - GUI Map YAML
+  writes:
+    - roadmap.yaml diagnostics.gui_debug
+  depends_at_runtime:
+    prohibited:
+      - AI
+      - roadmap Agent Tool
+
+development:
+  tool / GUI Map / UI Marker: Development Agent (GPT / Claude), Tool Firstに従う
+  execution / diagnostics: GUI Debug Tool
+
+separation:
+  progress_update: roadmap.complete (status / evidence / remaining)
+  diagnostics_append: GUI Debug Tool (diagnostics.gui_debug)
+
+authority:
+  tool_specification: docs/primitive-app-editor/GUI Debug Tool.md
+  ui_marker_regulation: docs/primitive-app-editor/Editor UI.md (§19 UI Marker Regulation)
+  tool_implementation_progress: docs/primitive-app-editor/roadmap.yaml (tooling.gui-debugger)
 ```
 
 ## Repository / Upstream
