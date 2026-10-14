@@ -34,6 +34,18 @@ const E2 = '00000000-0000-4000-8000-0000000000e2';
 
 const now = () => new Date('2026-10-14T00:00:00Z');
 
+/** Asserts an EnumRegistryError matching `pattern` (the browser assert shim has no validator-function form of assert.throws). */
+function throwsEnumRegistryError(fn: () => unknown, pattern: RegExp): void {
+	let thrown: unknown;
+	try {
+		fn();
+	} catch (error) {
+		thrown = error;
+	}
+	assert.ok(thrown instanceof EnumRegistryError, `expected EnumRegistryError, got ${String(thrown)}`);
+	assert.ok(pattern.test(thrown.message), thrown.message);
+}
+
 function element(overrides: Partial<IEnumRegistryEntryInput> = {}): IEnumRegistryEntryInput {
 	return {
 		uuid: E, index: 0, name: 'element', label: 'Element', values: [
@@ -71,7 +83,7 @@ suite('Primitive App Editor - enum_registry (11. enum_registry)', () => {
 	});
 
 	test('entry validation rejects invalid index, values, group_tags and created_at', () => {
-		const rejects = (input: IEnumRegistryEntryInput, pattern: RegExp) => assert.throws(() => createEnumRegistryEntry(input, () => E2, now), (error: Error) => error instanceof EnumRegistryError && pattern.test(error.message));
+		const rejects = (input: IEnumRegistryEntryInput, pattern: RegExp) => throwsEnumRegistryError(() => createEnumRegistryEntry(input, () => E2, now), pattern);
 		rejects(element({ index: 1.5 }), /index must be an int/);
 		rejects(element({ values: [{ value: 'fire' }, { value: 'fire', label: 'Again' }] }), /duplicate value 'fire'/);
 		rejects(element({ values: [{ value: '' }] }), /non-empty text value/);
@@ -119,7 +131,7 @@ suite('Primitive App Editor - enum_registry (11. enum_registry)', () => {
 
 		validateTableEnumReferences([table], [entry]);
 		validateTableEnumReferences([table], index);
-		assert.throws(() => validateTableEnumReferences([enemy(E2)], index), (error: Error) => error instanceof EnumRegistryError && /table 'enemy': column 'element' references missing enum_registry entry/.test(error.message));
+		throwsEnumRegistryError(() => validateTableEnumReferences([enemy(E2)], index), /table 'enemy': column 'element' references missing enum_registry entry/);
 		assert.throws(() => new EnumRegistryIndex([entry, entry]), /duplicate enum uuid/);
 	});
 
