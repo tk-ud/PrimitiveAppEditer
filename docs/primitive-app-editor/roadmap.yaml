@@ -11,6 +11,8 @@ roadmap:
       authority: "Request resolve / operation dispatch SSOT"
     - source: "./Agent tool.md"
       authority: "roadmap Agent Tool specification SSOT"
+    - source: "./GUI Debug Tool.md"
+      authority: "Roadmap Driven GUI Debug Tool specification / roadmap diagnostics write contract SSOT"
     - source: "../../README.md"
       authority: "Repository / Upstream / Development Baseline"
   status_values:
@@ -115,6 +117,235 @@ section:
           - "PR #21 CI on f71a496f (refs/pull/21/merge = main 320683e6 + fix) is green on all 13 checks: Code OSS run 37183960240 (Compile & Hygiene, Linux / Electron-Unit, Electron, Electron-Smoke, Browser, Remote), Component Fixtures run 37183960055, Monaco Editor checks run 37183960057, CodeQL run 37183960069. Linux / Electron-Smoke job 111381933864: 64 passing / 0 failing / 68 pending versus main's 64 passing / 2 failing / 66 pending, i.e. only the two latest-Insiders Dev Container tests moved to pending and every previously passing smoke test still passes."
           - "No earlier producer bundle required an integration fix."
         remaining: []
+
+  - name: "GUI Debug Tooling"
+    bundle:
+      - id: "tooling.gui-debugger"
+        title: "Roadmap Driven GUI Debug Tool (Python GUI automation, GUI Map YAML, roadmap diagnostics)"
+        reference:
+          - source: "./GUI Debug Tool.md"
+            role: "implementation"
+            sections:
+              - "§1 Scope"
+              - "§2 Authority"
+              - "§3 Debug Flow"
+              - "§4 Development Process"
+              - "§5 Runtime Environment"
+              - "§6 Electron Connection"
+              - "§7 Checkpoint"
+              - "§8 UI Marker Resolution"
+              - "§9 GUI Map YAML"
+              - "§10 GUI Debug Tool Application"
+              - "§11 Execution Result"
+              - "§12 Roadmap Diagnostics"
+              - "§13 Run Artifacts"
+              - "§14 Boundary"
+              - "§15 Implementation Bundle"
+              - "§16 Open Issues"
+          - source: "./Editor UI.md"
+            role: "implementation"
+            sections:
+              - "§19 UI Marker Regulation"
+          - source: "./Editor UI.md"
+            role: "boundary"
+            sections:
+              - "§15 UI Responsibility Boundary"
+              - "§16 Explanation / Help and General Workbench Rules"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
+              - "§39 Development Tooling"
+              - "§39 Debug Viewer"
+              - "§39 Boundary"
+          - source: "./Agent tool.md"
+            role: "boundary"
+            sections:
+              - "roadmap Tool"
+          - source: "../../README.md"
+            role: "boundary"
+            sections:
+              - "Tool First"
+              - "GUI Debug"
+        depends_on:
+          - "tooling.roadmap-agent"
+          - "workbench.integration"
+        status: "not started"
+        evidence: []
+        remaining: []
+        audit:
+          scope: "Existing implementation gaps for the GUI Debug Tool, recorded by the design_change audit on main ebf9031f. Read-only audit: no source, test or UI marker was changed."
+          rules:
+            - "Existing bundle status / evidence / remaining are not changed by this audit."
+            - "Gaps are inspection input for implementing tooling.gui-debugger (GUI Debug Tool.md §15 Implementation Bundle); they do not record implementation progress."
+            - "confirmed = fact observed in the repository at audit time; to_verify = must be verified during implementation and is not an implemented fact."
+          gaps:
+            - id: "GD-GAP-01"
+              title: "No Primitive App Editor Workbench UI exists, so there is no PAE GUI target or UI marker"
+              related_bundles:
+                - "workbench.integration"
+                - "workbench.views"
+                - "editor.registry-ui"
+                - "editor.data-ui"
+                - "editor.inspector"
+                - "editor.function-graph"
+                - "editor.debug-viewer"
+                - "build.deploy"
+              target:
+                - "src/vs/workbench/contrib/primitiveAppEditor/ (common/, node/, test/ only)"
+              expected: "Activity Bar / Primary Side Bar views (Registry, Data, Assets, Functions, Renderer, Debug, Build), Registry Driven Inspector in the Secondary Side Bar, Editor Area editors, Bottom Panel outputs and Status Bar project status, each identifiable by a Code OSS identifier or data-pae-marker (Editor UI.md §19 UI Marker Regulation)."
+              current: "Only I/O-free common contracts and the node SQLite adapter exist; there is no browser/ layer, no *.contribution.ts, and no view container / view / editor / status bar registration."
+              missing: "Every PAE GUI surface and therefore every PAE UI marker."
+              follow_up: "The related UI bundles implement the surfaces. When implementing tooling.gui-debugger, audit the markers of the UI implemented by then and add only the missing ones in PAE-owned UI code as a required integration fix."
+              confirmed:
+                - "No browser/ directory or contribution file under src/vs/workbench/contrib/primitiveAppEditor."
+                - "All related UI bundles are 'not started' in this roadmap."
+              to_verify:
+                - "PAE view containers / views receive DOM ids in the Code OSS pattern div[id=\"workbench.view.<id>\"] (used by test/automation for built-in views), including individual views inside a container."
+            - id: "GD-GAP-02"
+              title: "Project Open result (Editor Ready / Incomplete) is not observable in the GUI"
+              related_bundles:
+                - "foundation.project-directory"
+                - "workbench.integration"
+                - "workbench.views"
+              target:
+                - "src/vs/workbench/contrib/primitiveAppEditor/common/projectDirectory.ts (openProjectDirectory, IProjectOpenSteps, ProjectOpenStatus)"
+              expected: "A Project Open checkpoint can wait for a GUI-observable Ready / Incomplete state with a stable identifier (Editor UI.md §3 Workbench Placement: Status Bar = Project / Runtime / Build Status)."
+              current: "openProjectDirectory returns ProjectOpenStatus.Ready / Incomplete to code only; Registry Load / Function Scan / Asset Scan steps are not wired into a workbench open (workbench.integration not started); no status bar item exists."
+              missing: "A GUI surface and identifier exposing the Project Open state."
+              follow_up: "Provided by the bundle that wires the open into the workbench and the Status Bar; the GUI Map then waits on its identifier. The identifier itself is decided at that implementation."
+              confirmed:
+                - "ProjectOpenStatus Ready / Incomplete and getRequiredOpenPhases exist in projectDirectory.ts (foundation.project-directory evidence)."
+              to_verify:
+                - "Which surface (Status Bar item id or data-pae-marker) exposes the open state."
+            - id: "GD-GAP-03"
+              title: "No PAE UI marker / Item Identity convention exists in code"
+              related_bundles:
+                - "tooling.gui-debugger"
+              target:
+                - "src/vs/workbench/** (no data-pae-marker / data-pae-item usage)"
+                - "src/vs/workbench/services/layout/browser/layoutService.ts (Parts: workbench.parts.*)"
+                - "test/automation/src/*.ts (existing selectors by part / view / panel / status bar ids)"
+              expected: "Existing Code OSS identifiers first; data-pae-marker only where they cannot identify the target; data-pae-item (read-only reflection of the item UUID, not displayed) on item elements so same-name items are identifiable (Editor UI.md §19 UI Marker Regulation / Item Identity)."
+              current: "Code OSS identifiers exist (workbench.parts.*, workbench.view.*, workbench.panel.*, status.*); there is no PAE marker or Item Identity attribute or helper."
+              missing: "A PAE marker / Item Identity attribute convention / helper in PAE-owned UI code."
+              follow_up: "Introduce it in PAE-owned UI code at first need; do not modify Code OSS core UI for markers."
+              confirmed:
+                - "grep for data-pae-marker / pae-marker / data-pae-item in src/vs/workbench returns no match."
+              to_verify: []
+            - id: "GD-GAP-04"
+              title: "No verified launch procedure exposes a CDP endpoint for Python Playwright"
+              related_bundles:
+                - "tooling.gui-debugger"
+              target:
+                - "scripts/code.sh"
+                - "src/vs/code/node/cli.ts (--prof-startup adds --remote-debugging-port)"
+                - ".vscode/launch.json (Attach to VS Code, port 9222; unit test configs pass --remote-debugging-port=9222)"
+                - "src/vs/platform/environment/node/argv.ts (remote-debugging-port is not a declared option)"
+              expected: "A documented launch of the running Primitive App Editor with a CDP port bound to 127.0.0.1 that Python Playwright connect_over_cdp can attach to (GUI Debug Tool.md §6 Electron Connection)."
+              current: "Code OSS already uses renderer CDP ports for profiling and debugger attach; no GUI Debug launch procedure exists and Python Playwright attach has not been tried."
+              missing: "Launch procedure and attach verification."
+              follow_up: "Verify every §6 Unverified item. If CDP attach cannot satisfy the requirements, the alternative is an Owner decision and is not solved by changing Code OSS."
+              confirmed:
+                - "cli.ts and .vscode/launch.json use --remote-debugging-port / port 9222."
+                - "test/automation launches a new instance with Node Playwright _electron.launch and --enable-smoke-test-driver."
+              to_verify:
+                - "scripts/code.sh --remote-debugging-port=<port> exposes the workbench page to connect_over_cdp."
+                - "Click / type / screenshot stability over CDP, reconnect after window reload, and focus contention when the tool is started from the integrated terminal of the same instance."
+            - id: "GD-GAP-05"
+              title: "No Python toolchain for Primitive App Editor tooling"
+              related_bundles:
+                - "tooling.gui-debugger"
+                - "repository.ci-baseline"
+              target:
+                - "tools/primitive-app-editor/ (only the Node roadmap-mcp exists)"
+                - "build/filters.ts (hygiene filters)"
+                - "eslint.config.js (tools/primitive-app-editor/** header exemption)"
+                - ".github/workflows/pr.yml"
+              expected: "tools/primitive-app-editor/gui-debugger Python package with pinned dependencies (PySide6 / Playwright candidates) and automated tests for its GUI-independent parts."
+              current: "No Python project, dependency manifest or Python CI step exists for Primitive App Editor tooling."
+              missing: "Package layout, dependency management, test runner, hygiene / CI policy."
+              follow_up: "Decide during tooling.gui-debugger implementation. repository.ci-baseline is not reopened by this audit."
+              confirmed:
+                - "build/filters.ts excludes src/vs/workbench/contrib/primitiveAppEditor/** from one header filter; tools/primitive-app-editor/** is exempt from the eslint header rule only."
+              to_verify:
+                - "Which build/hygiene filters (indentation, copyright, unicode) apply to .py / .yaml files under tools/primitive-app-editor/gui-debugger."
+                - "Whether CI runs the GUI-independent tests."
+            - id: "GD-GAP-06"
+              title: "roadmap.next does not deliver bundle extension keys such as audit to the implementation agent"
+              related_bundles:
+                - "tooling.roadmap-agent"
+                - "tooling.gui-debugger"
+              target:
+                - "tools/primitive-app-editor/roadmap-mcp/src/next.ts"
+                - "tools/primitive-app-editor/roadmap-mcp/src/promptTemplate.ts"
+                - "docs/primitive-app-editor/Agent tool.md (render_prompt template)"
+              expected: "The implementation agent of tooling.gui-debugger can read this audit."
+              current: "render_prompt renders id / title / status / depends_on / evidence / remaining and the referenced sections only. parseRoadmap accepts extra bundle keys and roadmap.complete preserves them (verifyUpdate compares the whole document)."
+              missing: "Automatic delivery of audit through roadmap.next."
+              follow_up: "GUI Debug Tool.md §15 Implementation Bundle names this audit as implementation input. Whether the roadmap Tool template should render extension keys is an Owner decision (roadmap Tool specification change plus implementation)."
+              confirmed:
+                - "Template and parser behavior as described above."
+              to_verify: []
+            - id: "GD-GAP-07"
+              title: "Concurrent roadmap.yaml writes by roadmap.complete and the GUI Debug Tool"
+              related_bundles:
+                - "tooling.roadmap-agent"
+                - "tooling.gui-debugger"
+              target:
+                - "tools/primitive-app-editor/roadmap-mcp/src/complete.ts (atomicWrite)"
+              expected: "Neither writer loses the other's change (GUI Debug Tool.md §12 Roadmap Diagnostics / Write Protocol)."
+              current: "roadmap.complete writes a temp file, re-reads roadmap.yaml, refuses when it changed, then renames. No lock file exists."
+              missing: "The GUI Debug Tool implementation of the same protocol; handling of the window between the final compare and rename."
+              follow_up: "Implement the §12 Write Protocol and test it against roadmap.complete."
+              confirmed:
+                - "atomicWrite compare-before-rename behavior in complete.ts."
+              to_verify:
+                - "Whether the compare-to-rename window needs an additional lock."
+            - id: "GD-GAP-08"
+              title: "Webview / iframe surfaces are not yet defined"
+              related_bundles:
+                - "editor.function-graph"
+                - "editor.debug-viewer"
+                - "renderer.runtime"
+              target:
+                - "Not implemented"
+              expected: "Markers inside Function Graph / Debug Viewer / Renderer surfaces are resolvable by the GUI Debug Tool."
+              current: "The surfaces and their rendering technology do not exist yet."
+              missing: "Frame traversal design if those surfaces use webviews."
+              follow_up: "Audit when those bundles are implemented; add GUI Maps then."
+              confirmed:
+                - "Related bundles are 'not started'."
+              to_verify:
+                - "Frame traversal and marker placement inside webviews over CDP."
+            - id: "GD-GAP-09"
+              title: "Locale-dependent accessible names"
+              related_bundles:
+                - "tooling.gui-debugger"
+              target:
+                - "src/vs/platform/environment/node/argv.ts (locale option)"
+              expected: "role locators are used only with a fixed locale (GUI Debug Tool.md §8 UI Marker Resolution)."
+              current: "A --locale option exists; no GUI Debug launch fixes it."
+              missing: "Locale fixing in the launch procedure."
+              follow_up: "Fix the locale in the launch procedure or avoid role locators."
+              confirmed:
+                - "argv.ts declares the locale option."
+              to_verify:
+                - "--locale behavior of the dev build launch."
+            - id: "GD-GAP-10"
+              title: "No disposable Working Directory fixture for GUI checkpoints that save Authoring Data"
+              related_bundles:
+                - "foundation.project-directory"
+                - "workbench.integration"
+              target:
+                - "src/vs/workbench/contrib/primitiveAppEditor/test/ (unit / node test fixtures only)"
+              expected: "GUI checkpoints that save Authoring Data run only against a disposable Working Directory (GUI Debug Tool.md §14 Boundary)."
+              current: "Project fixtures exist only inside unit / node tests (in-memory file system and temporary directories)."
+              missing: "A GUI fixture Working Directory and the procedure to open it in the running editor."
+              follow_up: "Define during tooling.gui-debugger implementation together with GD-GAP-02."
+              confirmed:
+                - "Existing fixtures are test-only."
+              to_verify:
+                - "How the running editor opens the fixture without affecting the developer's project."
 
   - name: "Foundation"
     bundle:
@@ -1187,3 +1418,9 @@ future:
           sections:
             - "§36 Future"
       reason: "Current Core Scope外"
+
+diagnostics:
+  gui_debug:
+    writer: "Python GUI Debug Tool (tooling.gui-debugger)"
+    contract: "./GUI Debug Tool.md §12 Roadmap Diagnostics"
+    records: []

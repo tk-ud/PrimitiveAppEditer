@@ -3037,6 +3037,44 @@ App Editor
   = Human Authoring / Inspection / Debug
 ```
 
+### Development Tooling
+
+Primitive App Editorの開発工程で使用するToolはApp Editor Product機能と区別する。
+
+```text
+Development Tooling
+├─ roadmap Agent Tool   (Agent tool.md)
+└─ GUI Debug Tool       (GUI Debug Tool.md)
+
+Development Tooling
+  != App Editor Product Feature
+  != Application Authority
+  != Build Output
+```
+
+GUI Debug Toolは起動中のWorkbench GUIを外部から操作・検証する開発用Toolとする。
+
+```text
+Debug Viewer
+  = Product / Runtime Inspection
+
+GUI Debug Tool
+  = Development / Workbench GUI Automated Verification
+```
+
+```text
+GUI Debug Tool
+  -> Workbench GUI (UI Marker経由の操作)
+  -X-> Registry / Raw Data / Binding / project.sqlite直接変更
+  -X-> Runtime Memory直接変更
+  -X-> Code OSS本体の改変
+
+Workbench UI
+  != Application Authority
+```
+
+Development Toolingの実装言語はProduct Boundary (`Code OSS / App Editor = Node / TypeScript`) に含めず、各Tool仕様が定義する。Development ToolingはBuild / Application Outputへ含めない。
+
 ### Purpose
 
 ```text
