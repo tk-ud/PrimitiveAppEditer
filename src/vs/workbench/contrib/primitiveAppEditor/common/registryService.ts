@@ -5,6 +5,7 @@
 
 import { generateUuid as generateRandomUuid } from '../../../../base/common/uuid.js';
 import { assertBoundaryFlow, BoundaryNode } from './authority.js';
+import { EnumRegistryError, readEnumRegistry, validateTableEnumReferences } from './enumRegistry.js';
 import {
 	assertProjectSqliteAccess,
 	IProjectSqliteDatabase,
@@ -678,8 +679,11 @@ export class RegistryService {
 		}
 		try {
 			validateRegistryProjection(next);
+			if (after) {
+				validateTableEnumReferences([after], await readEnumRegistry(statements));
+			}
 		} catch (error) {
-			throw error instanceof TableRegistryError ? new RegistryServiceError(error.message) : error;
+			throw error instanceof TableRegistryError || error instanceof EnumRegistryError ? new RegistryServiceError(error.message) : error;
 		}
 		if (after) {
 			const table = resolveRegistryPhysicalTable(after);
