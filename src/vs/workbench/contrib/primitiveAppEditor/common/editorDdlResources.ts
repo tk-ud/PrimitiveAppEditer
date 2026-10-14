@@ -48,4 +48,20 @@ export const editorDdlResources: readonly IEditorDdlResource[] = Object.freeze([
 			');',
 		].join('\n'),
 	}),
+	Object.freeze({
+		name: '003_enum_registry.sql',
+		// 11. enum_registry: Registry authority of enumerations (`values` / `group_tags` = JSON lists). A `kind: enum`
+		// column stores text and references an entry by `columns[].enum` only (no physical FK).
+		sql: [
+			'CREATE TABLE "registry__enum_registry" (',
+			'\t"uuid" TEXT NOT NULL PRIMARY KEY,',
+			'\t"index" INTEGER NOT NULL,',
+			'\t"name" TEXT NOT NULL,',
+			'\t"label" TEXT NOT NULL,',
+			'\t"values" TEXT NOT NULL CHECK (json_valid("values") AND json_type("values") = \'array\'),',
+			'\t"group_tags" TEXT NOT NULL CHECK (json_valid("group_tags") AND json_type("group_tags") = \'array\'),',
+			'\t"created_at" TEXT NOT NULL',
+			');',
+		].join('\n'),
+	}),
 ]);
