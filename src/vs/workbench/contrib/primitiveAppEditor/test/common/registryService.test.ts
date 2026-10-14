@@ -152,6 +152,22 @@ suite('Primitive App Editor - Registry Service', () => {
 		assert.strictEqual(typeof migrateRegistryPhysicalValue({ kind: TableColumnKind.Int }, { kind: TableColumnKind.Text, not_null: false }, 'x'), 'symbol');
 	});
 
+	test('Type migration to kind enum validates stored values against the referenced enum_registry values', () => {
+		const element = { values: [{ value: 'fire' }, { value: 'water' }, { value: '1' }] };
+		const toEnum = { kind: TableColumnKind.Enum, not_null: false };
+		assert.strictEqual(migrateRegistryPhysicalValue({ kind: TableColumnKind.Text }, toEnum, 'fire', element), 'fire');
+		assert.strictEqual(typeof migrateRegistryPhysicalValue({ kind: TableColumnKind.Text }, toEnum, 'earth', element), 'symbol');
+		assert.strictEqual(typeof migrateRegistryPhysicalValue({ kind: TableColumnKind.Text }, toEnum, 'Fire', element), 'symbol');
+		assert.strictEqual(migrateRegistryPhysicalValue({ kind: TableColumnKind.Int }, toEnum, 1, element), '1');
+		assert.strictEqual(typeof migrateRegistryPhysicalValue({ kind: TableColumnKind.Int }, toEnum, 2, element), 'symbol');
+		assert.strictEqual(migrateRegistryPhysicalValue({ kind: TableColumnKind.Text }, toEnum, null, element), null);
+		assert.strictEqual(typeof migrateRegistryPhysicalValue({ kind: TableColumnKind.Text }, { ...toEnum, not_null: true }, null, element), 'symbol');
+		// enum -> enum (reference change) applies the NEW entry's values.
+		assert.strictEqual(typeof migrateRegistryPhysicalValue({ kind: TableColumnKind.Enum }, toEnum, 'fire', { values: [{ value: 's' }] }), 'symbol');
+		// Without the enum_registry entry an enum target cannot be validated.
+		assert.throws(() => migrateRegistryPhysicalValue({ kind: TableColumnKind.Text }, toEnum, 'fire'), /requires the referenced enum_registry entry/);
+	});
+
 	test('Registry Validate: unique physical table / column names, valid column names, reserved row identity', () => {
 		const ok = table('player', [column(C1, 0, 'hp', TableColumnKind.Int)]);
 		validateRegistryProjection([ok]);

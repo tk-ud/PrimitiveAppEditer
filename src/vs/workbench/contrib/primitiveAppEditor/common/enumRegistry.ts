@@ -35,6 +35,10 @@ import {
  * Usage: Editor Select ({@link getEnumSelectOptions}), Display Label ({@link getEnumValueLabel}),
  * Input Validation ({@link isEnumColumnValue}) and Registry Metadata ({@link EnumRegistryIndex},
  * {@link validateTableEnumReferences}).
+ *
+ * Mutation: `enum_registry` INSERT / UPDATE / DELETE is executed by the App Editor Registry Service
+ * (`RegistryService.createEnum / alterEnum / dropEnum`), which validates table_registry references
+ * and existing Raw Data in the same transaction. The statements below are its storage primitives.
  */
 
 // #region Physical
@@ -189,7 +193,7 @@ export function getEnumValueLabel(entry: IEnumRegistryEntry, value: string): str
 }
 
 /** Whether `value` is one of the values of `entry`. */
-export function isEnumValue(entry: IEnumRegistryEntry, value: unknown): value is string {
+export function isEnumValue(entry: Pick<IEnumRegistryEntry, 'values'>, value: unknown): value is string {
 	return typeof value === 'string' && entry.values.some(candidate => candidate.value === value);
 }
 
@@ -332,7 +336,10 @@ export function getEnumRegistryUpdate(entry: IEnumRegistryEntry): { readonly sql
 	});
 }
 
-/** `DELETE` statement and parameters removing the stored entry with Machine Identity `uuid`. */
+/**
+ * `DELETE` statement and parameters removing the stored entry with Machine Identity `uuid`. Use
+ * `RegistryService.dropEnum`, which rejects the delete while a table_registry column references it.
+ */
 export function getEnumRegistryDelete(uuid: string): { readonly sql: string; readonly params: readonly string[] } {
 	return Object.freeze({
 		sql: `DELETE FROM ${quoteIdentifier(enumRegistryPhysicalTable)} WHERE "uuid" = ?`,

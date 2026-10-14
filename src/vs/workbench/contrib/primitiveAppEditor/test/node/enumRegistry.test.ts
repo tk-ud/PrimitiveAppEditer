@@ -20,25 +20,47 @@ import {
 	EnumRegistryError,
 	EnumRegistryIndex,
 	enumRegistryPhysicalTable,
-	getEnumRegistryDelete,
 	getEnumRegistryInsert,
-	getEnumRegistryUpdate,
 	getEnumSelectOptions,
 	IEnumRegistryEntry,
+	IEnumRegistryEntryInput,
 	isEnumColumnValue,
 	readEnumRegistry,
 	validateTableEnumReferences,
 } from '../../common/enumRegistry.js';
 import { openProjectDirectory, ProjectOpenStatus } from '../../common/projectDirectory.js';
-import { LogicalNamespace, ProjectSqliteStorage } from '../../common/projectSqlite.js';
-import { RegistryService, RegistryServiceError } from '../../common/registryService.js';
-import { ITableRegistryEntry, ITableRegistryEntryInput, readTableRegistry, TableColumnKind } from '../../common/tableRegistry.js';
+import { IProjectSqliteStatements, LogicalNamespace, ProjectSqliteStorage } from '../../common/projectSqlite.js';
+import { RegistryMigrationRejectedError, RegistryService, RegistryServiceError } from '../../common/registryService.js';
+import { ITableRegistryColumnInput, ITableRegistryEntry, ITableRegistryEntryInput, readTableRegistry, TableColumnKind } from '../../common/tableRegistry.js';
 import { ProjectSqliteDatabaseFactory } from '../../node/projectSqliteDatabase.js';
 
 const ELEMENT = '00000000-0000-4000-8000-0000000000e1';
 const RANK = '00000000-0000-4000-8000-0000000000e2';
 const MISSING = '00000000-0000-4000-8000-0000000000e9';
 const ENEMY = '00000000-0000-4000-8000-0000000000a1';
+const ELEMENT_COLUMN = '00000000-0000-4000-8000-0000000000c1';
+const ROW_A = '00000000-0000-4000-8000-0000000000b1';
+const ROW_B = '00000000-0000-4000-8000-0000000000b2';
+
+const elementEnum: IEnumRegistryEntryInput = { uuid: ELEMENT, index: 0, name: 'element', label: 'Element', values: [{ value: 'fire', label: 'Fire' }, { value: 'water', label: 'Water' }] };
+const rankEnum: IEnumRegistryEntryInput = { uuid: RANK, index: 1, name: 'rank', values: [{ value: 's' }, { value: 'a' }] };
+
+/** `enemy` with one `element` column; `text` until it is migrated to an enum. */
+function enemyWith(column: Partial<ITableRegistryColumnInput>): ITableRegistryEntryInput & { uuid: string } {
+	return {
+		uuid: ENEMY, index: 0, schema: LogicalNamespace.Items, name: 'enemy', columns: [
+			{ uuid: ELEMENT_COLUMN, index: 0, name: 'element', kind: TableColumnKind.Text, enum: null, not_null: false, writable: true, searchable: true, ...column },
+		],
+	};
+}
+
+async function enemyRows(statements: IProjectSqliteStatements) {
+	return statements.all(`SELECT "uuid", "element", typeof("element") AS "type" FROM "items__enemy" ORDER BY "uuid"`);
+}
+
+async function elementColumnType(statements: IProjectSqliteStatements) {
+	return (await statements.get(`SELECT "type" FROM pragma_table_info('items__enemy') WHERE "name" = 'element'`))?.type;
+}
 
 function enemy(enumUuid: string): ITableRegistryEntryInput {
 	return {
@@ -97,26 +119,26 @@ suite('Primitive App Editor - enum_registry on project.sqlite', () => {
 		return { storage, enums, tables };
 	}
 
-	test('entries written to registry.enum_registry are loaded in Registry order with the same identity on the next Open', async () => {
+	test('enum_registry mutations through the Registry Service are loaded in Registry order with the same identity on the next Open', async () => {
 		const first = await open();
 		assert.deepStrictEqual(first.enums, []);
-		const rank = createEnumRegistryEntry({ uuid: RANK, index: 1, name: 'rank', values: [{ value: 's' }, { value: 'a' }] });
-		const element = createEnumRegistryEntry({ uuid: ELEMENT, index: 0, name: 'element', label: 'Element', values: [{ value: 'fire', label: 'Fire' }, { value: 'water', label: 'Water' }], group_tags: ['battle'] });
-		for (const entry of [rank, element]) {
-			const insert = getEnumRegistryInsert(entry);
-			await first.storage.database.run(insert.sql, insert.params);
-		}
-		const relabeled = createEnumRegistryEntry({ ...rank, label: 'Rank', values: [...rank.values, { value: 'b' }] });
-		const update = getEnumRegistryUpdate(relabeled);
-		await first.storage.database.run(update.sql, update.params);
+		const service = new RegistryService(first.storage.database);
+		const rank = (await service.createEnum(rankEnum)).entry!;
+		const element = (await service.createEnum({ ...elementEnum, group_tags: ['battle'] })).entry!;
+		const relabeled = (await service.alterEnum({ ...rankEnum, uuid: RANK, label: 'Rank', values: [...rankEnum.values, { value: 'b' }] })).entry!;
+		assert.strictEqual(relabeled.created_at, rank.created_at);
+		await assert.rejects(service.createEnum({ ...rankEnum, name: 'again' }), (error: Error) => error instanceof RegistryServiceError && /duplicate enum uuid/.test(error.message));
+		await assert.rejects(service.alterEnum({ ...rankEnum, uuid: MISSING }), /enum_registry has no entry/);
+		await assert.rejects(service.dropEnum(MISSING), /enum_registry has no entry/);
 		await first.storage.close();
 
 		const second = await open();
 		assert.deepStrictEqual(second.enums, [element, relabeled]);
 		assert.deepStrictEqual(getEnumSelectOptions(second.enums[1]).map(option => option.value), ['s', 'a', 'b']);
 
-		const remove = getEnumRegistryDelete(RANK);
-		await second.storage.database.run(remove.sql, remove.params);
+		// An enum no table_registry column references is deleted.
+		const dropped = await new RegistryService(second.storage.database).dropEnum(RANK);
+		assert.deepStrictEqual([dropped.entry, dropped.before], [undefined, relabeled]);
 		assert.deepStrictEqual(await readEnumRegistry(second.storage.database), [element]);
 	});
 
@@ -142,9 +164,7 @@ suite('Primitive App Editor - enum_registry on project.sqlite', () => {
 		assert.deepStrictEqual(await readTableRegistry(storage.database), []);
 		assert.strictEqual(await storage.database.get(`SELECT "name" FROM sqlite_master WHERE "name" = 'items__enemy'`), undefined);
 
-		const element = createEnumRegistryEntry({ uuid: ELEMENT, index: 0, name: 'element', values: [{ value: 'fire', label: 'Fire' }, { value: 'water', label: 'Water' }] });
-		const insert = getEnumRegistryInsert(element);
-		await storage.database.run(insert.sql, insert.params);
+		await service.createEnum(elementEnum);
 		const created = await service.create(enemy(ELEMENT));
 		const column = created.entry!.columns[0];
 
@@ -166,5 +186,95 @@ suite('Primitive App Editor - enum_registry on project.sqlite', () => {
 		// Registry Load on the next Open validates the metadata.
 		const reopened = await open();
 		assert.deepStrictEqual(reopened.tables.map(table => table.columns[0].enum), [ELEMENT]);
+	});
+
+	test('KIND CHANGE text -> enum rejects stored values that are not enum values and rolls back Registry and Physical Schema', async () => {
+		const { storage } = await open();
+		const service = new RegistryService(storage.database);
+		await service.createEnum(elementEnum);
+		await service.create(enemyWith({}));
+		await storage.database.run(`INSERT INTO "items__enemy" ("uuid", "element") VALUES (?, 'fire'), (?, 'earth')`, [ROW_A, ROW_B]);
+		const registryBefore = await readTableRegistry(storage.database);
+
+		await assert.rejects(service.alter(enemyWith({ kind: TableColumnKind.Enum, enum: ELEMENT })),
+			(error: Error) => error instanceof RegistryMigrationRejectedError && /row '00000000-0000-4000-8000-0000000000b2' column 'element': "earth" \(text\) is not a value of kind 'enum'/.test(error.message));
+		assert.deepStrictEqual(await readTableRegistry(storage.database), registryBefore);
+		assert.deepStrictEqual(await enemyRows(storage.database), [{ uuid: ROW_A, element: 'fire', type: 'text' }, { uuid: ROW_B, element: 'earth', type: 'text' }]);
+		assert.strictEqual(await storage.database.get(`SELECT "name" FROM sqlite_master WHERE "name" LIKE '%pae_migration%'`), undefined);
+
+		// After the data is fixed the same migration succeeds; NULL stays valid for a nullable column.
+		await storage.database.run(`UPDATE "items__enemy" SET "element" = NULL WHERE "uuid" = ?`, [ROW_B]);
+		const migrated = await service.alter(enemyWith({ kind: TableColumnKind.Enum, enum: ELEMENT }));
+		assert.deepStrictEqual(migrated.entry!.columns.map(column => [column.kind, column.enum]), [[TableColumnKind.Enum, ELEMENT]]);
+		assert.strictEqual(await elementColumnType(storage.database), 'TEXT');
+		assert.deepStrictEqual(await enemyRows(storage.database), [{ uuid: ROW_A, element: 'fire', type: 'text' }, { uuid: ROW_B, element: null, type: 'null' }]);
+	});
+
+	test('changing columns[].enum to another enum_registry entry rejects stored values that are not values of the NEW entry', async () => {
+		const { storage } = await open();
+		const service = new RegistryService(storage.database);
+		await service.createEnum(elementEnum);
+		await service.createEnum(rankEnum);
+		await service.createEnum({ uuid: MISSING, index: 2, name: 'element2', values: [{ value: 'fire' }, { value: 'earth' }] });
+		await service.create(enemyWith({ kind: TableColumnKind.Enum, enum: ELEMENT }));
+		await storage.database.run(`INSERT INTO "items__enemy" ("uuid", "element") VALUES (?, 'fire')`, [ROW_A]);
+		const registryBefore = await readTableRegistry(storage.database);
+
+		// Metadata-only change (no DDL): validated against rank = s | a.
+		await assert.rejects(service.alter(enemyWith({ kind: TableColumnKind.Enum, enum: RANK })),
+			(error: Error) => error instanceof RegistryMigrationRejectedError && /"fire" \(enum\) is not a value of kind 'enum' \(enum_registry '00000000-0000-4000-8000-0000000000e2'\)/.test(error.message));
+		assert.deepStrictEqual(await readTableRegistry(storage.database), registryBefore);
+		// Same change combined with NOT NULL (Constraint migration rebuild) is validated too.
+		await assert.rejects(service.alter(enemyWith({ kind: TableColumnKind.Enum, enum: RANK, not_null: true })), RegistryMigrationRejectedError);
+		assert.deepStrictEqual(await readTableRegistry(storage.database), registryBefore);
+		assert.deepStrictEqual(await enemyRows(storage.database), [{ uuid: ROW_A, element: 'fire', type: 'text' }]);
+
+		// An entry that has every stored value is accepted.
+		const moved = await service.alter(enemyWith({ kind: TableColumnKind.Enum, enum: MISSING }));
+		assert.strictEqual(moved.entry!.columns[0].enum, MISSING);
+	});
+
+	test('enum_registry UPDATE removing a value that stored Raw Data uses is rejected with ROLLBACK', async () => {
+		const { storage } = await open();
+		const service = new RegistryService(storage.database);
+		const element = (await service.createEnum(elementEnum)).entry!;
+		await service.create(enemyWith({ kind: TableColumnKind.Enum, enum: ELEMENT }));
+		await storage.database.run(`INSERT INTO "items__enemy" ("uuid", "element") VALUES (?, 'fire')`, [ROW_A]);
+
+		await assert.rejects(service.alterEnum({ ...elementEnum, uuid: ELEMENT, values: [{ value: 'water' }] }),
+			(error: Error) => error instanceof RegistryMigrationRejectedError && /"fire" \(enum\) is not a value of kind 'enum'/.test(error.message));
+		assert.deepStrictEqual(await readEnumRegistry(storage.database), [element]);
+
+		// Removing an unused value succeeds.
+		const altered = await service.alterEnum({ ...elementEnum, uuid: ELEMENT, values: [{ value: 'fire', label: 'Fire' }] });
+		assert.deepStrictEqual(altered.entry!.values, [{ value: 'fire', label: 'Fire' }]);
+		assert.deepStrictEqual(await readEnumRegistry(storage.database), [altered.entry]);
+	});
+
+	test('enum_registry DELETE is rejected while a table_registry column references it and succeeds once unreferenced', async () => {
+		const { storage } = await open();
+		const service = new RegistryService(storage.database);
+		const element = (await service.createEnum(elementEnum)).entry!;
+		const rank = (await service.createEnum(rankEnum)).entry!;
+		await service.create(enemyWith({ kind: TableColumnKind.Enum, enum: ELEMENT }));
+
+		await assert.rejects(service.dropEnum(ELEMENT),
+			(error: Error) => error instanceof RegistryServiceError && /enum 'element' is referenced by table 'enemy' column 'element' and cannot be deleted/.test(error.message));
+		assert.deepStrictEqual(await readEnumRegistry(storage.database), [element, rank]);
+
+		// A failure after the enum_registry DELETE statement rolls it back together with the mutation.
+		const failing = new RegistryService({
+			transaction: work => storage.database.transaction(async statements => {
+				await work(statements);
+				throw new Error('commit failure');
+			}),
+		});
+		await assert.rejects(failing.dropEnum(RANK), /commit failure/);
+		assert.deepStrictEqual(await readEnumRegistry(storage.database), [element, rank]);
+
+		await service.dropEnum(RANK);
+		await service.drop(ENEMY);
+		await service.dropEnum(ELEMENT);
+		assert.deepStrictEqual(await readEnumRegistry(storage.database), []);
 	});
 });

@@ -5,7 +5,19 @@
 
 import { generateUuid as generateRandomUuid } from '../../../../base/common/uuid.js';
 import { assertBoundaryFlow, BoundaryNode } from './authority.js';
-import { EnumRegistryError, readEnumRegistry, validateTableEnumReferences } from './enumRegistry.js';
+import {
+	createEnumRegistryEntry,
+	EnumRegistryError,
+	EnumRegistryIndex,
+	getEnumRegistryDelete,
+	getEnumRegistryInsert,
+	getEnumRegistryUpdate,
+	IEnumRegistryEntry,
+	IEnumRegistryEntryInput,
+	isEnumValue,
+	readEnumRegistry,
+	validateTableEnumReferences,
+} from './enumRegistry.js';
 import {
 	assertProjectSqliteAccess,
 	IProjectSqliteDatabase,
@@ -138,13 +150,18 @@ function decodePhysicalValue(kind: TableColumnKind, value: ProjectSqliteValue): 
  * Type / Constraint migration of one stored value from column `from` to column `to`. The stored
  * value must be a value of `from`; it is kept when it is a value of `to`, a number becomes text
  * for a `text` / `enum` target, and anything else (or `NULL` for a `not_null` target) rejects the
- * migration.
+ * migration. For an `enum` target the `enum_registry` entry `to` references is required and a
+ * present value must be one of its values (11. Input Validation).
  */
 export function migrateRegistryPhysicalValue(
 	from: Pick<ITableRegistryColumn, 'kind'> | undefined,
 	to: Pick<ITableRegistryColumn, 'kind' | 'not_null'>,
 	value: ProjectSqliteValue,
+	toEnum?: Pick<IEnumRegistryEntry, 'values'>,
 ): ProjectSqliteValue | typeof invalidRegistryPhysicalValue {
+	if (to.kind === TableColumnKind.Enum && !toEnum) {
+		throw new RegistryServiceError(`migration to kind 'enum' requires the referenced enum_registry entry`);
+	}
 	const decoded = from ? decodePhysicalValue(from.kind, value) : value;
 	if (decoded === invalidRegistryPhysicalValue) {
 		return invalidRegistryPhysicalValue;
@@ -153,7 +170,35 @@ export function migrateRegistryPhysicalValue(
 	if (typeof migrated === 'number' && (to.kind === TableColumnKind.Text || to.kind === TableColumnKind.Enum)) {
 		migrated = String(migrated);
 	}
-	return isTableColumnValue(to, migrated) ? encodeRegistryPhysicalValue(to.kind, migrated) : invalidRegistryPhysicalValue;
+	if (!isTableColumnValue(to, migrated)) {
+		return invalidRegistryPhysicalValue;
+	}
+	if (to.kind === TableColumnKind.Enum && migrated !== null && migrated !== undefined && !isEnumValue(toEnum!, migrated)) {
+		return invalidRegistryPhysicalValue;
+	}
+	return encodeRegistryPhysicalValue(to.kind, migrated);
+}
+
+function rejectMigratedValue(physicalTable: string, row: ProjectSqliteValue, column: string, value: ProjectSqliteValue, from: ITableRegistryColumn | undefined, to: ITableRegistryColumn): never {
+	const source = from ? `${from.kind}${from.not_null ? ' not_null' : ''}` : 'added';
+	const target = to.kind === TableColumnKind.Enum ? `kind 'enum' (enum_registry '${to.enum}')` : `kind '${to.kind}'`;
+	throw new RegistryMigrationRejectedError(`table '${physicalTable}' row '${String(row)}' column '${column}': ${JSON.stringify(value)} (${source}) is not a value of ${target}${to.not_null ? ' not_null' : ''}`);
+}
+
+/**
+ * `Invalid existing data -> migration reject` for a change that keeps the physical column but
+ * changes the values it accepts: every stored value of `column` in `physicalTable` must be a value
+ * of the NEW column (for `enum`, one of the values of the referenced `enum_registry` entry).
+ */
+export async function validateRegistryColumnValues(statements: IProjectSqliteStatements, physicalTable: string, column: ITableRegistryColumn, enums: EnumRegistryIndex): Promise<void> {
+	const toEnum = column.kind === TableColumnKind.Enum ? enums.resolveColumn(column) : undefined;
+	const rows = await statements.all(`SELECT ${quoteIdentifier(ROW_IDENTITY_COLUMN)}, ${quoteIdentifier(column.name)} FROM ${quoteIdentifier(physicalTable)}`);
+	for (const row of rows) {
+		const value = row[column.name] ?? null;
+		if (migrateRegistryPhysicalValue(column, column, value, toEnum) === invalidRegistryPhysicalValue) {
+			rejectMigratedValue(physicalTable, row[ROW_IDENTITY_COLUMN], column.name, value, column, column);
+		}
+	}
 }
 
 // #endregion
@@ -333,15 +378,16 @@ export function generateRegistryDdl(diff: TableRegistryDiff): readonly RegistryD
 	return Object.freeze(steps);
 }
 
-async function executeRebuild(statements: IProjectSqliteStatements, step: Extract<RegistryDdlStep, { kind: RegistryDdlStepKind.Rebuild }>): Promise<void> {
+async function executeRebuild(statements: IProjectSqliteStatements, step: Extract<RegistryDdlStep, { kind: RegistryDdlStepKind.Rebuild }>, enums: EnumRegistryIndex): Promise<void> {
 	const names = [ROW_IDENTITY_COLUMN, ...step.columns.map(column => column.name)];
 	const quotedNames = names.map(quoteIdentifier).join(', ');
+	const targetEnums = step.columns.map(column => column.to.kind === TableColumnKind.Enum ? enums.resolveColumn(column.to) : undefined);
 	const rows = await statements.all(`SELECT ${quotedNames} FROM ${quoteIdentifier(step.physicalTable)}`);
-	const migratedRows = rows.map(row => [row[ROW_IDENTITY_COLUMN], ...step.columns.map(column => {
-		const value = migrateRegistryPhysicalValue(column.from, column.to, row[column.name] ?? null);
+	const migratedRows = rows.map(row => [row[ROW_IDENTITY_COLUMN], ...step.columns.map((column, i) => {
+		const stored = row[column.name] ?? null;
+		const value = migrateRegistryPhysicalValue(column.from, column.to, stored, targetEnums[i]);
 		if (value === invalidRegistryPhysicalValue) {
-			const from = column.from ? `${column.from.kind}${column.from.not_null ? ' not_null' : ''}` : 'added';
-			throw new RegistryMigrationRejectedError(`table '${step.physicalTable}' row '${String(row[ROW_IDENTITY_COLUMN])}' column '${column.name}': ${JSON.stringify(row[column.name] ?? null)} (${from}) is not a value of kind '${column.to.kind}'${column.to.not_null ? ' not_null' : ''}`);
+			rejectMigratedValue(step.physicalTable, row[ROW_IDENTITY_COLUMN], column.name, stored, column.from, column.to);
 		}
 		return value;
 	})]);
@@ -354,13 +400,16 @@ async function executeRebuild(statements: IProjectSqliteStatements, step: Extrac
 	await statements.exec(`ALTER TABLE ${temporary} RENAME TO ${quoteIdentifier(step.physicalTable)}`);
 }
 
-/** DDL Migration: applies the generated steps inside the caller's transaction. */
-export async function applyRegistryDdl(statements: IProjectSqliteStatements, steps: readonly RegistryDdlStep[]): Promise<void> {
+/**
+ * DDL Migration: applies the generated steps inside the caller's transaction. `enums` is the
+ * `enum_registry` the migrated `enum` columns are validated against.
+ */
+export async function applyRegistryDdl(statements: IProjectSqliteStatements, steps: readonly RegistryDdlStep[], enums: EnumRegistryIndex): Promise<void> {
 	for (const step of steps) {
 		if (step.kind === RegistryDdlStepKind.Statement) {
 			await statements.exec(step.sql);
 		} else {
-			await executeRebuild(statements, step);
+			await executeRebuild(statements, step, enums);
 		}
 	}
 }
@@ -561,6 +610,19 @@ export interface IRegistryMutationResult {
 	readonly ddl: readonly RegistryDdlStep[];
 }
 
+/** An `enum_registry` mutation. `Update` carries the complete NEW entry, paired with OLD by UUID. */
+export type EnumRegistryMutation =
+	| { readonly kind: RegistryMutationKind.Insert; readonly entry: IEnumRegistryEntryInput }
+	| { readonly kind: RegistryMutationKind.Update; readonly entry: IEnumRegistryEntryInput & { readonly uuid: string } }
+	| { readonly kind: RegistryMutationKind.Delete; readonly uuid: string };
+
+export interface IEnumRegistryMutationResult {
+	/** NEW entry; `undefined` for a Delete. */
+	readonly entry: IEnumRegistryEntry | undefined;
+	/** OLD entry; `undefined` for an Insert. */
+	readonly before: IEnumRegistryEntry | undefined;
+}
+
 export interface IRegistryExpansionResult {
 	/** Physical Schema expanded from the whole Registry. */
 	readonly schema: IRegistryPhysicalSchema;
@@ -593,6 +655,107 @@ export class RegistryService {
 	/** Table DELETE -> DROP TABLE -> Logical dependency cleanup. */
 	drop(uuid: string): Promise<IRegistryMutationResult> {
 		return this.mutate({ kind: RegistryMutationKind.Delete, uuid });
+	}
+
+	/** enum_registry INSERT. */
+	createEnum(entry: IEnumRegistryEntryInput): Promise<IEnumRegistryMutationResult> {
+		return this.mutateEnum({ kind: RegistryMutationKind.Insert, entry });
+	}
+
+	/** enum_registry UPDATE: stored values of every referencing column must remain values of the NEW entry. */
+	alterEnum(entry: IEnumRegistryEntryInput & { readonly uuid: string }): Promise<IEnumRegistryMutationResult> {
+		return this.mutateEnum({ kind: RegistryMutationKind.Update, entry });
+	}
+
+	/** enum_registry DELETE: rejected while a table_registry column references the entry. */
+	dropEnum(uuid: string): Promise<IEnumRegistryMutationResult> {
+		return this.mutateEnum({ kind: RegistryMutationKind.Delete, uuid });
+	}
+
+	/**
+	 * `enum_registry` mutation in one transaction:
+	 *
+	 * ```text
+	 * BEGIN -> UUID Complete -> Registry Validate (unique uuid, references from table_registry)
+	 *       -> Registry Mutation -> Existing data validate (columns referencing the entry) -> COMMIT
+	 * Failure -> ROLLBACK
+	 * ```
+	 *
+	 * There is no physical FK (`Enum -X-> Physical FK`): a referenced entry is protected here only.
+	 */
+	mutateEnum(mutation: EnumRegistryMutation): Promise<IEnumRegistryMutationResult> {
+		assertProjectSqliteAccess(ProjectSqliteAccessor.Authoring);
+		assertBoundaryFlow(BoundaryNode.RegistryMutation, BoundaryNode.AppEditorRegistryService);
+		return this.database.transaction(statements => this.executeEnum(statements, mutation));
+	}
+
+	private async executeEnum(statements: IProjectSqliteStatements, mutation: EnumRegistryMutation): Promise<IEnumRegistryMutationResult> {
+		const registry = await readEnumRegistry(statements);
+		const tables = await readTableRegistry(statements);
+		const find = (uuid: string) => {
+			const existing = registry.find(entry => entry.uuid === uuid.toLowerCase());
+			if (!existing) {
+				throw new RegistryServiceError(`enum_registry has no entry '${uuid}'`);
+			}
+			return existing;
+		};
+		const referencing = (uuid: string) => tables.flatMap(table => table.columns
+			.filter(column => column.kind === TableColumnKind.Enum && column.enum === uuid)
+			.map(column => ({ table, column })));
+
+		// UUID Complete
+		let before: IEnumRegistryEntry | undefined;
+		let after: IEnumRegistryEntry | undefined;
+		try {
+			switch (mutation.kind) {
+				case RegistryMutationKind.Insert:
+					after = createEnumRegistryEntry(mutation.entry, this.generateUuid, this.now);
+					break;
+				case RegistryMutationKind.Update:
+					if (!mutation.entry.uuid) {
+						throw new RegistryServiceError('UPDATE requires the uuid of an existing entry');
+					}
+					before = find(mutation.entry.uuid);
+					after = createEnumRegistryEntry({ ...mutation.entry, created_at: mutation.entry.created_at ?? before.created_at }, this.generateUuid, this.now);
+					break;
+				case RegistryMutationKind.Delete:
+					before = find(mutation.uuid);
+					break;
+			}
+		} catch (error) {
+			throw error instanceof EnumRegistryError ? new RegistryServiceError(error.message) : error;
+		}
+
+		// Registry Validate
+		const next = before ? registry.filter(entry => entry.uuid !== before.uuid) : [...registry];
+		if (after) {
+			next.push(after);
+		}
+		let enums: EnumRegistryIndex;
+		try {
+			enums = new EnumRegistryIndex(next);
+		} catch (error) {
+			throw error instanceof EnumRegistryError ? new RegistryServiceError(error.message) : error;
+		}
+		if (before && !after) {
+			const uses = referencing(before.uuid);
+			if (uses.length) {
+				throw new RegistryServiceError(`enum '${before.name}' is referenced by ${uses.map(use => `table '${use.table.name}' column '${use.column.name}'`).join(', ')} and cannot be deleted`);
+			}
+		}
+
+		// Registry Mutation
+		const write = !before ? getEnumRegistryInsert(after!) : after ? getEnumRegistryUpdate(after) : getEnumRegistryDelete(before.uuid);
+		await statements.run(write.sql, write.params);
+
+		// Existing data validate: stored values of the referencing columns must be values of the NEW entry.
+		if (before && after) {
+			for (const use of referencing(after.uuid)) {
+				await validateRegistryColumnValues(statements, resolveRegistryPhysicalTable(use.table), use.column, enums);
+			}
+		}
+
+		return Object.freeze({ entry: after, before });
 	}
 
 	/**
@@ -677,10 +840,11 @@ export class RegistryService {
 		if (after) {
 			next.push(after);
 		}
+		const enums = new EnumRegistryIndex(await readEnumRegistry(statements));
 		try {
 			validateRegistryProjection(next);
 			if (after) {
-				validateTableEnumReferences([after], await readEnumRegistry(statements));
+				validateTableEnumReferences([after], enums);
 			}
 		} catch (error) {
 			throw error instanceof TableRegistryError || error instanceof EnumRegistryError ? new RegistryServiceError(error.message) : error;
@@ -698,7 +862,17 @@ export class RegistryService {
 
 		// DDL Generate / DDL Migration
 		const ddl = generateRegistryDdl(diff);
-		await applyRegistryDdl(statements, ddl);
+		await applyRegistryDdl(statements, ddl, enums);
+		// An enum column whose enum_registry reference changed without a rebuild keeps its stored text:
+		// the stored values must be values of the NEW enum (Invalid existing data -> migration reject).
+		if (diff.kind === TableRegistryChangeKind.Alter) {
+			const rebuilt = ddl.some(step => step.kind === RegistryDdlStepKind.Rebuild);
+			for (const change of diff.columns) {
+				if (!rebuilt && change.before && change.after?.kind === TableColumnKind.Enum && change.before.enum !== change.after.enum) {
+					await validateRegistryColumnValues(statements, resolveRegistryPhysicalTable(diff.after), change.after, enums);
+				}
+			}
+		}
 		if (diff.kind === TableRegistryChangeKind.Drop) {
 			for (const participant of this.dependencyCleanup) {
 				await participant.cleanupDroppedTable(statements, diff.before);
