@@ -24,7 +24,14 @@ suite('Primitive App Editor - function dispatcher', () => {
 
 	test('unknown and not-yet-implemented functions throw UnknownFunctionException', () => {
 		for (const name of ['sin', 'exp', 'Linear', 'constructor', '']) {
-			assert.throws(() => dispatch(name, { x: 1 }), (e: unknown) => e instanceof UnknownFunctionException && e.functionName === name);
+			let thrown: unknown;
+			try {
+				dispatch(name, { x: 1 });
+			} catch (e) {
+				thrown = e;
+			}
+			assert.ok(thrown instanceof UnknownFunctionException, name);
+			assert.strictEqual((thrown as UnknownFunctionException).functionName, name);
 		}
 	});
 });
