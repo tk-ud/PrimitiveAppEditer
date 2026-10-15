@@ -97,4 +97,23 @@ export const editorDdlResources: readonly IEditorDdlResource[] = Object.freeze([
 			');',
 		].join('\n'),
 	}),
+	Object.freeze({
+		name: '006_function_binding.sql',
+		// 19. Function Binding: concrete Data (not a Registry Definition). `function_uuid` is a logical reference to
+		// function_registry.uuid; addresses inside `target` / `inputs` / `parameters` are Persistent UUID Addresses
+		// (no physical FK, no stored display text).
+		sql: [
+			'CREATE TABLE "binding__function_binding" (',
+			'\t"uuid" TEXT NOT NULL PRIMARY KEY,',
+			'\t"index" INTEGER NOT NULL,',
+			'\t"function_uuid" TEXT NOT NULL,',
+			'\t"constructor" TEXT NOT NULL CHECK (json_valid("constructor") AND json_type("constructor") = \'object\'),',
+			'\t"execution_kind" TEXT NOT NULL CHECK ("execution_kind" IN (\'tick\', \'event\', \'input\')),',
+			'\t"inputs" TEXT NOT NULL CHECK (json_valid("inputs") AND json_type("inputs") = \'object\'),',
+			'\t"parameters" TEXT NOT NULL CHECK (json_valid("parameters") AND json_type("parameters") = \'object\'),',
+			'\t"target" TEXT NOT NULL CHECK (json_valid("target") AND json_type("target") = \'object\'),',
+			'\t"created_at" TEXT NOT NULL',
+			');',
+		].join('\n'),
+	}),
 ]);

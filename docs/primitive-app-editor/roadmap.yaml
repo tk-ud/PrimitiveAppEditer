@@ -771,8 +771,14 @@ section:
         depends_on:
           - "function.registry"
           - "data.raw"
-        status: "not started"
-        evidence: []
+        status: "implemented"
+        evidence:
+          - "common/functionBinding.ts: function_binding entry model (uuid/index/function.uuid/constructor/execution.kind/inputs/parameters/target.address+merge.kind), Source vocabulary (constant|state|input|time|progress|event|function_output) with per-source member validation, UUID-only Persistent Address {table_uuid,row_uuid,column_uuid}"
+          - "common/functionBinding.ts: FunctionBindingService insert/update/upsert(Conflict Identity=uuid, never guessed)/delete/select in one transaction each; Registry Resolve against function_registry (Missing Definition, input/constructor/parameters names, unbound without default) and table_registry (table/column of every address)"
+          - "common/functionBinding.ts: resolveFunctionBindingAddressDisplay resolves UUID -> name/label ('Player\\n└─ Fatigue') for select resolveDisplay; display text is never stored"
+          - "common/editorDdlResources.ts: 006_function_binding.sql (binding__function_binding, JSON CHECKs, no physical FK); existing editorDdl/projectSqliteDatabase tests updated for the new migration"
+          - "test/common/functionBinding.test.ts + test/node/functionBinding.test.ts (project.sqlite round-trip, Registry Resolve rejections, insert/update/upsert/delete/select, executor missing in Code); full primitiveAppEditor suite 159 passing via tsc emit + mocha --ui=tdd; tsc reports no errors in changed files"
+          - "Required integration fix: none to earlier producer logic; only the Editor DDL resource list gained 006 and dependent test expectations (migration count/table list) were updated"
         remaining: []
 
       - id: "binding.dependency"
