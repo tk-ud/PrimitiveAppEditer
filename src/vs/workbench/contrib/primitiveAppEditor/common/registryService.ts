@@ -28,6 +28,18 @@ import {
 } from './projectSqlite.js';
 import { diffRegistryIdentities, RegistryIdentityChangeKind } from './registryIdentity.js';
 import {
+	cleanupRelationRegistryForDroppedTable,
+	createRelationRegistryEntry,
+	getRelationRegistryDelete,
+	getRelationRegistryInsert,
+	getRelationRegistryUpdate,
+	IRelationRegistryEntry,
+	IRelationRegistryEntryInput,
+	readRelationRegistry,
+	RelationRegistryError,
+	validateRelationReferences,
+} from './relationRegistry.js';
+import {
 	expandRegistryPhysicalSchema,
 	generateRegistryColumnDefinition,
 	generateRegistryCreateTable,
@@ -589,9 +601,9 @@ export function validateRegistryProjection(entries: readonly ITableRegistryEntry
 // #region Registry Service
 
 /**
- * `DELETE -> Logical dependency cleanup`: a Registry that logically references a table (for
- * example relation_registry) removes its references to the dropped entry inside the same
- * transaction. Participants are supplied by the Registries that own those references.
+ * `DELETE -> Logical dependency cleanup`: a Registry that logically references a table removes its
+ * references to the dropped entry inside the same transaction. relation_registry is always cleaned
+ * up by the Registry Service; further participants are supplied by the Registries that own them.
  */
 export interface IRegistryDependencyCleanup {
 	cleanupDroppedTable(statements: IProjectSqliteStatements, dropped: ITableRegistryEntry): Promise<void>;
@@ -608,6 +620,19 @@ export interface IRegistryMutationResult {
 	readonly entry: ITableRegistryEntry | undefined;
 	readonly diff: TableRegistryDiff;
 	readonly ddl: readonly RegistryDdlStep[];
+}
+
+/** A `relation_registry` mutation. `Update` carries the complete NEW entry, paired with OLD by UUID. */
+export type RelationRegistryMutation =
+	| { readonly kind: RegistryMutationKind.Insert; readonly entry: IRelationRegistryEntryInput }
+	| { readonly kind: RegistryMutationKind.Update; readonly entry: IRelationRegistryEntryInput & { readonly uuid: string } }
+	| { readonly kind: RegistryMutationKind.Delete; readonly uuid: string };
+
+export interface IRelationRegistryMutationResult {
+	/** NEW entry; `undefined` for a Delete. */
+	readonly entry: IRelationRegistryEntry | undefined;
+	/** OLD entry; `undefined` for an Insert. */
+	readonly before: IRelationRegistryEntry | undefined;
 }
 
 /** An `enum_registry` mutation. `Update` carries the complete NEW entry, paired with OLD by UUID. */
@@ -758,6 +783,87 @@ export class RegistryService {
 		return Object.freeze({ entry: after, before });
 	}
 
+	/** relation_registry INSERT: main_table / join_table / main_column / join_column must exist in table_registry. */
+	createRelation(entry: IRelationRegistryEntryInput): Promise<IRelationRegistryMutationResult> {
+		return this.mutateRelation({ kind: RegistryMutationKind.Insert, entry });
+	}
+
+	/** relation_registry UPDATE: the NEW entry is validated against table_registry. */
+	alterRelation(entry: IRelationRegistryEntryInput & { readonly uuid: string }): Promise<IRelationRegistryMutationResult> {
+		return this.mutateRelation({ kind: RegistryMutationKind.Update, entry });
+	}
+
+	/** relation_registry DELETE. */
+	dropRelation(uuid: string): Promise<IRelationRegistryMutationResult> {
+		return this.mutateRelation({ kind: RegistryMutationKind.Delete, uuid });
+	}
+
+	/**
+	 * `relation_registry` mutation in one transaction:
+	 *
+	 * ```text
+	 * BEGIN -> UUID Complete -> Registry Validate (unique uuid; main_table / join_table / main_column /
+	 *       join_column exist, relation_type valid) -> Registry Mutation -> COMMIT
+	 * Failure -> ROLLBACK
+	 * ```
+	 *
+	 * A Relation is logical only (`SQLite FK = none`): no DDL is generated for it.
+	 */
+	mutateRelation(mutation: RelationRegistryMutation): Promise<IRelationRegistryMutationResult> {
+		assertProjectSqliteAccess(ProjectSqliteAccessor.Authoring);
+		assertBoundaryFlow(BoundaryNode.RegistryMutation, BoundaryNode.AppEditorRegistryService);
+		return this.database.transaction(statements => this.executeRelation(statements, mutation));
+	}
+
+	private async executeRelation(statements: IProjectSqliteStatements, mutation: RelationRegistryMutation): Promise<IRelationRegistryMutationResult> {
+		const registry = await readRelationRegistry(statements);
+		const tables = await readTableRegistry(statements);
+		const find = (uuid: string) => {
+			const existing = registry.find(entry => entry.uuid === uuid.toLowerCase());
+			if (!existing) {
+				throw new RegistryServiceError(`relation_registry has no entry '${uuid}'`);
+			}
+			return existing;
+		};
+
+		let before: IRelationRegistryEntry | undefined;
+		let after: IRelationRegistryEntry | undefined;
+		try {
+			// UUID Complete
+			switch (mutation.kind) {
+				case RegistryMutationKind.Insert:
+					after = createRelationRegistryEntry(mutation.entry, this.generateUuid, this.now);
+					break;
+				case RegistryMutationKind.Update:
+					if (!mutation.entry.uuid) {
+						throw new RegistryServiceError('UPDATE requires the uuid of an existing entry');
+					}
+					before = find(mutation.entry.uuid);
+					after = createRelationRegistryEntry({ ...mutation.entry, created_at: mutation.entry.created_at ?? before.created_at }, this.generateUuid, this.now);
+					break;
+				case RegistryMutationKind.Delete:
+					before = find(mutation.uuid);
+					break;
+			}
+
+			// Registry Validate
+			const replaced = before?.uuid;
+			const next = registry.filter(entry => entry.uuid !== replaced);
+			if (after) {
+				next.push(after);
+			}
+			validateRelationReferences(next, tables);
+		} catch (error) {
+			throw error instanceof RelationRegistryError ? new RegistryServiceError(error.message) : error;
+		}
+
+		// Registry Mutation
+		const write = !before ? getRelationRegistryInsert(after!) : after ? getRelationRegistryUpdate(after) : getRelationRegistryDelete(before.uuid);
+		await statements.run(write.sql, write.params);
+
+		return Object.freeze({ entry: after, before });
+	}
+
 	/**
 	 * Physical Table Expansion of the whole Registry in one transaction:
 	 *
@@ -846,8 +952,13 @@ export class RegistryService {
 			if (after) {
 				validateTableEnumReferences([after], enums);
 			}
+			// A table / column a Relation references can only go away by a table DELETE (Logical dependency
+			// cleanup); an UPDATE that deletes a referenced column is rejected.
+			if (diff.kind === TableRegistryChangeKind.Alter) {
+				validateRelationReferences(await readRelationRegistry(statements), next);
+			}
 		} catch (error) {
-			throw error instanceof TableRegistryError || error instanceof EnumRegistryError ? new RegistryServiceError(error.message) : error;
+			throw error instanceof TableRegistryError || error instanceof EnumRegistryError || error instanceof RelationRegistryError ? new RegistryServiceError(error.message) : error;
 		}
 		if (after) {
 			const table = resolveRegistryPhysicalTable(after);
@@ -874,6 +985,7 @@ export class RegistryService {
 			}
 		}
 		if (diff.kind === TableRegistryChangeKind.Drop) {
+			await cleanupRelationRegistryForDroppedTable(statements, diff.before);
 			for (const participant of this.dependencyCleanup) {
 				await participant.cleanupDroppedTable(statements, diff.before);
 			}

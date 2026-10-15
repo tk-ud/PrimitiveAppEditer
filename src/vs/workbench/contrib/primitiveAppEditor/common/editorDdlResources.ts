@@ -64,4 +64,18 @@ export const editorDdlResources: readonly IEditorDdlResource[] = Object.freeze([
 			');',
 		].join('\n'),
 	}),
+	Object.freeze({
+		name: '004_relation_registry.sql',
+		// 10. relation_registry: logical Relation authority (`main_table` / `relations[]` hold table_registry and column
+		// uuids, `relations` = one JSON list). Logical JOIN only: no physical FK (SQLite FK = none).
+		sql: [
+			'CREATE TABLE "registry__relation_registry" (',
+			'\t"uuid" TEXT NOT NULL PRIMARY KEY,',
+			'\t"index" INTEGER NOT NULL,',
+			'\t"main_table" TEXT NOT NULL,',
+			'\t"relations" TEXT NOT NULL CHECK (json_valid("relations") AND json_type("relations") = \'array\'),',
+			'\t"created_at" TEXT NOT NULL',
+			');',
+		].join('\n'),
+	}),
 ]);
