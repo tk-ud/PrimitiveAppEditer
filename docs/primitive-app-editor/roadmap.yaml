@@ -647,8 +647,13 @@ section:
           - "registry.physical-expansion"
           - "registry.enum"
           - "registry.relation"
-        status: "not started"
-        evidence: []
+        status: "implemented"
+        evidence:
+          - "src/vs/workbench/contrib/primitiveAppEditor/common/rawData.ts: RawDataService (§12 Raw Data = Rows of the projected Physical Table). insert / update / upsert / delete / truncate / select each run Registry Resolve (table_registry by table UUID, projection existence check, enum_registry index) -> Kind Validate (isTableColumnValue, enum via isEnumColumnValue, not_null) -> Payload Map (columns by UUID or name, Row identity uuid) -> one Storage Operation in one IProjectSqliteDatabase.transaction. Generic dispatch only; no per-application update functions; Registry Definition never changed (truncate = Data Removal != Registry Drop). Boundary Registry -> Physical Schema asserted; Physical Schema is not an Authority."
+          - "upsert: Conflict Identity is resolved from the Registry projection (the Row identity uuid PRIMARY KEY is the only unique identity of Raw Data) and never guessed; a request without it is rejected. insert of an existing uuid, update/delete of a missing row, unknown/duplicate columns, kind/enum/not_null violations, row identity change and unprojected tables are rejected with nothing written. select supports equality where, orderBy, limit and resolveLabels (enum value -> enum_registry label) Result Mapping; values returned keyed by column UUID and decoded (bool, json)."
+          - "Required integration fix in producer registry.service (registryService.ts): decodePhysicalValue exported as decodeRegistryPhysicalValue so Raw Data Result Mapping reuses the single physical<->semantic value mapping (with encodeRegistryPhysicalValue). Behavior unchanged; existing registry.service tests pass unchanged. No other producer needed a fix."
+          - "Tests: test/node/rawData.test.ts (5 tests on real @vscode/sqlite3 via openProjectDirectory + EditorDdlMigrator with RegistryService creating enum/enemy/player tables: CRUD/truncate round-trip incl. physical bool/json/enum storage and Registry kept after truncate; upsert insert/update/missing Conflict Identity; Registry Validate rejection matrix with row count unchanged; unprojected table rejected and column rename by UUID keeps Raw Data addressable; Raw Data rows through the registry.relation Logical JOIN with no physical FK)."
+          - "Verification (Node 24.18.0, @vscode/sqlite3 rebuilt locally): npm run transpile-client; mocha test/unit/node/index.js --runGlob '**/primitiveAppEditor/test/**/*.test.js' -> 122 passing, 0 failing (117 existing + 5 new); eslint --max-warnings 0 on src/vs/workbench/contrib/primitiveAppEditor passes; tsc -p src/tsconfig.json --noEmit reports no primitiveAppEditor errors."
         remaining: []
 
   - name: "Function Definition"
