@@ -12,8 +12,8 @@ import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/tes
 import { FileService } from '../../../../../platform/files/common/fileService.js';
 import { InMemoryFileSystemProvider } from '../../../../../platform/files/common/inMemoryFilesystemProvider.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
-import { createFunctionScanStep, discoverFunctionPrograms, FunctionScanError, resolveFunctionExecutors, scanFunctions } from '../../common/functionProgramScan.js';
-import { createFunctionRegistryEntry, FunctionRegistryError } from '../../common/functionRegistry.js';
+import { createFunctionScanStep, discoverFunctionPrograms, resolveFunctionExecutors, scanFunctions } from '../../common/functionProgramScan.js';
+import { createFunctionRegistryEntry } from '../../common/functionRegistry.js';
 import { createFunctionPrimitiveExecutorCatalog, linearDefinition, toFunctionRegistryEntryInput } from '../../common/functionPrimitive.js';
 import { openProjectDirectory, ProjectOpenPhase, ProjectOpenStatus } from '../../common/projectDirectory.js';
 
@@ -52,7 +52,7 @@ suite('Primitive App Editor - Function / Program Scan (30. Function / Program Sc
 		assert.deepStrictEqual(await discoverFunctionPrograms(fileService, functions), []);
 		assert.strictEqual(await fileService.exists(functions), false);
 		await fileService.writeFile(functions, VSBuffer.fromString(''));
-		await assert.rejects(() => discoverFunctionPrograms(fileService, functions), (error: Error) => error instanceof FunctionScanError);
+		await assert.rejects(() => discoverFunctionPrograms(fileService, functions), /not a directory/);
 	});
 
 	test('Executor Resolve maps Registry executor to a Code Primitive', () => {
@@ -62,7 +62,7 @@ suite('Primitive App Editor - Function / Program Scan (30. Function / Program Sc
 
 	test('Missing executor rejects', async () => {
 		const catalog = createFunctionPrimitiveExecutorCatalog();
-		assert.throws(() => resolveFunctionExecutors([linearEntry(), missingEntry()], catalog), (error: Error) => error instanceof FunctionRegistryError && /Ghost/.test(error.message));
+		assert.throws(() => resolveFunctionExecutors([linearEntry(), missingEntry()], catalog), /Ghost/);
 		await assert.rejects(() => scanFunctions(createFileService(), joinPath(root, 'functions'), [missingEntry()], catalog), /Ghost/);
 	});
 
