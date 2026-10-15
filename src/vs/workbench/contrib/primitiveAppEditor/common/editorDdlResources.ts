@@ -78,4 +78,23 @@ export const editorDdlResources: readonly IEditorDdlResource[] = Object.freeze([
 			');',
 		].join('\n'),
 	}),
+	Object.freeze({
+		name: '005_function_registry.sql',
+		// 14. function_registry: Function Definition authority (`input` / `constructor` / `parameters` / `output` = JSON).
+		// Function Instance / Output are Runtime Memory and are never stored; `executor` must exist in Code (checked on load).
+		sql: [
+			'CREATE TABLE "registry__function_registry" (',
+			'\t"uuid" TEXT NOT NULL PRIMARY KEY,',
+			'\t"index" INTEGER NOT NULL,',
+			'\t"name" TEXT NOT NULL,',
+			'\t"label" TEXT NOT NULL,',
+			'\t"executor" TEXT NOT NULL,',
+			'\t"input" TEXT NOT NULL CHECK (json_valid("input") AND json_type("input") = \'array\'),',
+			'\t"constructor" TEXT NOT NULL CHECK (json_valid("constructor") AND json_type("constructor") = \'array\'),',
+			'\t"parameters" TEXT NOT NULL CHECK (json_valid("parameters") AND json_type("parameters") = \'array\'),',
+			'\t"output" TEXT NOT NULL CHECK (json_valid("output") AND json_type("output") = \'object\'),',
+			'\t"created_at" TEXT NOT NULL',
+			');',
+		].join('\n'),
+	}),
 ]);
