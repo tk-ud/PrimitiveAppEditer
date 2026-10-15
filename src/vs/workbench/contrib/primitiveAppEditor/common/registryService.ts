@@ -141,7 +141,7 @@ export function encodeRegistryPhysicalValue(kind: TableColumnKind, value: unknow
 export const invalidRegistryPhysicalValue: unique symbol = Symbol('invalidRegistryPhysicalValue');
 
 /** Semantic value of a stored physical value of `kind`, or `invalidRegistryPhysicalValue` when it is not one. */
-function decodePhysicalValue(kind: TableColumnKind, value: ProjectSqliteValue): unknown {
+export function decodeRegistryPhysicalValue(kind: TableColumnKind, value: ProjectSqliteValue): unknown {
 	if (value === null) {
 		return null;
 	}
@@ -174,7 +174,7 @@ export function migrateRegistryPhysicalValue(
 	if (to.kind === TableColumnKind.Enum && !toEnum) {
 		throw new RegistryServiceError(`migration to kind 'enum' requires the referenced enum_registry entry`);
 	}
-	const decoded = from ? decodePhysicalValue(from.kind, value) : value;
+	const decoded = from ? decodeRegistryPhysicalValue(from.kind, value) : value;
 	if (decoded === invalidRegistryPhysicalValue) {
 		return invalidRegistryPhysicalValue;
 	}
