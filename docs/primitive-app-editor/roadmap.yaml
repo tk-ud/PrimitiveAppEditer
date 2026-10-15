@@ -697,8 +697,12 @@ section:
               - "§15 Function Definition Contract"
         depends_on:
           - "function.registry"
-        status: "not started"
-        evidence: []
+        status: "implemented"
+        evidence:
+          - "src/vs/workbench/contrib/primitiveAppEditor/common/functionPrimitive.ts: IFunctionPrimitiveDefinition (Function Definition Contract fields), Linear class (Linear(subtractB), evaluate(a,x,b) = a*x + (subtractB ? -b : b)), linearDefinition matching the section 16 Registry (executor Linear, input x double, constructor subtract_b bool default false, parameters a=1 / b=0 double, output double), evaluateLinear with Registry defaults, functionCatalog (section 17 categories and names), implementedFunctionPrimitives = [Linear] only (no formulas invented for unspecified catalog names), createFunctionPrimitiveExecutorCatalog feeding functionRegistry executor validation, toFunctionRegistryEntryInput."
+          - "src/vs/workbench/contrib/primitiveAppEditor/test/common/functionPrimitive.test.ts: 5 tests (Linear both modes, Registry definition/defaults, registers via createFunctionRegistryEntry + getFunctionRegistryInsert with Code executor catalog, non-implemented executor Sin rejected, catalog lists)."
+          - "Verification: tsc --strict typecheck of new source/test clean; the 5 tests run via mocha-style shim and pass (full repo npm install/test-node unavailable in this environment); sources ASCII-only. Commit e1302562."
+          - "Required integration fix: none; function.registry consumed unchanged (createFunctionExecutorCatalog / createFunctionRegistryEntry / getFunctionRegistryInsert)."
         remaining: []
 
       - id: "function.dispatcher"
