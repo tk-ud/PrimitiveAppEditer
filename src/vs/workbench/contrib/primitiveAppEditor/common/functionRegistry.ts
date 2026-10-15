@@ -23,12 +23,12 @@ import { compareTableRegistryOrder, isTimestampValue } from './tableRegistry.js'
  *
  * `Function Primitive = Code` and `Function Definition = Registry`: the Registry holds the
  * definition only. `Function Instance` and `Function Output` are Runtime Memory and are never
- * stored here (Function実行値はSQLiteへ逐次保存しない).
+ * stored here (Function execution values are not saved to SQLite sequentially).
  *
- * Function Definition Contract: `Registry -> Codeに存在しないexecutorを許可しない` is enforced by
+ * Function Definition Contract: `Registry -> an executor that does not exist in Code is not allowed` is enforced by
  * {@link validateFunctionRegistryExecutors} / {@link readFunctionRegistry} against an
  * {@link IFunctionExecutorCatalog} (the executors that exist in Code). `Runtime ->
- * 未定義Formulaを補完しない` is a Runtime rule: this module never derives or completes a
+ * never completes an undefined Formula` is a Runtime rule: this module never derives or completes a
  * definition that is not in the Registry.
  *
  * Function Binding / Build / Execution Plan are owned by later bundles; `kind` of
@@ -221,7 +221,7 @@ export function createFunctionExecutorCatalog(executors: Iterable<string>): IFun
 	return Object.freeze({ has: (executor: string) => known.has(executor) });
 }
 
-/** `Registry -> Codeに存在しないexecutorを許可しない`: every entry's `executor` must exist in Code. */
+/** `Registry -> an executor that does not exist in Code is not allowed`: every entry's `executor` must exist in Code. */
 export function validateFunctionRegistryExecutors(entries: readonly Pick<IFunctionRegistryEntry, 'name' | 'executor'>[], catalog: IFunctionExecutorCatalog): void {
 	for (const entry of entries) {
 		if (!catalog.has(entry.executor)) {
