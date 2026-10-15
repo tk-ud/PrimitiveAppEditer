@@ -738,8 +738,12 @@ section:
         depends_on:
           - "function.registry"
           - "foundation.project-directory"
-        status: "not started"
-        evidence: []
+        status: "implemented"
+        evidence:
+          - "Added common/functionProgramScan.ts: discoverFunctionPrograms (Directory Scan + Program Discovery of <Project>/functions/, recursive, path-ordered, read-only), resolveFunctionExecutors (Registry executor -> Code Primitive; missing executor rejects via validateFunctionRegistryExecutors), scanFunctions, createFunctionScanStep (functionScan step for IProjectOpenSteps)."
+          - "Tests: test/common/functionProgramScan.test.ts (6 tests incl. Open integration: Ready with valid executors, rejects before Editor Ready on missing executor)."
+          - "Verification: transpile-client + mocha --ui tdd on primitiveAppEditor/test/common -> 101 passing; eslint --max-warnings 0 on primitiveAppEditor clean. test/node sqlite tests not runnable locally (npm ci --ignore-scripts, no native binding)."
+          - "No earlier producer bundle required an integration fix: function.registry and foundation.project-directory were consumed unchanged."
         remaining: []
 
   - name: "Function Binding"
