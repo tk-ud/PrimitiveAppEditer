@@ -714,8 +714,12 @@ section:
               - "§18 Function Dispatcher"
         depends_on:
           - "function.primitive"
-        status: "not started"
-        evidence: []
+        status: "implemented"
+        evidence:
+          - "src/vs/workbench/contrib/primitiveAppEditor/common/functionDispatcher.ts: dispatchFunction(functionName, args) resolves the name, selects the primitive, dispatches args to function.primitive evaluateLinear, returns output; unknown name throws UnknownFunctionException; holds no Execution Order"
+          - "src/vs/workbench/contrib/primitiveAppEditor/test/common/functionDispatcher.test.ts: linear dispatch with defaults, every implemented primitive dispatchable, sin/exp/unknown rejected, invalid args rejected"
+          - "Verified via standalone tsc transpile + node smoke run of dispatchFunction (linear dispatch, subtract_b, UnknownFunctionException, arg validation) - ok; full mocha/eslint not run (no node_modules in this environment); CI is expected to run them"
+          - "No required integration fix to function.primitive was needed"
         remaining: []
 
       - id: "function.program-scan"
