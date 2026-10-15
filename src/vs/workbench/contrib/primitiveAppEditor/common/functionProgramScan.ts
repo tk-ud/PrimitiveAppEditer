@@ -5,8 +5,8 @@
 
 import { joinPath } from '../../../../base/common/resources.js';
 import { URI } from '../../../../base/common/uri.js';
-import { IFileService } from '../../../../platform/files/common/files.js';
-import { IFunctionExecutorCatalog, IFunctionRegistryEntry, validateFunctionRegistryExecutors } from './functionRegistry.js';
+import { FileOperationResult, IFileService, toFileOperationResult } from '../../../../platform/files/common/files.js';
+import { IFunctionExecutorCatalog, IFunctionRegistryEntry, validateFunctionRegistry, validateFunctionRegistryExecutors } from './functionRegistry.js';
 import { IProjectOpenContext, IProjectOpenSteps } from './projectDirectory.js';
 
 /**
@@ -35,15 +35,19 @@ export interface IFunctionProgram {
 
 /**
  * `Directory Scan` + `Program Discovery`: every file under `functionsDirectory` (recursively), in
- * path order. A missing `functions/` directory discovers nothing; a `functions` entry that is a
- * file is rejected.
+ * path order. Only a missing `functions/` directory (file not found) discovers nothing; any other
+ * resolve failure (permission denied, unavailable, I/O) and a `functions` entry that is a file are
+ * rejected, so a failed scan can never reach Editor Ready.
  */
 export async function discoverFunctionPrograms(fileService: IFileService, functionsDirectory: URI): Promise<readonly IFunctionProgram[]> {
 	let root;
 	try {
 		root = await fileService.resolve(functionsDirectory);
-	} catch {
-		return Object.freeze([]);
+	} catch (error) {
+		if (toFileOperationResult(error as Error) === FileOperationResult.FILE_NOT_FOUND) {
+			return Object.freeze([]);
+		}
+		throw error;
 	}
 	if (!root.isDirectory) {
 		throw new FunctionScanError(`functions entry is not a directory: ${functionsDirectory.toString()}`);
@@ -77,10 +81,12 @@ export interface IFunctionExecutorResolution {
 }
 
 /**
- * `Executor Resolve`: resolves every entry's `executor` to the Code Primitive of `catalog`. An
+ * `Executor Resolve` + `function_registry Validate`: validates the Registry entries and resolves every entry's `executor` to the Code Primitive of `catalog`. An
  * executor that is missing from Code rejects (`Missing executor -> Build / Load reject`).
  */
 export function resolveFunctionExecutors(entries: readonly IFunctionRegistryEntry[], catalog: IFunctionExecutorCatalog): readonly IFunctionExecutorResolution[] {
+	// function_registry Validate: Registry itself (unique UUIDs), then every executor exists in Code.
+	validateFunctionRegistry(entries);
 	validateFunctionRegistryExecutors(entries, catalog);
 	return Object.freeze(entries.map(entry => Object.freeze({ entry, executor: entry.executor })));
 }

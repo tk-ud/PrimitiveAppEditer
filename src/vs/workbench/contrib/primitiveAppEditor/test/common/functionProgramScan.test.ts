@@ -9,6 +9,7 @@ import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { joinPath } from '../../../../../base/common/resources.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { FileOperationError, FileOperationResult, IFileService } from '../../../../../platform/files/common/files.js';
 import { FileService } from '../../../../../platform/files/common/fileService.js';
 import { InMemoryFileSystemProvider } from '../../../../../platform/files/common/inMemoryFilesystemProvider.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
@@ -53,6 +54,35 @@ suite('Primitive App Editor - Function / Program Scan (30. Function / Program Sc
 		assert.strictEqual(await fileService.exists(functions), false);
 		await fileService.writeFile(functions, VSBuffer.fromString(''));
 		await assert.rejects(() => discoverFunctionPrograms(fileService, functions), /not a directory/);
+	});
+
+	test('non-NotFound resolve failures reject instead of discovering nothing', async () => {
+		const fileService = createFileService();
+		const denied = Object.create(fileService) as IFileService;
+		denied.resolve = async () => { throw new FileOperationError('denied', FileOperationResult.FILE_PERMISSION_DENIED); };
+		await assert.rejects(() => discoverFunctionPrograms(denied, joinPath(root, 'functions')), /denied/);
+
+		const steps = {
+			createStorage: async () => { }, openStorage: async () => { }, editorDdlScan: async () => { }, schemaVersionResolve: async () => { }, migrationApply: async () => { }, registryLoad: async () => { }, assetScan: async () => { },
+			functionScan: createFunctionScanStep(denied, createFunctionPrimitiveExecutorCatalog(), async () => [linearEntry()]),
+		};
+		const openFs = createFileService();
+		openFs.resolve = denied.resolve;
+		await assert.rejects(() => openProjectDirectory(openFs, root, steps), /denied/);
+	});
+
+	test('duplicate function UUIDs reject in Scan and Open (function_registry Validate)', async () => {
+		const catalog = createFunctionPrimitiveExecutorCatalog();
+		const duplicate = () => [linearEntry(), createFunctionRegistryEntry({ ...toFunctionRegistryEntryInput(linearDefinition, 1), name: 'linear2', uuid: F }, undefined, now)];
+		assert.throws(() => resolveFunctionExecutors(duplicate(), catalog), /duplicate function uuid/);
+		await assert.rejects(() => scanFunctions(createFileService(), joinPath(root, 'functions'), duplicate(), catalog), /duplicate function uuid/);
+
+		const fileService = createFileService();
+		const noop = async () => { };
+		await assert.rejects(() => openProjectDirectory(fileService, root, {
+			createStorage: noop, openStorage: noop, editorDdlScan: noop, schemaVersionResolve: noop, migrationApply: noop, registryLoad: noop, assetScan: noop,
+			functionScan: createFunctionScanStep(fileService, catalog, async () => duplicate()),
+		}), /duplicate function uuid/);
 	});
 
 	test('Executor Resolve maps Registry executor to a Code Primitive', () => {
