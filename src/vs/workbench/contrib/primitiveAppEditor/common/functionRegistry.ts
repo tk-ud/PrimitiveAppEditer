@@ -283,8 +283,13 @@ export function decodeFunctionRegistryRow(row: ProjectSqliteRow): IFunctionRegis
 	}, missingUuid);
 }
 
-/** `INSERT` statement and parameters writing `entry` into `registry.function_registry`. */
-export function getFunctionRegistryInsert(entry: IFunctionRegistryEntry): { readonly sql: string; readonly params: readonly (string | number)[] } {
+/**
+ * `INSERT` statement and parameters writing `entry` into `registry.function_registry`. The
+ * `executor` is checked against Code (`catalog`) before any statement is produced, so an executor
+ * that does not exist in Code can never be registered (`Registry -> an executor that does not exist in Code is not allowed`).
+ */
+export function getFunctionRegistryInsert(entry: IFunctionRegistryEntry, catalog: IFunctionExecutorCatalog): { readonly sql: string; readonly params: readonly (string | number)[] } {
+	validateFunctionRegistryExecutors([entry], catalog);
 	const row = encodeFunctionRegistryRow(entry);
 	return Object.freeze({
 		sql: `INSERT INTO ${quoteIdentifier(functionRegistryPhysicalTable)} (${storedColumns.map(quoteIdentifier).join(', ')}) VALUES (${storedColumns.map(() => '?').join(', ')})`,

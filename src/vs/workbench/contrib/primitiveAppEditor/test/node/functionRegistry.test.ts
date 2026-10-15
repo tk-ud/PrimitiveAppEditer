@@ -80,7 +80,7 @@ suite('Primitive App Editor - function_registry on project.sqlite', () => {
 		}, undefined, now);
 		await first.storage.database.transaction(async tx => {
 			for (const entry of [noop, damage]) {
-				const insert = getFunctionRegistryInsert(entry);
+				const insert = getFunctionRegistryInsert(entry, catalog);
 				await tx.run(insert.sql, insert.params);
 			}
 		});
@@ -90,13 +90,23 @@ suite('Primitive App Editor - function_registry on project.sqlite', () => {
 		assert.deepStrictEqual(second.loaded, [damage, noop]);
 	});
 
+	test('an executor missing in Code is rejected before any SQL mutation and no row is stored', async () => {
+		const { storage } = await open();
+		const rogue = createFunctionRegistryEntry({ index: 0, name: 'rogue', executor: 'math.undefined', constructor: [], output: { kind: 'int' } }, undefined, now);
+		assert.throws(() => getFunctionRegistryInsert(rogue, catalog), (error: Error) => error instanceof FunctionRegistryError && /executor 'math\.undefined' does not exist in Code/.test(error.message));
+		const rows = await storage.database.all(`SELECT "uuid" FROM "${functionRegistryPhysicalTable}"`);
+		assert.deepStrictEqual(rows, []);
+		assert.deepStrictEqual(await readFunctionRegistry(storage.database, catalog), []);
+		await storage.close();
+	});
+
 	test('the storage table rejects invalid JSON shapes and a duplicate uuid; Function Scan rejects an executor missing in Code', async () => {
 		const { storage } = await open();
 		const entry = createFunctionRegistryEntry({ index: 0, name: 'damage', executor: 'math.damage', constructor: [], output: { kind: 'int' } }, undefined, now);
-		const insert = getFunctionRegistryInsert(entry);
+		const insert = getFunctionRegistryInsert(entry, catalog);
 		await storage.database.run(insert.sql, insert.params);
 		await assert.rejects(storage.database.run(insert.sql, insert.params), /UNIQUE|PRIMARY KEY/);
-		const other = getFunctionRegistryInsert(createFunctionRegistryEntry({ index: 1, name: 'other', executor: 'core.noop', constructor: [], output: { kind: 'int' } }, undefined, now));
+		const other = getFunctionRegistryInsert(createFunctionRegistryEntry({ index: 1, name: 'other', executor: 'core.noop', constructor: [], output: { kind: 'int' } }, undefined, now), catalog);
 		const params = [...other.params];
 		await assert.rejects(storage.database.run(insert.sql, params.map((value, i) => i === 5 ? '{}' : value)), /CHECK/);
 		await assert.rejects(storage.database.run(insert.sql, params.map((value, i) => i === 8 ? '[]' : value)), /CHECK/);

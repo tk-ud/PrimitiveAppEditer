@@ -102,7 +102,9 @@ suite('Primitive App Editor - function_registry', () => {
 		assert.strictEqual(encodeFunctionRegistryRow(unlabeled).label, '');
 		assert.deepStrictEqual(decodeFunctionRegistryRow(encodeFunctionRegistryRow(unlabeled)), unlabeled);
 
-		const insert = getFunctionRegistryInsert(entry);
+		const catalog = createFunctionExecutorCatalog(['math.damage']);
+		throwsFunctionRegistryError(() => getFunctionRegistryInsert(entry, createFunctionExecutorCatalog([])), /executor 'math\.damage' does not exist in Code/);
+		const insert = getFunctionRegistryInsert(entry, catalog);
 		assert.strictEqual(functionRegistryPhysicalTable, 'registry__function_registry');
 		assert.ok(insert.sql.startsWith('INSERT INTO "registry__function_registry" ("uuid", "index", "name", "label", "executor", "input", "constructor", "parameters", "output", "created_at")'));
 		assert.strictEqual(insert.params.length, 10);
