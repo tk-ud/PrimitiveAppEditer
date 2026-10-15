@@ -136,7 +136,7 @@ function createArguments(list: unknown, field: 'input' | 'constructor' | 'parame
 			throw new FunctionRegistryError(`${where}: duplicate ${field} name '${name}'`);
 		}
 		names.add(name);
-		if ('default' in record && record.default !== undefined) {
+		if (record.default !== undefined) {
 			if (!allowDefault) {
 				throw new FunctionRegistryError(`${at}: input has no default`);
 			}

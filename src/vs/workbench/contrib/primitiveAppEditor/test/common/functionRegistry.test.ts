@@ -57,7 +57,7 @@ suite('Primitive App Editor - function_registry', () => {
 		assert.deepStrictEqual(entry.constructor, [{ name: 'seed', kind: 'int', default: 0 }]);
 		assert.deepStrictEqual(entry.parameters, [{ name: 'rate', kind: 'double', default: 1.5 }, { name: 'tags', kind: 'json', default: { a: [1, null] } }, { name: 'free', kind: 'text' }]);
 		assert.deepStrictEqual(entry.output, { kind: 'int' });
-		assert.ok(!('default' in entry.parameters[2]), 'an absent default stays absent');
+		assert.ok(!Object.keys(entry.parameters[2]).includes('default'), 'an absent default stays absent');
 
 		const kept = createFunctionRegistryEntry({ ...base, uuid: F.toUpperCase() }, () => { throw new Error('must not generate'); }, now);
 		assert.strictEqual(kept.uuid, F);
