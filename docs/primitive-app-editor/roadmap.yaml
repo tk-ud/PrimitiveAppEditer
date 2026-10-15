@@ -714,8 +714,13 @@ section:
               - "§18 Function Dispatcher"
         depends_on:
           - "function.primitive"
-        status: "not started"
-        evidence: []
+        status: "implemented"
+        evidence:
+          - "src/vs/workbench/contrib/primitiveAppEditor/common/functionDispatcher.ts: dispatch(functionName, args) resolves name -> primitive executor -> forwards Registry-shaped args -> returns output; unknown names throw UnknownFunctionException; no Execution Order/planner state held (Dispatcher != Execution Planner)"
+          - "Consumes function.primitive: 'linear' dispatches to evaluateLinear; sin/exp have no Code definition yet so resolve to UnknownFunctionException (catalog not completed)"
+          - "src/vs/workbench/contrib/primitiveAppEditor/test/common/functionDispatcher.test.ts: linear dispatch/defaults/subtract_b, primitive error propagation, unknown names (sin, exp, Linear, constructor, empty)"
+          - "Verification: scratch node --experimental-transform-types run of the same assertions passed (node_modules not installed in the sandbox, so tsc/eslint/mocha could not be run)"
+          - "No required integration fix to function.primitive was needed"
         remaining: []
 
       - id: "function.program-scan"
