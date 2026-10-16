@@ -26,7 +26,7 @@ suite('Primitive App Editor - Editor DDL (5. Built-in DDL)', () => {
 
 	test('built-in resources scan into contiguous versions and own the Runtime Save Data tables', () => {
 		const migrations = scanEditorDdlResources(editorDdlResources);
-		assert.deepStrictEqual(migrations.map(m => [m.version, m.name]), [[1, '001_savedata.sql'], [2, '002_table_registry.sql'], [3, '003_enum_registry.sql'], [4, '004_relation_registry.sql'], [5, '005_function_registry.sql'], [6, '006_function_binding.sql']]);
+		assert.deepStrictEqual(migrations.map(m => [m.version, m.name]), [[1, '001_savedata.sql'], [2, '002_table_registry.sql'], [3, '003_enum_registry.sql'], [4, '004_relation_registry.sql'], [5, '005_function_registry.sql'], [6, '006_function_binding.sql'], [7, '007_function_dependency.sql']]);
 		assert.ok(/CREATE TABLE "registry__table_registry"/.test(migrations[1].sql));
 		assert.ok(/CREATE TABLE "registry__enum_registry"/.test(migrations[2].sql));
 		assert.ok(/CREATE TABLE "registry__relation_registry"/.test(migrations[3].sql));
@@ -35,6 +35,8 @@ suite('Primitive App Editor - Editor DDL (5. Built-in DDL)', () => {
 		assert.ok(!/REFERENCES/i.test(migrations[4].sql), 'function_registry generates no physical FK');
 		assert.ok(/CREATE TABLE "binding__function_binding"/.test(migrations[5].sql));
 		assert.ok(!/REFERENCES/i.test(migrations[5].sql), 'function_binding generates no physical FK');
+		assert.ok(/CREATE TABLE "binding__function_dependency"/.test(migrations[6].sql));
+		assert.ok(!/REFERENCES/i.test(migrations[6].sql), 'function_dependency generates no physical FK');
 		assert.ok(/CREATE TABLE "logs__savedata"/.test(migrations[0].sql));
 		assert.ok(/CREATE TABLE "registry__current"/.test(migrations[0].sql));
 		assert.strictEqual(migrations[0].checksum, computeEditorDdlChecksum(migrations[0].sql));

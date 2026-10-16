@@ -806,8 +806,14 @@ section:
               - "§10 delete"
         depends_on:
           - "binding.function"
-        status: "not started"
-        evidence: []
+        status: "implemented"
+        evidence:
+          - "common/functionDependency.ts: function_dependency entry model (uuid/source_binding.uuid/target_binding.uuid/target_input.name), validation (UUIDs, no self-dependency, unique uuid, one producer per target input)"
+          - "common/functionDependency.ts: buildFunctionExecutionPlan = Function Binding + Dependency -> Dependency Graph -> Validate (edge matches target input source: function_output, every function_output input has its Edge, cycle detected -> Load/Build reject) -> Execution Plan; dependency primary order, index (then UUID) for independent nodes; plan derived, never stored"
+          - "common/functionDependency.ts: FunctionDependencyService insert/delete/select (Edge Add = INSERT, Edge Delete = DELETE, one transaction each; mismatching or cycle-closing Edge rejected before write); readFunctionDependencies / loadFunctionExecutionPlan reading function_binding + function_dependency from project.sqlite"
+          - "common/editorDdlResources.ts: 007_function_dependency.sql (binding__function_dependency, UNIQUE(target_binding_uuid,target_input_name), no physical FK); editorDdl/projectSqliteDatabase tests updated for the new migration"
+          - "test/common/functionDependency.test.ts + test/node/functionDependency.test.ts (project.sqlite round-trip, plan order, cycle rejection, edge/binding mismatch); full primitiveAppEditor suite 167 passing via tsc emit + mocha --ui=tdd; tsc reports no errors in changed files"
+          - "Required integration fix: none to earlier producer logic (binding.function); only the Editor DDL resource list gained 007 and dependent test expectations were updated. Note: FunctionBindingService.delete does not cascade Edges; a dangling Edge is rejected at Load/Build by loadFunctionExecutionPlan"
         remaining: []
 
       - id: "binding.merge"
