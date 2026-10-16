@@ -994,8 +994,11 @@ section:
           - "renderer.registry"
           - "asset.registry"
           - "runtime.loop"
-        status: "not started"
-        evidence: []
+        status: "implemented"
+        evidence:
+          - "common/rendererRuntime.ts: Runtime State (Next State) -> Renderer -> Projection (27). RendererRuntime.build performs Registry Resolve (validateRendererBindingAgainstRegistry), Executor Resolve against a Code-side IRendererExecutorCatalog (executor missing in Code rejects), Runtime Object Resolve (resolveRuntimeHandle -> Memory Handle) for Persistent Address bindings and Asset Resolve (asset_uuid -> IAsset from asset.registry; missing asset rejects) once at Load; project() reads Memory Handles / resolved Assets only, is read-only and asserts the Renderer -> Projection boundary flow. loadRendererRuntime reads renderer_registry / renderer_binding / table_registry once from project.sqlite. Function != Renderer: no Function execution or Runtime State write in the renderer; Frame State not persisted. Binding input names kept as own properties (incl. __proto__)."
+          - "Tests: test/node/rendererRuntime.test.ts (3 tests on real project.sqlite: RuntimeLoop Next State projected through renderer with resolved Asset and read-only (state unchanged, SQLite row unchanged); Load rejections for missing executor / missing Asset / missing Runtime Object and duplicate executor; __proto__ input name through projection). Verification: esbuild + mocha tdd + @vscode/sqlite3 harness over all primitiveAppEditor test/common + test/node -> 202 passing, 0 failing; tsc strict typecheck of rendererRuntime.ts and its test clean."
+          - "No earlier producer bundle required an integration fix: renderer.registry (validateRendererBindingAgainstRegistry, readRendererRegistry/Bindings), asset.registry (IAsset) and runtime.loop / runtime.state (RuntimeLoop, resolveRuntimeHandle, loadRuntimeExecutionPlan) were consumed unchanged and work together in the integration test. eslint not run (node_modules not installed in the routine environment)."
         remaining: []
 
   - name: "Resolver"
