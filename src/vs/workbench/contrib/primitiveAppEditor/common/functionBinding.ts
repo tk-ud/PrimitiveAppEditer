@@ -200,7 +200,7 @@ function createArgument(raw: unknown, where: string): IFunctionBindingArgument {
 	switch (source) {
 		case FunctionBindingSource.Constant: {
 			allowed.add('value');
-			if (!('value' in raw) || raw.value === undefined) {
+			if (raw.value === undefined) {
 				throw new FunctionBindingError(`${where}: source constant requires a value`);
 			}
 			if (!isJsonValue(raw.value)) {
