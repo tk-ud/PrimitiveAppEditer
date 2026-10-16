@@ -33,7 +33,7 @@ export function isAssetKind(value: unknown): value is AssetKind {
 	return typeof value === 'string' && assetKinds.has(value);
 }
 
-/** One Asset (§29). */
+/** One Asset (29). */
 export interface IAsset extends IRegistryIdentity {
 	readonly index: number;
 	readonly kind: AssetKind;
@@ -59,7 +59,7 @@ export class AssetRegistryError extends Error {
 	}
 }
 
-/** Builds a validated Asset: missing UUID generated / supplied kept, `index` int, `kind` in the §29 set, `source` non-empty, `metadata` a JSON object. */
+/** Builds a validated Asset: missing UUID generated / supplied kept, `index` int, `kind` in the 29 set, `source` non-empty, `metadata` a JSON object. */
 export function createAsset(input: IAssetInput, generateUuid: () => string = generateRandomUuid): IAsset {
 	let identity: IRegistryIdentity;
 	try {

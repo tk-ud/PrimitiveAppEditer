@@ -40,7 +40,7 @@ suite('Primitive App Editor - Asset (29. Asset)', () => {
 		await fileService.writeFile(joinPath(assets, 'shader', 'a.glsl'), VSBuffer.fromString(''));
 	}
 
-	test('createAsset validates the §29 model', () => {
+	test('createAsset validates the 29 model', () => {
 		const asset = createAsset({ uuid: A.toUpperCase(), index: 0, name: 'hero', label: 'Hero', kind: AssetKind.Sprite, source: 'assets/image/hero.png', metadata: { w: 1 } });
 		assert.deepStrictEqual({ ...asset }, { uuid: A, index: 0, name: 'hero', label: 'Hero', kind: 'sprite', source: 'assets/image/hero.png', metadata: { w: 1 } });
 		assert.match(createAsset({ index: 0, name: 'x', kind: AssetKind.Other, source: 's' }).uuid, /^[0-9a-f-]{36}$/);
