@@ -969,8 +969,12 @@ section:
         depends_on:
           - "foundation.project-directory"
           - "registry.identity"
-        status: "not started"
-        evidence: []
+        status: "implemented"
+        evidence:
+          - "common/assetRegistry.ts: §29 Asset model (uuid/index/name/label/kind image|sprite|audio|font|shader|other/source/metadata) via createAsset reusing registry.identity (ensureRegistryIdentity); validateAssetRegistry (unique uuid and source)."
+          - "common/assetRegistry.ts: Directory Scan (discoverAssets, read-only, recursive over assets/<category>/, missing dir -> empty, non-NotFound errors and file-as-directory rejected) -> Asset Resolve (resolveAssets: kind from category, index in source order, existing uuid/name/label kept by source) -> Asset Registry (scanAssets); createAssetScanStep is the assetScan step of IProjectOpenSteps (rejection stops before Editor Ready)."
+          - "Tests: test/common/assetRegistry.test.ts (7 tests incl. Open integration with openProjectDirectory). Verification: transpile-client + mocha tdd on primitiveAppEditor/test/common -> 137 passing; eslint --max-warnings 0 clean; tsc --noEmit no primitiveAppEditor errors."
+          - "No earlier producer bundle required an integration fix: foundation.project-directory (AssetCategory, assetCategories, IProjectOpenSteps) and registry.identity were consumed unchanged. SQLite persistence of Assets is not specified in §29 and was not added; prior Registry entries are supplied via the loadEntries hook."
         remaining: []
 
       - id: "renderer.runtime"
