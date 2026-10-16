@@ -4,6 +4,7 @@
  *  Dispatch contract: docs/primitive-app-editor/Resolver.md (9 insert, 10 delete, 11 update, 12 upsert, 13 select)
  *--------------------------------------------------------------------------------------------*/
 
+import { hasKey } from '../../../../base/common/types.js';
 import { generateUuid as generateRandomUuid } from '../../../../base/common/uuid.js';
 import { assertBoundaryFlow, BoundaryNode } from './authority.js';
 import { createFunctionBindingAddress, FunctionBindingError, IFunctionBindingAddress, resolveFunctionBindingAddressDisplay, IFunctionBindingAddressDisplay } from './functionBinding.js';
@@ -340,7 +341,7 @@ export function validateRendererBindingAgainstRegistry(
 		if (!inputNames.has(name)) {
 			throw new RendererBindingError(`${where}: renderer '${definition.name}' has no input '${name}'`);
 		}
-		if ('address' in value) {
+		if (hasKey(value, { address: true })) {
 			const table = tables.find(candidate => candidate.uuid === value.address.table_uuid);
 			if (!table) {
 				throw new RendererBindingError(`${where}: bindings '${name}' address table '${value.address.table_uuid}' is not in table_registry (Missing Definition)`);
@@ -592,7 +593,7 @@ export class RendererBindingService {
 		return Object.freeze({
 			renderer: definition ? getRegistryDisplayText(definition) : undefined,
 			bindings: Object.freeze(Object.fromEntries(Object.entries(binding.bindings)
-				.filter(([, value]) => 'address' in value)
+				.filter(([, value]) => hasKey(value, { address: true }))
 				.map(([name, value]) => [name, resolveFunctionBindingAddressDisplay((value as { address: IFunctionBindingAddress }).address, context.tables)]))),
 		});
 	}
