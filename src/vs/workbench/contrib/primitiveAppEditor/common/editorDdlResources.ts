@@ -131,4 +131,34 @@ export const editorDdlResources: readonly IEditorDdlResource[] = Object.freeze([
 			');',
 		].join('\n'),
 	}),
+	Object.freeze({
+		name: '008_renderer_registry.sql',
+		// 28. renderer_registry: Renderer Definition authority (`inputs` = JSON list of {name, kind}). The Renderer itself
+		// is Code and a Projection of Runtime State; the Registry holds the definition only.
+		sql: [
+			'CREATE TABLE "registry__renderer_registry" (',
+			'\t"uuid" TEXT NOT NULL PRIMARY KEY,',
+			'\t"index" INTEGER NOT NULL,',
+			'\t"name" TEXT NOT NULL,',
+			'\t"label" TEXT NOT NULL,',
+			'\t"executor" TEXT NOT NULL,',
+			'\t"inputs" TEXT NOT NULL CHECK (json_valid("inputs") AND json_type("inputs") = \'array\'),',
+			'\t"created_at" TEXT NOT NULL',
+			');',
+		].join('\n'),
+	}),
+	Object.freeze({
+		name: '009_renderer_binding.sql',
+		// 28. Renderer Binding: concrete Data (not a Registry Definition). `renderer_uuid` is a logical reference to
+		// renderer_registry.uuid; `bindings` holds Persistent UUID Addresses / asset_uuid per Renderer input name
+		// (no physical FK, no stored display text).
+		sql: [
+			'CREATE TABLE "binding__renderer_binding" (',
+			'\t"uuid" TEXT NOT NULL PRIMARY KEY,',
+			'\t"renderer_uuid" TEXT NOT NULL,',
+			'\t"bindings" TEXT NOT NULL CHECK (json_valid("bindings") AND json_type("bindings") = \'object\'),',
+			'\t"created_at" TEXT NOT NULL',
+			');',
+		].join('\n'),
+	}),
 ]);
