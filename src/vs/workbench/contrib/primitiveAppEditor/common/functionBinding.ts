@@ -31,7 +31,7 @@ import { compareTableRegistryOrder, isTimestampValue, ITableRegistryEntry, readT
  * `target` Persistent Address it writes to, with the `target.merge.kind` selecting the merge policy.
  *
  * `Persistent Address` = `{ table_uuid, row_uuid, column_uuid }`: UUIDs only (`UUID = resolve only`).
- * Human Display (`Player └─ Fatigue`) is derived from `table_registry` name / label when shown
+ * Human Display (`Player` then `Fatigue` as a tree) is derived from `table_registry` name / label when shown
  * ({@link resolveFunctionBindingAddressDisplay}) and is never stored.
  *
  * Merge semantics (overwrite / overlay), Function Dependency, Execution Plan and Runtime
@@ -403,7 +403,7 @@ export function validateFunctionBindingAgainstRegistry(
 export interface IFunctionBindingAddressDisplay {
 	readonly table: string;
 	readonly column: string;
-	/** `Player\n└─ Fatigue`. */
+	/** `Player`, a newline, then the column prefixed with a tree branch. */
 	readonly text: string;
 }
 
@@ -416,7 +416,7 @@ export function resolveFunctionBindingAddressDisplay(address: IFunctionBindingAd
 	}
 	const tableText = getRegistryDisplayText(table);
 	const columnText = getRegistryDisplayText(column);
-	return Object.freeze({ table: tableText, column: columnText, text: `${tableText}\n└─ ${columnText}` });
+	return Object.freeze({ table: tableText, column: columnText, text: `${tableText}\n\u2514\u2500 ${columnText}` });
 }
 
 // #endregion

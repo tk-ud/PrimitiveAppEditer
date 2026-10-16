@@ -118,8 +118,8 @@ suite('Primitive App Editor - function_binding on project.sqlite', () => {
 		const [row] = await service.select({ where: { function_uuid: FN }, resolveDisplay: true });
 		assert.deepStrictEqual(row.binding, inserted.binding);
 		assert.strictEqual(row.display?.function, 'accumulate');
-		assert.strictEqual(row.display?.target?.text, 'Player\n└─ Fatigue');
-		assert.deepStrictEqual(row.display?.inputs.x, { table: 'Player', column: 'Fatigue', text: 'Player\n└─ Fatigue' });
+		assert.strictEqual(row.display?.target?.text, 'Player\n\u2514\u2500 Fatigue');
+		assert.deepStrictEqual(row.display?.inputs.x, { table: 'Player', column: 'Fatigue', text: 'Player\n\u2514\u2500 Fatigue' });
 		assert.deepStrictEqual(Object.keys(row.display?.parameters ?? {}), ['b']);
 
 	});
