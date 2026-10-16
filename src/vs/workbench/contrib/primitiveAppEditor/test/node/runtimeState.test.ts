@@ -23,8 +23,7 @@ import { LogicalNamespace, ProjectSqliteStorage } from '../../common/projectSqli
 import { RawDataService } from '../../common/rawData.js';
 import { RegistryService } from '../../common/registryService.js';
 import { createRuntimeState, loadRuntimeState, resolveBindingHandles, resolvePlanHandles, resolveRuntimeHandle, RuntimeStateError } from '../../common/runtimeState.js';
-import { readTableRegistry } from '../../common/tableRegistry.js';
-import { TableColumnKind } from '../../common/tableRegistry.js';
+import { readTableRegistry, TableColumnKind } from '../../common/tableRegistry.js';
 import { ProjectSqliteDatabaseFactory } from '../../node/projectSqliteDatabase.js';
 
 const PLAYER = '00000000-0000-4000-8000-0000000000a2';
