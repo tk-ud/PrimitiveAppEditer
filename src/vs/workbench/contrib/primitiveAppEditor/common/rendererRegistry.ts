@@ -296,7 +296,8 @@ export function createRendererBindingEntry(
 		if (name === '') {
 			throw new RendererBindingError(`${where}: bindings name must be non-empty text`);
 		}
-		bindings[name] = createBindingValue(value, `${where} bindings '${name}'`);
+		// defineProperty keeps any accepted input name (e.g. `__proto__`) as an own data property; plain assignment would change the prototype instead.
+		Object.defineProperty(bindings, name, { value: createBindingValue(value, `${where} bindings '${name}'`), enumerable: true, writable: true, configurable: true });
 	}
 	const createdAt = input.created_at ?? now().toISOString();
 	if (!isTimestampValue(createdAt)) {

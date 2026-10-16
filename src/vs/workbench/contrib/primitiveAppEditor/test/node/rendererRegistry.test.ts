@@ -193,4 +193,45 @@ suite('Primitive App Editor - renderer_registry / renderer_binding on project.sq
 		assert.deepStrictEqual((await service.select()).map(row => row.binding.uuid), [R2]);
 		assert.strictEqual((await storage.database.get(`SELECT COUNT(*) AS n FROM registry__renderer_registry`))?.n, 1);
 	});
+
+	test('an input named __proto__ is kept as an own property through insert / update / upsert, the stored JSON and a reopen; an undefined __proto__ input is rejected like any unknown input', async () => {
+		const storage = await open();
+		const proto = createRendererRegistryEntry({
+			uuid: SPRITE, index: 0, name: 'sprite', executor: 'renderer.sprite',
+			inputs: [{ name: '__proto__', kind: 'asset' }, { name: 'asset', kind: 'asset' }],
+		}, undefined, now);
+		const registryInsert = getRendererRegistryInsert(proto);
+		await storage.database.run(registryInsert.sql, registryInsert.params);
+		const service = new RendererBindingService(storage.database, { now });
+		const make = (uuid: string, asset: string) => ({ uuid, renderer: { uuid: SPRITE }, bindings: JSON.parse(`{"__proto__":{"asset_uuid":"${asset}"}}`) as Record<string, unknown> });
+		const protoValue = (bindings: object) => Object.getOwnPropertyDescriptor(bindings, '__proto__')?.value;
+
+		const inserted = await service.insert(make(R1, ASSET));
+		assert.deepStrictEqual(Object.keys(inserted.binding.bindings), ['__proto__']);
+		assert.deepStrictEqual(protoValue(inserted.binding.bindings), { asset_uuid: ASSET });
+		const stored = await storage.database.get(`SELECT "bindings" FROM binding__renderer_binding WHERE "uuid" = ?`, [R1]);
+		assert.strictEqual(stored?.bindings, `{"__proto__":{"asset_uuid":"${ASSET}"}}`);
+
+		const updated = await service.update(R1, { bindings: JSON.parse(`{"__proto__":{"asset_uuid":"${MISSING}"},"asset":{"asset_uuid":"${ASSET}"}}`) });
+		assert.deepStrictEqual(Object.keys(updated.binding.bindings), ['__proto__', 'asset']);
+		assert.deepStrictEqual(protoValue(updated.binding.bindings), { asset_uuid: MISSING });
+
+		const upserted = await service.upsert(make(R1, ASSET));
+		assert.strictEqual(upserted.operation, 'update');
+		const created = await service.upsert(make(R2, MISSING));
+		assert.strictEqual(created.operation, 'insert');
+		assert.deepStrictEqual(protoValue(created.binding.bindings), { asset_uuid: MISSING });
+
+		await storage.close();
+		let reloaded: readonly { uuid: string; bindings: object }[] = [];
+		await open(async reopened => { reloaded = await readRendererBindings(reopened.database); });
+		assert.deepStrictEqual(reloaded.map(entry => [entry.uuid, Object.keys(entry.bindings), protoValue(entry.bindings)]), [[R1, ['__proto__'], { asset_uuid: ASSET }], [R2, ['__proto__'], { asset_uuid: MISSING }]]);
+
+		// A renderer that does not define __proto__ rejects it like any unknown input.
+		const other = createRendererRegistryEntry({ uuid: R2, index: 1, name: 'ui', executor: 'renderer.ui', inputs: [{ name: 'asset', kind: 'asset' }] }, undefined, now);
+		const reopened = await open();
+		const otherInsert = getRendererRegistryInsert(other);
+		await reopened.database.run(otherInsert.sql, otherInsert.params);
+		await assert.rejects(new RendererBindingService(reopened.database, { now }).insert({ uuid: '00000000-0000-4000-8000-0000000000d3', renderer: { uuid: R2 }, bindings: JSON.parse(`{"__proto__":{"asset_uuid":"${ASSET}"}}`) }), /has no input '__proto__'/);
+	});
 });
