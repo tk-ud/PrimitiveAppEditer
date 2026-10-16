@@ -829,8 +829,13 @@ section:
         depends_on:
           - "binding.function"
           - "binding.dependency"
-        status: "not started"
-        evidence: []
+        status: "implemented"
+        evidence:
+          - "common/targetMerge.ts: Merge Dispatch (double/vector -> additive, quaternion -> compose, bool/text -> overwrite) as a type dispatcher; Normalize (kind validation, quaternion to unit length) -> Type Merge -> Final State"
+          - "common/targetMerge.ts: mergeTargetOutputs applies the Merge Policy per Binding (target.merge.kind) to each output in deterministic Execution Plan order: overwrite replaces the value, overlay normalizes and applies the type Merge (final = base + sum of normalized overlays for numerics); mergeTargetValues applies one policy to all outputs"
+          - "common/targetMerge.ts: mergeExecutionPlanOutputs groups buildFunctionExecutionPlan steps (binding.dependency) by Target Persistent Address and merges with each binding's merge.kind (binding.function); bindings on one Target may mix overwrite/overlay (no Target-wide policy constraint, mixed policies are processed per Binding, not rejected)"
+          - "test/common/targetMerge.test.ts: 8 tests (dispatch, overwrite, overlay double/vector/quaternion/bool/text, normalize rejection, plan integration, same-Target overlay->overwrite / overwrite->overlay / same policy / deterministic order) all passing; run by tsc emit of targetMerge.ts + targetMerge.test.ts and a node tdd (suite/test) shim because mocha/node_modules are unavailable; tsc reports no errors in changed files; PR #47 CI 13/13 success on head 9863b4f6"
+          - "Required integration fixes: none; binding.function/binding.dependency consumed unchanged"
         remaining: []
 
   - name: "Runtime"
