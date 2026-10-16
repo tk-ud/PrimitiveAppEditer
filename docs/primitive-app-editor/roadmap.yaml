@@ -885,8 +885,12 @@ section:
           - "function.dispatcher"
           - "function.program-scan"
           - "runtime.state"
-        status: "not started"
-        evidence: []
+        status: "implemented"
+        evidence:
+          - "common/runtimeExecutionPlan.ts: buildRuntimeExecutionPlan = Validate (validateFunctionBindings + validateFunctionBindingAgainstRegistry per binding) -> Executor Resolve (resolveFunctionExecutors, missing executor rejects) -> Dependency Graph/Order (buildFunctionExecutionPlan: dependency primary, index then UUID for independent nodes, cycle rejects) -> Constructor Bind (Registry constructor defaults overridden by binding constructor) -> Runtime Address Resolve (resolveBindingHandles) -> Execution Plan -> Function Instance -> Memory (state.functions.<binding_uuid>.instance); state is mutated only after the whole plan is valid"
+          - "common/runtimeExecutionPlan.ts: loadRuntimeExecutionPlan reads function_registry/function_binding/function_dependency/table_registry in one transaction, loads Runtime State, builds the plan; Function Instance invoke() runs through the function.dispatcher dispatch (injectable) with bound constructor values and Registry parameter defaults"
+          - "test/node/runtimeExecutionPlan.test.ts: 3 tests (resolved plan order [independent index, producer, consumer], constructor bind, dispatcher invoke, handles bound to memory; cycle / missing executor / missing runtime object reject without registering instances; unregistered function rejects) passing; full primitiveAppEditor suite 181 passing via tsc emit + mocha --ui=tdd with @vscode/sqlite3 installed in a scratch dir; tsc reports no errors in changed files"
+          - "Required integration fix: none; binding.dependency, function.dispatcher, function.program-scan and runtime.state were consumed unchanged"
         remaining: []
 
       - id: "runtime.loop"
