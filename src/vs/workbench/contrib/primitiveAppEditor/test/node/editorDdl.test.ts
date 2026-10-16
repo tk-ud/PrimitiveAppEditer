@@ -74,9 +74,9 @@ suite('Primitive App Editor - Editor DDL migrations on project.sqlite', () => {
 		assert.strictEqual(first.result.status, ProjectOpenStatus.Ready);
 		assert.strictEqual(first.result.mode, ProjectOpenMode.Create);
 		assert.deepStrictEqual(first.result.phases.slice(2, 6), [ProjectOpenPhase.Create, ProjectOpenPhase.EditorDdlScan, ProjectOpenPhase.SchemaVersionResolve, ProjectOpenPhase.MigrationApply]);
-		assert.deepStrictEqual([first.migrator.resolved?.current, first.migrator.resolved?.target], [0, 5]);
-		assert.deepStrictEqual(first.migrator.applied?.map(m => m.name), ['001_savedata.sql', '002_table_registry.sql', '003_enum_registry.sql', '004_relation_registry.sql', '005_function_registry.sql']);
-		assert.deepStrictEqual(await listPhysicalTables(first.storage.database), ['editor__schema_version', 'logs__savedata', 'registry__current', 'registry__enum_registry', 'registry__function_registry', 'registry__relation_registry', 'registry__table_registry']);
+		assert.deepStrictEqual([first.migrator.resolved?.current, first.migrator.resolved?.target], [0, 6]);
+		assert.deepStrictEqual(first.migrator.applied?.map(m => m.name), ['001_savedata.sql', '002_table_registry.sql', '003_enum_registry.sql', '004_relation_registry.sql', '005_function_registry.sql', '006_function_binding.sql']);
+		assert.deepStrictEqual(await listPhysicalTables(first.storage.database), ['binding__function_binding', 'editor__schema_version', 'logs__savedata', 'registry__current', 'registry__enum_registry', 'registry__function_registry', 'registry__relation_registry', 'registry__table_registry']);
 		assert.deepStrictEqual(await readAppliedEditorDdlMigrations(first.storage.database), first.migrator.applied);
 		assert.strictEqual(first.migrator.applied?.[0].appliedAt, '2026-10-04T00:00:00.000Z');
 
@@ -89,7 +89,7 @@ suite('Primitive App Editor - Editor DDL migrations on project.sqlite', () => {
 		const second = await open(editorDdlResources);
 		assert.strictEqual(second.result.status, ProjectOpenStatus.Ready);
 		assert.strictEqual(second.result.mode, ProjectOpenMode.Open);
-		assert.deepStrictEqual([second.migrator.resolved?.current, second.migrator.resolved?.target], [5, 5]);
+		assert.deepStrictEqual([second.migrator.resolved?.current, second.migrator.resolved?.target], [6, 6]);
 		assert.deepStrictEqual(second.migrator.applied, []);
 		assert.strictEqual((await loadSaveDataCurrent(second.storage.database, 'player.hp'))?.data, 100);
 	});
@@ -97,36 +97,36 @@ suite('Primitive App Editor - Editor DDL migrations on project.sqlite', () => {
 	test('a new resource is applied as the only Unapplied Migration on the next Open', async () => {
 		await (await open(editorDdlResources)).storage.close();
 
-		const next = [...editorDdlResources, { name: '006_project.sql', sql: 'CREATE TABLE "editor__project" ("uuid" TEXT NOT NULL PRIMARY KEY, "name" TEXT NOT NULL);' }];
+		const next = [...editorDdlResources, { name: '007_project.sql', sql: 'CREATE TABLE "editor__project" ("uuid" TEXT NOT NULL PRIMARY KEY, "name" TEXT NOT NULL);' }];
 		const reopened = await open(next);
-		assert.deepStrictEqual([reopened.migrator.resolved?.current, reopened.migrator.resolved?.target], [5, 6]);
-		assert.deepStrictEqual(reopened.migrator.applied?.map(m => m.version), [6]);
-		assert.deepStrictEqual((await readAppliedEditorDdlMigrations(reopened.storage.database)).map(m => m.name), ['001_savedata.sql', '002_table_registry.sql', '003_enum_registry.sql', '004_relation_registry.sql', '005_function_registry.sql', '006_project.sql']);
+		assert.deepStrictEqual([reopened.migrator.resolved?.current, reopened.migrator.resolved?.target], [6, 7]);
+		assert.deepStrictEqual(reopened.migrator.applied?.map(m => m.version), [7]);
+		assert.deepStrictEqual((await readAppliedEditorDdlMigrations(reopened.storage.database)).map(m => m.name), ['001_savedata.sql', '002_table_registry.sql', '003_enum_registry.sql', '004_relation_registry.sql', '005_function_registry.sql', '006_function_binding.sql', '007_project.sql']);
 		assert.ok((await listPhysicalTables(reopened.storage.database)).includes('editor__project'));
 	});
 
 	test('a failing migration rolls back the whole SQLite transaction and the open never reaches Editor Ready', async () => {
-		const broken = [...editorDdlResources, { name: '006_broken.sql', sql: 'CREATE TABLE "editor__ok" ("a" TEXT); CREATE TABLE "logs__savedata" ("a" TEXT);' }];
-		await assert.rejects(open(broken), (error: Error) => error instanceof EditorDdlError && /006_broken\.sql/.test(error.message));
+		const broken = [...editorDdlResources, { name: '007_broken.sql', sql: 'CREATE TABLE "editor__ok" ("a" TEXT); CREATE TABLE "logs__savedata" ("a" TEXT);' }];
+		await assert.rejects(open(broken), (error: Error) => error instanceof EditorDdlError && /007_broken\.sql/.test(error.message));
 
-		// Nothing of 001 - 005 nor the version table was committed; a corrected Editor migrates from version 0.
+		// Nothing of 001 - 006 nor the version table was committed; a corrected Editor migrates from version 0.
 		const recovered = await open(editorDdlResources);
 		assert.strictEqual(recovered.result.mode, ProjectOpenMode.Open);
 		assert.strictEqual(recovered.result.status, ProjectOpenStatus.Ready);
 		assert.deepStrictEqual(recovered.migrator.resolved?.current, 0);
-		assert.deepStrictEqual(await listPhysicalTables(recovered.storage.database), ['editor__schema_version', 'logs__savedata', 'registry__current', 'registry__enum_registry', 'registry__function_registry', 'registry__relation_registry', 'registry__table_registry']);
+		assert.deepStrictEqual(await listPhysicalTables(recovered.storage.database), ['binding__function_binding', 'editor__schema_version', 'logs__savedata', 'registry__current', 'registry__enum_registry', 'registry__function_registry', 'registry__relation_registry', 'registry__table_registry']);
 	});
 
 	test('Open rejects a project.sqlite migrated by a newer Editor or with a modified applied resource', async () => {
-		const newer = [...editorDdlResources, { name: '006_project.sql', sql: 'CREATE TABLE "editor__project" ("uuid" TEXT NOT NULL PRIMARY KEY);' }];
+		const newer = [...editorDdlResources, { name: '007_project.sql', sql: 'CREATE TABLE "editor__project" ("uuid" TEXT NOT NULL PRIMARY KEY);' }];
 		await (await open(newer)).storage.close();
 
 		await assert.rejects(open(editorDdlResources), /newer than this Editor/);
-		await assert.rejects(open([...editorDdlResources, { name: '006_project.sql', sql: 'CREATE TABLE "editor__project" ("id" TEXT);' }]), /does not match/);
+		await assert.rejects(open([...editorDdlResources, { name: '007_project.sql', sql: 'CREATE TABLE "editor__project" ("id" TEXT);' }]), /does not match/);
 
 		const current = await open(newer);
 		assert.deepStrictEqual(current.migrator.applied, []);
-		assert.strictEqual((await current.storage.database.get(`SELECT COUNT(*) AS n FROM "${editorSchemaVersionPhysicalTable}"`))?.n, 6);
+		assert.strictEqual((await current.storage.database.get(`SELECT COUNT(*) AS n FROM "${editorSchemaVersionPhysicalTable}"`))?.n, 7);
 	});
 
 	test('steps require the previous step', async () => {
