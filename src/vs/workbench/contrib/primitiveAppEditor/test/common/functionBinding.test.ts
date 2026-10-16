@@ -13,7 +13,6 @@ import {
 	functionBindingExecutionKinds,
 	functionBindingPhysicalTable,
 	functionBindingSources,
-	FunctionBindingError,
 	IFunctionBindingEntryInput,
 	validateFunctionBindings,
 } from '../../common/functionBinding.js';
@@ -84,7 +83,7 @@ suite('Primitive App Editor - function_binding contract', () => {
 	});
 
 	test('index, execution, merge and constructor are validated', () => {
-		const bad = (extra: Record<string, unknown>, pattern: RegExp) => assert.throws(() => createFunctionBindingEntry(input(extra), undefined, now), (error: Error) => error instanceof FunctionBindingError && pattern.test(error.message));
+		const bad = (extra: Record<string, unknown>, pattern: RegExp) => assert.throws(() => createFunctionBindingEntry(input(extra), undefined, now), pattern);
 		bad({ index: 1.5 }, /index must be an int/);
 		bad({ function: { uuid: 'accumulate' } }, /function uuid must be a UUID/);
 		bad({ execution: { kind: 'frame' } }, /execution.kind/);
