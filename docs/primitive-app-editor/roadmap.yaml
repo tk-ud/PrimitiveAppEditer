@@ -908,8 +908,11 @@ section:
         depends_on:
           - "runtime.execution-plan"
           - "binding.merge"
-        status: "not started"
-        evidence: []
+        status: "implemented"
+        evidence:
+          - "common/runtimeLoop.ts: executeRuntimeFrame / RuntimeLoop.step = Input Capture -> Current State -> Execution Plan -> Function Execute (Resolve Input per source constant/state/input/time/progress/event/function_output -> instance.invoke via Dispatcher -> Value) -> Target Buffer (Base State = Current State target value, one output kind per Target) -> Merge Policy (mergeExecutionPlanOutputs, per-binding overwrite/overlay) -> Next State commit; execution.kind tick always, event when frame has events, input when frame has input; frame is atomic (nothing is written when any step rejects); no SQLite access, Frame State is not persisted"
+          - "test/node/runtimeLoop.test.ts: 3 tests passing (overwrite+overlay merge over function_output dependency across two frames with state/time/progress/input/events/function outputs committed and SQLite row unchanged; time/progress/input sources and execution.kind triggers; rejected frame leaves Runtime State unchanged); runtimeExecutionPlan tests still pass (6 passing via tsc emit + mocha --ui=tdd with @vscode/sqlite3 in a scratch dir); tsc reports no errors in changed files"
+          - "Required integration fix: none; runtime.execution-plan (plan steps, instances, handles) and binding.merge (mergeExecutionPlanOutputs) were consumed unchanged"
         remaining: []
 
   - name: "Renderer and Assets"
