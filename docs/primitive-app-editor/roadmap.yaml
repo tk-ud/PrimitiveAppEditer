@@ -829,8 +829,13 @@ section:
         depends_on:
           - "binding.function"
           - "binding.dependency"
-        status: "not started"
-        evidence: []
+        status: "implemented"
+        evidence:
+          - "common/targetMerge.ts: Merge Dispatch (double/vector -> additive, quaternion -> compose, bool/text -> overwrite) as a type dispatcher; Normalize (kind validation, quaternion to unit length) -> Type Merge -> Final State"
+          - "common/targetMerge.ts: mergeTargetValues overwrite (last output in deterministic Execution Plan order replaces the value) and overlay (final = base + sum of normalized overlays; Hamilton product for quaternion)"
+          - "common/targetMerge.ts: mergeExecutionPlanOutputs groups buildFunctionExecutionPlan steps (binding.dependency) by Target Persistent Address using function_binding target.merge.kind (binding.function); a Target with mixed merge.kind is rejected"
+          - "test/common/targetMerge.test.ts: 7 tests (dispatch, overwrite, overlay double/vector/quaternion/bool/text, normalize rejection, plan integration with real Execution Plan, mixed policy rejection) passing via tsc emit + node tdd shim; tsc reports no errors in changed files"
+          - "Required integration fixes: none; binding.function/binding.dependency consumed unchanged"
         remaining: []
 
   - name: "Runtime"
