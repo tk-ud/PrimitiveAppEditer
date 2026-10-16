@@ -10,8 +10,9 @@ import { IFunctionExecutionPlanStep } from './functionDependency.js';
  * Several Function outputs may write the same Target. `Merge Policy = Binding` (`target.merge.kind`),
  * `Merge Semantics = Type Dispatcher` (by value kind), `Function = Value Producer`.
  *
- * - overwrite: each output replaces the Target value; the Execution Plan order is deterministic, so the last one wins.
+ * - overwrite: each output replaces the Target value; the Execution Plan order is deterministic.
  * - overlay: Base State + Output A + Output B -> Normalize -> Type Merge -> Final State.
+ * The policy is selected per Binding; bindings writing one Target may differ and apply in Execution Plan order.
  *
  * Merge Dispatch: double -> additive, vector -> additive, quaternion -> compose, bool -> overwrite, text -> overwrite.
  */
@@ -145,12 +146,37 @@ function mergeOverlayValue(kind: TargetMergeValueKind, state: TargetMergeValue, 
 	}
 }
 
+export interface ITargetMergeOutput {
+	/** `target.merge.kind` of the binding that produced the value. */
+	readonly merge: Composition | string;
+	readonly value: unknown;
+}
+
 /**
- * Merges the ordered outputs written to one Target.
- * `outputs` must already be in Execution Plan order. `base` is the Base State (current Target value);
- * `overwrite` ignores it when at least one output exists. No output leaves the Base State.
- * Non-finite results (an additive overflow) are rejected.
+ * Merges the outputs written to one Target. The Merge Policy is per Binding: each output is applied in
+ * the given (Execution Plan) order to the running state starting at the Base State, with its own policy:
+ * `overwrite` replaces the state, `overlay` normalizes and applies the Type Merge of the value kind.
+ * No output leaves the Base State. Non-finite results (an additive overflow) are rejected.
  */
+export function mergeTargetOutputs(
+	kind: TargetMergeValueKind,
+	base: unknown,
+	outputs: readonly ITargetMergeOutput[],
+	where = 'target',
+): TargetMergeValue {
+	let state = normalizeTargetMergeValue(kind, base, `${where} base`);
+	outputs.forEach((output, i) => {
+		if (output.merge !== Composition.Overwrite && output.merge !== Composition.Overlay) {
+			throw new TargetMergeError(`${where} output[${i}]: merge.kind must be one of overwrite | overlay`);
+		}
+		const value = normalizeTargetMergeValue(kind, output.value, `${where} output[${i}]`);
+		state = output.merge === Composition.Overwrite ? value : mergeOverlayValue(kind, state, value, `${where} output[${i}]`);
+		normalizeTargetMergeValue(kind, state, `${where} output[${i}] result`);
+	});
+	return state;
+}
+
+/** Applies one policy to all `outputs` (already in Execution Plan order). */
 export function mergeTargetValues(
 	merge: Composition | string,
 	kind: TargetMergeValueKind,
@@ -161,15 +187,7 @@ export function mergeTargetValues(
 	if (merge !== Composition.Overwrite && merge !== Composition.Overlay) {
 		throw new TargetMergeError(`${where}: merge.kind must be one of overwrite | overlay`);
 	}
-	let state = normalizeTargetMergeValue(kind, base, `${where} base`);
-	const normalized = outputs.map((output, i) => normalizeTargetMergeValue(kind, output, `${where} output[${i}]`));
-	if (merge === Composition.Overwrite) {
-		return normalized.length > 0 ? normalized[normalized.length - 1] : state;
-	}
-	normalized.forEach((overlay, i) => {
-		state = mergeOverlayValue(kind, state, overlay, `${where} output[${i}]`);
-	});
-	return normalizeTargetMergeValue(kind, state, `${where} result`);
+	return mergeTargetOutputs(kind, base, outputs.map(value => ({ merge, value })), where);
 }
 
 // #endregion
@@ -185,10 +203,11 @@ export interface ITargetMergeInput {
 
 export interface ITargetMergeResult {
 	readonly target: { readonly table_uuid: string; readonly row_uuid: string; readonly column_uuid: string };
-	readonly merge: Composition;
 	readonly value: TargetMergeValue;
 	/** `function_binding.uuid` of the contributing outputs, in Execution Plan order. */
 	readonly bindings: readonly string[];
+	/** `target.merge.kind` of each contributing binding (aligned with `bindings`). */
+	readonly merges: readonly Composition[];
 }
 
 export function targetMergeKey(address: { readonly table_uuid: string; readonly row_uuid: string; readonly column_uuid: string }): string {
@@ -197,7 +216,7 @@ export function targetMergeKey(address: { readonly table_uuid: string; readonly 
 
 /**
  * Groups the outputs of an Execution Plan by Target and applies the Target's Merge Policy.
- * All bindings writing one Target must select the same `merge.kind` (the Policy is a property of the Target).
+ * Each binding applies its own `merge.kind` to its output, in Execution Plan order.
  * `outputs` is keyed by `function_binding.uuid`; a missing output means the binding did not run and contributes nothing.
  * `targets` is keyed by {@link targetMergeKey}. Results are in first-writer Execution Plan order.
  */
@@ -206,19 +225,18 @@ export function mergeExecutionPlanOutputs(
 	outputs: ReadonlyMap<string, unknown>,
 	targets: ReadonlyMap<string, ITargetMergeInput>,
 ): readonly ITargetMergeResult[] {
-	const groups = new Map<string, { address: ITargetMergeResult['target']; merge: Composition; bindings: string[]; values: unknown[] }>();
+	const groups = new Map<string, { address: ITargetMergeResult['target']; bindings: string[]; merges: Composition[]; values: unknown[] }>();
 	for (const { binding } of plan) {
 		const address = binding.target.address;
 		const key = targetMergeKey(address);
 		let group = groups.get(key);
 		if (!group) {
-			group = { address, merge: binding.target.merge.kind, bindings: [], values: [] };
+			group = { address, bindings: [], merges: [], values: [] };
 			groups.set(key, group);
-		} else if (group.merge !== binding.target.merge.kind) {
-			throw new TargetMergeError(`target ${key}: binding '${binding.uuid}' selects '${binding.target.merge.kind}' but '${group.bindings[0] ?? ''}' selects '${group.merge}'`);
 		}
 		if (outputs.has(binding.uuid)) {
 			group.bindings.push(binding.uuid);
+			group.merges.push(binding.target.merge.kind);
 			group.values.push(outputs.get(binding.uuid));
 		}
 	}
@@ -230,9 +248,9 @@ export function mergeExecutionPlanOutputs(
 		}
 		results.push(Object.freeze({
 			target: group.address,
-			merge: group.merge,
-			value: mergeTargetValues(group.merge, input.kind, input.base, group.values, `target ${key}`),
+			value: mergeTargetOutputs(input.kind, input.base, group.values.map((value, i) => ({ merge: group.merges[i], value })), `target ${key}`),
 			bindings: Object.freeze(group.bindings),
+			merges: Object.freeze(group.merges),
 		}));
 	}
 	return Object.freeze(results);

@@ -10,6 +10,7 @@ import { buildFunctionExecutionPlan } from '../../common/functionDependency.js';
 import {
 	dispatchTargetMerge,
 	mergeExecutionPlanOutputs,
+	mergeTargetOutputs,
 	mergeTargetValues,
 	normalizeTargetMergeValue,
 	targetMergeKey,
@@ -88,33 +89,49 @@ suite('Primitive App Editor - target merge', () => {
 		assert.throws(() => mergeTargetValues('overlay', TargetMergeValueKind.Double, 0, [Number.MAX_VALUE, Number.MAX_VALUE]), /finite/);
 	});
 
-	test('execution plan outputs merge per Target using the binding merge.kind', () => {
+	test('execution plan outputs merge per Target using each binding merge.kind', () => {
 		// Same Target C written by A and D (overlay); B alone overwrites C2. Plan order: A(0), B(1), D(2).
 		const bindings = [binding(D, 2, 'overlay'), binding(A, 0, 'overlay'), binding(B, 1, 'overwrite', C2)];
 		const plan = buildFunctionExecutionPlan(bindings, []);
 		const outputs = new Map<string, unknown>([[A, 2], [B, 7], [D, 3]]);
 		const key = targetMergeKey(addr);
 		const key2 = targetMergeKey({ ...addr, column_uuid: C2 });
-		const results = mergeExecutionPlanOutputs(plan, outputs, new Map([
+		const targets = new Map([
 			[key, { kind: TargetMergeValueKind.Double, base: 10 }],
 			[key2, { kind: TargetMergeValueKind.Double, base: 100 }],
-		]));
-		assert.deepStrictEqual(results.map(result => [result.merge, result.value, result.bindings]), [
-			['overlay', 15, [A, D]],
-			['overwrite', 7, [B]],
+		]);
+		const results = mergeExecutionPlanOutputs(plan, outputs, targets);
+		assert.deepStrictEqual(results.map(result => [result.merges, result.value, result.bindings]), [
+			[['overlay', 'overlay'], 15, [A, D]],
+			[['overwrite'], 7, [B]],
 		]);
 		// a binding that did not run contributes nothing
-		const partial = mergeExecutionPlanOutputs(plan, new Map([[D, 3]]), new Map([
-			[key, { kind: TargetMergeValueKind.Double, base: 10 }],
-			[key2, { kind: TargetMergeValueKind.Double, base: 100 }],
-		]));
+		const partial = mergeExecutionPlanOutputs(plan, new Map([[D, 3]]), targets);
 		assert.deepStrictEqual(partial.map(result => result.value), [13, 100]);
 	});
 
-	test('execution plan: Target must have one merge policy and a supplied kind', () => {
-		const mixed = buildFunctionExecutionPlan([binding(A, 0, 'overlay'), binding(B, 1, 'overwrite')], []);
-		const targets = new Map([[targetMergeKey(addr), { kind: TargetMergeValueKind.Double, base: 0 }]]);
-		assert.throws(() => mergeExecutionPlanOutputs(mixed, new Map(), targets), /selects 'overwrite' but/);
+	test('same Target, per-binding policy: overlay -> overwrite, overwrite -> overlay, same policy', () => {
+		const targets = new Map([[targetMergeKey(addr), { kind: TargetMergeValueKind.Double, base: 10 }]]);
+		const run = (first: string, second: string, third?: string) => {
+			const bindings = [binding(A, 0, first), binding(B, 1, second), ...(third ? [binding(D, 2, third)] : [])];
+			const plan = buildFunctionExecutionPlan(bindings, []);
+			return mergeExecutionPlanOutputs(plan, new Map<string, unknown>([[A, 1], [B, 5], [D, 2]]), targets)[0].value;
+		};
+		assert.strictEqual(run('overlay', 'overwrite'), 5); // 10 + 1, then replaced by 5
+		assert.strictEqual(run('overwrite', 'overlay'), 6); // replaced by 1, then + 5
+		assert.strictEqual(run('overlay', 'overlay'), 16);
+		assert.strictEqual(run('overwrite', 'overwrite'), 5);
+		assert.strictEqual(run('overlay', 'overwrite', 'overlay'), 7); // 10 + 1 -> 5 -> 5 + 2
+		// deterministic: execution plan order decides, not the order bindings are listed in
+		const plan = buildFunctionExecutionPlan([binding(B, 1, 'overwrite'), binding(A, 0, 'overlay')], []);
+		assert.strictEqual(mergeExecutionPlanOutputs(plan, new Map<string, unknown>([[A, 1], [B, 5]]), targets)[0].value, 5);
+		// type dispatch is kept under mixed policies
+		assert.strictEqual(mergeTargetOutputs(TargetMergeValueKind.Text, 'a', [{ merge: 'overlay', value: 'b' }, { merge: 'overwrite', value: 'c' }]), 'c');
+		assert.deepStrictEqual(mergeTargetOutputs(TargetMergeValueKind.Vector, [1, 1], [{ merge: 'overwrite', value: [2, 2] }, { merge: 'overlay', value: [1, 0] }]), [3, 2]);
+		assert.throws(() => mergeTargetOutputs(TargetMergeValueKind.Double, 0, [{ merge: 'blend', value: 1 }]), /overwrite \| overlay/);
+	});
+
+	test('execution plan: a Target needs a supplied value kind and base state', () => {
 		const single = buildFunctionExecutionPlan([binding(A, 0, 'overlay')], []);
 		assert.throws(() => mergeExecutionPlanOutputs(single, new Map(), new Map()), /no value kind \/ base state supplied/);
 	});
