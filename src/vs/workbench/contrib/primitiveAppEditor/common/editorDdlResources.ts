@@ -116,4 +116,19 @@ export const editorDdlResources: readonly IEditorDdlResource[] = Object.freeze([
 			');',
 		].join('\n'),
 	}),
+	Object.freeze({
+		name: '007_function_dependency.sql',
+		// 20. Function Dependency: one Edge of the Function Graph. `source_binding_uuid` / `target_binding_uuid` are logical
+		// references to function_binding.uuid (no physical FK); one input of a binding has at most one producer.
+		sql: [
+			'CREATE TABLE "binding__function_dependency" (',
+			'\t"uuid" TEXT NOT NULL PRIMARY KEY,',
+			'\t"source_binding_uuid" TEXT NOT NULL,',
+			'\t"target_binding_uuid" TEXT NOT NULL,',
+			'\t"target_input_name" TEXT NOT NULL,',
+			'\t"created_at" TEXT NOT NULL,',
+			'\tUNIQUE ("target_binding_uuid", "target_input_name")',
+			');',
+		].join('\n'),
+	}),
 ]);
