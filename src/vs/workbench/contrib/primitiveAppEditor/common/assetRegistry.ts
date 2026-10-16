@@ -59,6 +59,38 @@ export class AssetRegistryError extends Error {
 	}
 }
 
+/**
+ * `metadata: json`: true only for values that survive JSON.stringify unchanged: null, string,
+ * boolean, finite number, arrays and plain objects of those. Rejects NaN / Infinity, function,
+ * undefined (also as a property or array element), symbol, bigint, non-plain objects and cycles.
+ */
+function isJsonValue(value: unknown, ancestors: object[] = []): boolean {
+	if (value === null || typeof value === 'string' || typeof value === 'boolean') {
+		return true;
+	}
+	if (typeof value === 'number') {
+		return Number.isFinite(value);
+	}
+	if (typeof value !== 'object' || ancestors.includes(value)) {
+		return false;
+	}
+	ancestors.push(value);
+	let valid: boolean;
+	if (Array.isArray(value)) {
+		valid = true;
+		for (let i = 0; valid && i < value.length; i++) {
+			valid = isJsonValue(value[i], ancestors);
+		}
+	} else {
+		const prototype = Object.getPrototypeOf(value);
+		valid = (prototype === Object.prototype || prototype === null)
+			&& Object.getOwnPropertySymbols(value).length === 0
+			&& Object.values(value).every(item => isJsonValue(item, ancestors));
+	}
+	ancestors.pop();
+	return valid;
+}
+
 /** Builds a validated Asset: missing UUID generated / supplied kept, `index` int, `kind` in the 29 set, `source` non-empty, `metadata` a JSON object. */
 export function createAsset(input: IAssetInput, generateUuid: () => string = generateRandomUuid): IAsset {
 	let identity: IRegistryIdentity;
@@ -78,7 +110,7 @@ export function createAsset(input: IAssetInput, generateUuid: () => string = gen
 		throw new AssetRegistryError(`${where}: source must be non-empty text`);
 	}
 	const metadata = input.metadata ?? {};
-	if (typeof metadata !== 'object' || metadata === null || Array.isArray(metadata)) {
+	if (typeof metadata !== 'object' || metadata === null || Array.isArray(metadata) || !isJsonValue(metadata)) {
 		throw new AssetRegistryError(`${where}: metadata must be a json object`);
 	}
 	return Object.freeze({

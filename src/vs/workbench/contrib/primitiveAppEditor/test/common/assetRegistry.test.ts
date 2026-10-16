@@ -51,6 +51,19 @@ suite('Primitive App Editor - Asset (29. Asset)', () => {
 		assert.throws(() => createAsset({ index: 0, name: ' ', kind: AssetKind.Other, source: 's' }), /name/);
 	});
 
+	test('metadata is validated recursively as JSON', () => {
+		const make = (metadata: unknown) => createAsset({ index: 0, name: 'x', kind: AssetKind.Image, source: 'assets/image/x.png', metadata: metadata as Record<string, unknown> });
+		const nested = { a: [1, 'b', null, true, { c: -0.5 }], d: { e: {} } };
+		assert.deepStrictEqual(JSON.parse(JSON.stringify(make(nested).metadata)), nested);
+		const cyclic: Record<string, unknown> = {};
+		cyclic.self = cyclic;
+		const shared = { n: 1 };
+		make({ a: shared, b: shared });
+		for (const bad of [{ v: Infinity }, { v: NaN }, { v: () => 1 }, { v: undefined }, { a: { b: [1, undefined] } }, { v: Symbol('s') }, { v: 1n }, { [Symbol('k')]: 1 }, { v: new Date() }, { v: new Array(2) }, cyclic, { a: [cyclic] }]) {
+			assert.throws(() => make(bad), /metadata must be a json object/);
+		}
+	});
+
 	test('validateAssetRegistry rejects duplicate uuid and source', () => {
 		const a = createAsset({ uuid: A, index: 0, name: 'a', kind: AssetKind.Image, source: 'assets/image/a.png' });
 		const b = createAsset({ index: 1, name: 'b', kind: AssetKind.Image, source: 'assets/image/b.png' });
