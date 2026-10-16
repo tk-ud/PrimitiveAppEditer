@@ -858,8 +858,13 @@ section:
         depends_on:
           - "data.raw"
           - "binding.function"
-        status: "not started"
-        evidence: []
+        status: "implemented"
+        evidence:
+          - "common/runtimeState.ts: IRuntimeState (time/progress/input/entities(row_uuid->table_uuid+properties by column_uuid)/functions(binding_uuid->instance,output)/events/renderer) as plain memory; createRuntimeState, setRuntimeEntity, initializeRuntimeFunctions"
+          - "common/runtimeState.ts: loadRuntimeState = Project Data -> Runtime State (table_registry + RawDataService.select per table -> entities, Execution Plan -> functions slots); the only step touching SQLite"
+          - "common/runtimeState.ts: resolveRuntimeHandle = Persistent UUID Address -> Registry Resolve (table/column) -> Runtime Object Resolve (entity, table match) -> Memory Handle (get/set on memory); resolveBindingHandles/resolvePlanHandles resolve state inputs/parameters/target of function_binding"
+          - "test/node/runtimeState.test.ts: Load round-trip, handle write does not write SQLite, handles keep working after database close (Runtime Loop != SQLite), missing table/column/row rejection; full primitiveAppEditor suite 178 passing via tsc emit + mocha --ui=tdd; tsc reports no errors in changed files"
+          - "Required integration fix: none to earlier producers (data.raw RawDataService and binding.function/binding.dependency consumed unchanged)"
         remaining: []
 
       - id: "runtime.execution-plan"
