@@ -1159,8 +1159,14 @@ section:
         depends_on:
           - "editor.registry-ui"
           - "data.raw"
-        status: "not started"
-        evidence: []
+        status: "implemented"
+        evidence:
+          - "src/vs/workbench/contrib/primitiveAppEditor/common/dataEditor.ts: Data Editor model (26. Editor). createDataEditorNavigation = Primary Side Bar Discovery / List / Selection of Physical Table, Raw Data, Relation, Function Binding, Renderer Binding in Registry order with human labels (never UUIDs); entries only set the Selection and optionally open an Editor Area target, with no property editing and no Binding Editing Surface (composition stays in the single Registry Driven Inspector)."
+          - "dataEditor.ts: DataGridModel = Editor Area Data Grid. Columns and Kind Dispatch come from table_registry (dispatchEditorControl, no table-specific UI model); rows are read via the generic select; enum/uuid cells resolve to enum_registry / related-row labels. Authoring: editCell -> update (saveEditorValue), insertRow -> insert, deleteRow -> delete, each followed by a reload; invalid or non-writable values are rejected before dispatch; Registry Definition is never altered."
+          - "dataEditor.ts: DataEditorSelection (Shared Selection Context, UUID address only) written by both Side Bar entries and Grid row selection and resolved by the existing DynamicResolver / Registry Driven Inspector; DataEditorTabs reuses the tab of the same Target (no duplicate tabs)."
+          - "Tests: test/node/dataEditor.test.ts (1 test on real @vscode/sqlite3 via openProjectDirectory + Resolver: navigation sections/labels, tab reuse and Shared Selection Context, Grid columns by Kind Dispatch, insert with generated and given Row identity, enum/uuid display labels, Inspector resolving a Grid-selected Row, cell edit, invalid / read-only / unknown-row rejection with Raw Data unchanged, delete keeping the Registry)."
+          - "Verification (Node 24.18.0, @vscode/sqlite3 rebuilt): npm run transpile-client; mocha test/unit/node/index.js --runGlob '**/primitiveAppEditor/test/**/*.test.js' -> 231 passing, 0 failing (230 existing + 1 new); eslint --max-warnings 0 on src/vs/workbench/contrib/primitiveAppEditor passes; tsc -p src/tsconfig.json --noEmit reports no primitiveAppEditor errors."
+          - "Required integration fixes: none; editor.registry-ui, data.raw and resolver.dynamic worked unchanged as producers."
         remaining: []
 
       - id: "editor.function-graph"
