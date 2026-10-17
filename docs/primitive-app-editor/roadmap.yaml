@@ -1281,8 +1281,16 @@ section:
           - "runtime.loop"
           - "renderer.runtime"
           - "editor.inspector"
-        status: "not started"
-        evidence: []
+        status: "implemented"
+        evidence:
+          - "Added src/vs/workbench/contrib/primitiveAppEditor/common/debugViewer.ts: DebugViewer Editor Area surface (Application Canvas via Renderer projection, read-only Runtime State Projection, Entity Selection via Shared Selection Context to Registry Driven Inspector, Direct Manipulation via Memory Handle only with writable and Kind validation, Camera, Preview via Runtime Loop stepping); holds no database reference so it is never Authoring Data Authority."
+          - "dataEditor.ts: added DataEditorTarget.DebugViewer (only Code OSS-adjacent change) for a single reused Editor Area tab."
+          - "Added test/node/debugViewer.test.ts running on a real project.sqlite with the real Inspector, Renderer Runtime and Runtime Loop."
+          - "Local esbuild + mocha harness over all primitiveAppEditor tests: 234 passing, 0 failing."
+          - "Local tsc --strict --noUnusedLocals on debugViewer.ts and debugViewer.test.ts: no errors (unused RendererRuntimeError import removed; duplicate imports merged)."
+          - "Non-ASCII tree-diagram characters in debugViewer.ts replaced with ASCII; 0 non-ASCII characters remain."
+          - "PR #61 head 099beb31ec0a5367c706cc063e3f30164f444374: all 13 required CI checks success, including Compile & Hygiene (hygiene/tsc under repo tsconfig), Linux Electron/Electron-Unit/Browser/Remote/Smoke, Playwright Fixture Tests, Monaco Editor checks, CodeQL; mergeable_state=clean."
+          - "eslint was not run locally; no CI hygiene failure on the head above."
         remaining: []
 
   - name: "Build"

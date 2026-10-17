@@ -87,6 +87,8 @@ export const enum DataEditorTarget {
 	RelationGraph = 'relation_graph',
 	/** Function Graph of the project's Function Bindings / Dependencies (editor.function-graph). */
 	FunctionGraph = 'function_graph',
+	/** Debug Viewer of the Runtime State (editor.debug-viewer). */
+	DebugViewer = 'debug_viewer',
 }
 
 export interface IDataEditorEntry {
