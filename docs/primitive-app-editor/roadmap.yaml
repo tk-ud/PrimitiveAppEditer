@@ -1044,8 +1044,13 @@ section:
           - "binding.function"
           - "binding.dependency"
           - "renderer.registry"
-        status: "not started"
-        evidence: []
+        status: "implemented"
+        evidence:
+          - "Implementation: src/vs/workbench/contrib/primitiveAppEditor/common/resolver.ts — Resolver implements IAppEditorApi (create/alter/truncate/drop/insert/delete/update/upsert/select) with Dispatch Flow (Operation Resolve -> Target/Kind Resolve -> Registry/Binding Read -> Validation -> Request Mapping -> Service/Storage Dispatch -> Result); Request Model (operation/target{kind,uuid}/address{table_uuid,row_uuid,column_uuid}/payload) accepts UUIDs only; Missing Definition and Ambiguous Target (conflicting UUIDs, kind-less UUID resolving to several kinds) are rejected."
+          - "Service Dispatch: create/alter/drop (kinds table, column, enum, relation) -> RegistryService (column changes go through the owning table_registry entry's Registry Mutation); truncate/insert/delete/update/upsert/select (kind raw) -> RawDataService; function_binding/function_dependency/renderer_binding -> existing Binding services; Registry Definition operations are rejected for Raw Data/Binding kinds and vice versa; truncate != drop; upsert Conflict Identity is the Row/binding uuid and is never guessed."
+          - "Dynamic Generation: IResolverMappingDefinition (plain JSON/YAML-compatible Structured Definition) -> generateResolverMapping() derives the dispatch Mapping; parseResolverMappingDefinition validates untrusted input; generation rejects unknown ports/operations, duplicates, registry-side ops on data kinds and data-side ops on registry kinds, and operations a port does not implement. No Application table/entity/function name or Conflict Policy exists in the Resolver."
+          - "Tests: test/node/resolver.test.ts (8 tests on real project.sqlite starting from an empty Registry: all 9 Primitives incl. table/column/enum/relation Registry ops with physical projection and drop; Raw Data insert/update/upsert/select/delete/truncate; Function/Dependency/Renderer Binding dispatch incl. Result Mapping; cross-side rejection; Missing/Ambiguous/non-UUID rejection; failed dispatch writes nothing; Dynamic Generation accept/reject cases). Verification: esbuild + mocha tdd + @vscode/sqlite3 harness over all primitiveAppEditor test/common + test/node -> 210 passing, 0 failing; tsc strict typecheck (noUnusedLocals) of resolver.ts and resolver.test.ts clean. eslint not run (node_modules not installed in the routine environment)."
+          - "No earlier producer bundle required an integration fix: registry.service (RegistryService create/alter/drop and enum/relation variants), data.raw (RawDataService), binding.function, binding.dependency and renderer.registry (Binding services, read helpers) were consumed unchanged and work together through the Resolver in the integration test."
         remaining: []
 
       - id: "resolver.dynamic"
