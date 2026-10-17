@@ -1281,14 +1281,8 @@ section:
           - "runtime.loop"
           - "renderer.runtime"
           - "editor.inspector"
-        status: "implemented"
-        evidence:
-          - "src/vs/workbench/contrib/primitiveAppEditor/common/debugViewer.ts: DebugViewer, an Editor Area Surface (single reused tab via openDebugViewerTab / DataEditorTarget.DebugViewer) holding a Runtime State, Memory Handles, optional RuntimeLoop and RendererRuntime and no database reference, so it cannot become Authoring Data Authority or a SQLite write."
-          - "debugViewer.ts Application Canvas: canvas() = RendererRuntime.project() (read-only) with the Entities (Row UUIDs) each Renderer Binding's Memory Handles read. Runtime State Projection: projectRuntimeState() = read-only view of runtime: (time/progress/input/events/functions/entities) with Table/Column labels for display and Row UUID as identity."
-          - "debugViewer.ts Entity Selection: selectEntity(row_uuid) / selectCanvasItem(binding_uuid) update the Shared Selection Context (DataEditorSelection) by UUID, resolved by the same Registry Driven Inspector; missing runtime objects are rejected. Direct Manipulation: manipulate(address, value) writes a Memory Handle only, requires a writable column and a Kind-valid value. Camera: DebugCamera pan/zoom/focus/reset with worldToScreen/screenToWorld. Preview: preview(frame) steps the Runtime Loop."
-          - "dataEditor.ts: DataEditorTarget.DebugViewer added for Editor Area tab reuse (same pattern as FunctionGraph)."
-          - "src/vs/workbench/contrib/primitiveAppEditor/test/node/debugViewer.test.ts: 1 test on real project.sqlite (tab reuse, canvas + state projection, entity selection into the real RegistryDrivenInspector, manipulation validation, preview following Next State, camera, SQLite row unchanged after manipulation/preview). Local esbuild-bundled mocha run of all primitiveAppEditor tests: 234 passing, 0 failing; tsc --strict clean for the new files; no `in` operator used."
-          - "Required integration fixes: none beyond adding the DebugViewer enum member to editor.data-ui's DataEditorTarget; runtime.loop, renderer.runtime and editor.inspector were consumed unchanged and worked together in the test. eslint not run (not installed in the routine environment); CI on the PR head not yet confirmed at recording time."
+        status: "not started"
+        evidence: []
         remaining: []
 
   - name: "Build"
