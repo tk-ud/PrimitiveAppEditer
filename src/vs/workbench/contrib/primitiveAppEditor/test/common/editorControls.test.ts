@@ -8,7 +8,7 @@ import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/tes
 import { createEditorControl, createEditorControls, createEditorUpdateRequest, createRelationSource, dispatchEditorControl, EditorControlError, EditorControlType, resolveRelationTargetTable, resolveRowLabel, saveEditorValue, validateEditorValue } from '../../common/editorControls.js';
 import { createEnumRegistryEntry, EnumRegistryIndex } from '../../common/enumRegistry.js';
 import { createRelationRegistryEntry } from '../../common/relationRegistry.js';
-import { IResolverOperationRequest } from '../../common/resolver.js';
+import { IResolverOperationRequest, ResolverOperation } from '../../common/resolver.js';
 import { createTableRegistryEntry, tableColumnKinds, TableColumnKind } from '../../common/tableRegistry.js';
 
 const id = (n: number) => `00000000-0000-4000-8000-${n.toString(16).padStart(12, '0')}`;
@@ -98,7 +98,7 @@ suite('Primitive App Editor - Registry-driven generic editor controls', () => {
 		assert.strictEqual(resolveRowLabel(player, { [id(0xc6)]: '' }, 1), 'Player #2');
 
 		const requests: IResolverOperationRequest[] = [];
-		const api = { select: async (request: IResolverOperationRequest) => { requests.push(request); return { operation: 'select' as const, kind: 'raw', result: [{ uuid: P1, values: { [id(0xc6)]: 'Alice' } }] }; } };
+		const api = { select: async (request: IResolverOperationRequest) => { requests.push(request); return { operation: ResolverOperation.Select, kind: 'raw', result: [{ uuid: P1, values: { [id(0xc6)]: 'Alice' } }] }; } };
 		const source = createRelationSource(api, enemy, [enemy, player], [relation]);
 		const control = await createEditorControl(column(0xca), P1.toUpperCase(), enums, source);
 		assert.deepStrictEqual(control.options, [{ value: P1, label: 'Alice' }]);
@@ -109,7 +109,7 @@ suite('Primitive App Editor - Registry-driven generic editor controls', () => {
 
 	test('Save is one generic update request; invalid and non-writable values are not dispatched', async () => {
 		const requests: IResolverOperationRequest[] = [];
-		const api = { update: async (request: IResolverOperationRequest) => { requests.push(request); return { operation: 'update' as const, kind: 'raw', result: 'ok' }; } };
+		const api = { update: async (request: IResolverOperationRequest) => { requests.push(request); return { operation: ResolverOperation.Update, kind: 'raw', result: 'ok' }; } };
 		const address = { tableUuid: ENEMY, rowUuid: R1 };
 		assert.strictEqual(await saveEditorValue(api, address, column(0xc1), 9, enums), 'ok');
 		assert.deepStrictEqual(requests, [{ target: { kind: 'raw', uuid: ENEMY }, address: { table_uuid: ENEMY, row_uuid: R1, column_uuid: id(0xc1) }, payload: { [id(0xc1)]: 9 } }]);
