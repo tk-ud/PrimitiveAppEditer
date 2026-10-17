@@ -1080,8 +1080,13 @@ section:
         depends_on:
           - "resolver.operation"
           - "editor.registry-ui"
-        status: "not started"
-        evidence: []
+        status: "implemented"
+        evidence:
+          - "src/vs/workbench/contrib/primitiveAppEditor/common/dynamicResolve.ts: DynamicResolver generated from a Structured Definition (parseDynamicResolveDefinition / defaultDynamicResolveDefinition); Selection -> UUID Resolve -> Registry/Binding Resolve -> Kind/Surface Resolve -> Component/Action Resolve; no Application name is held"
+          - "Row Selection reuses editor.registry-ui createEditorControls (Kind Dispatch) and relation source; Definition/Binding Selections (table, enum, relation, function, renderer, asset, function_binding, renderer_binding) resolve by UUID to exactly one Kind; missing/ambiguous/stale/label-as-identity are rejected; Empty Selection is neutral with no Mutation Target"
+          - "Mutation is expressed as Resolver Primitive requests (createDynamicUpdateAction, Binding remove) executed only via dispatchDynamicAction -> IAppEditorApi; Surface placement follows Editor UI Regulation vocabulary and is not persisted"
+          - "src/vs/workbench/contrib/primitiveAppEditor/test/common/dynamicResolve.test.ts: 10 tests pass (transpiled with tsc and run under a tdd shim; strict tsc typecheck and noUnusedLocals clean for new files)"
+          - "Required integration fix: none; editor.registry-ui and resolver.operation were consumed unchanged and worked together in tests"
         remaining: []
 
   - name: "Editor Core"
