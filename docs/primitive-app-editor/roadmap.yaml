@@ -1249,8 +1249,15 @@ section:
           - "editor.registry-ui"
           - "editor.data-ui"
           - "resolver.dynamic"
-        status: "not started"
-        evidence: []
+        status: "implemented"
+        evidence:
+          - "src/vs/workbench/contrib/primitiveAppEditor/common/inspector.ts: RegistryDrivenInspector, the single Inspector over the Shared Selection Context. Resolves Selection via the existing DynamicResolver (UUID -> Registry -> Kind dispatch); Header and Binding entries use name/label (no UUID as primary value); empty Selection is neutral and every Mutation re-resolves the current Selection (No Selection -> No Mutation Target); a stale Selection is rejected and the view returns to neutral."
+          - "inspector.ts Properties Section: Registry-driven components from editor.registry-ui; Save is the generic update via createDynamicUpdateAction, with invalid / read-only / unknown column rejected before dispatch. Compact Function Binding component (execution.kind / argument source / merge) = UPDATE function_binding, with no persistence timing or policy decided in the Editor."
+          - "inspector.ts Binding Section: INSERT function_binding and renderer_binding from an explicit Initial Binding Definition (only Function Binding / Renderer Binding model fields, no ownership inferred from the Selection, columns resolved to Persistent Address of the Selected Row), DELETE of Bindings shown for the Selection, plus Context Action Delete of a Selected Binding. Candidates (Function / Renderer / Asset / column / execution.kind / source / merge) come from the Registry and the existing Persistent Model."
+          - "inspector.ts Navigation and Actions: Open reuses Editor Area tabs (DataEditorTabs, FunctionGraph via the single tab key) and is offered only for kinds with an existing Editor Area target; all actions are Icon Buttons (add / save / trash / go-to-file) with Tooltip/Accessible Label bound to an InspectorCommand, and Delete is marked destructive."
+          - "src/vs/workbench/contrib/primitiveAppEditor/test/node/inspector.test.ts: 1 test on real @vscode/sqlite3 via openProjectDirectory + Resolver covering empty / stale Selection, property save and rejections, function / renderer binding insert and rejections, compact binding update, tab reuse, Binding delete with Registry untouched. Local esbuild-bundled mocha run of all primitiveAppEditor tests: 233 passing, 0 failing; no `in` operator used (code-no-in-operator)."
+          - "Verification (confirmed on PR #60 head 0cfb5d92): all 13 GitHub Actions check runs completed with conclusion success: Compile & Hygiene, Linux / Electron-Unit, Linux / Electron, Linux / Electron-Smoke, Linux / Browser, Linux / Remote, Monaco Editor checks, Playwright Fixture Tests, Screenshots, Screenshots & Tests, CodeQL, Analyze (javascript-typescript), Analyze (rust)."
+          - "Required integration fixes: none; editor.registry-ui, editor.data-ui, resolver.dynamic and editor.function-graph were consumed unchanged and worked together in the test."
         remaining: []
 
       - id: "editor.debug-viewer"
