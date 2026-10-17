@@ -85,6 +85,8 @@ export const enum DataEditorTarget {
 	PhysicalTable = 'physical_table',
 	/** Structural view of a relation graph. */
 	RelationGraph = 'relation_graph',
+	/** Function Graph of the project's Function Bindings / Dependencies (editor.function-graph). */
+	FunctionGraph = 'function_graph',
 }
 
 export interface IDataEditorEntry {
