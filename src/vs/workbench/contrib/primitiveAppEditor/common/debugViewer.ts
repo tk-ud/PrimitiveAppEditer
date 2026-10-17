@@ -20,12 +20,12 @@ import { ITableRegistryEntry, TableColumnKind } from './tableRegistry.js';
  * Runtime Memory -> Debug Viewer -> Human Inspection
  *
  * Debug Viewer
- * ├─ Application Canvas       (Renderer Projection of the Next State)
- * ├─ Runtime State Projection (read-only view of `runtime:`)
- * ├─ Entity Selection         (Shared Selection Context -> Registry Driven Inspector)
- * ├─ Direct Manipulation      (Memory Handle write, never SQLite)
- * ├─ Camera                   (view transform of the canvas)
- * └─ Preview                  (Runtime Loop stepping)
+ * |- Application Canvas       (Renderer Projection of the Next State)
+ * |- Runtime State Projection (read-only view of `runtime:`)
+ * |- Entity Selection         (Shared Selection Context -> Registry Driven Inspector)
+ * |- Direct Manipulation      (Memory Handle write, never SQLite)
+ * |- Camera                   (view transform of the canvas)
+ * `- Preview                  (Runtime Loop stepping)
  * ```
  *
  * The Debug Viewer is an Editor Area Surface, never the Authority of Authoring Data
