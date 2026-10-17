@@ -18,6 +18,8 @@ const ENEMY = id(0xa1);
 const PLAYER = id(0xa2);
 const R1 = id(0xb1);
 const P1 = id(0xb2);
+const R2 = id(0xb3);
+const BINDING_R2 = id(0xe6);
 const FUNCTION = id(0xe1);
 const BINDING = id(0xe2);
 const RENDERER = id(0xe3);
@@ -96,6 +98,18 @@ suite('Primitive App Editor - Dynamic Resolve', () => {
 		assert.deepStrictEqual(inspector.binding?.entries.map(entry => [entry.kind, entry.label]), [['function_binding', 'Damage → Enemy > HP']]);
 		assert.deepStrictEqual(inspector.navigation?.actions.map(action => [action.type, action.surface]), [[DynamicActionType.Open, DynamicSurface.EditorArea]]);
 		assert.ok(!JSON.stringify(inspector.properties?.components.map(component => component.label)).includes('0000'));
+	});
+
+	test('a Row Selection lists only the Bindings addressing that Row', async () => {
+		const base = context();
+		const other = { ...base.functionBindings[0], uuid: BINDING_R2, target: { ...base.functionBindings[0].target, address: { table_uuid: ENEMY, row_uuid: R2, column_uuid: id(0xc1) } } };
+		const shared = context({ functionBindings: [...base.functionBindings, other] });
+		const twoRows = { ...rows, [ENEMY]: [...rows[ENEMY], { uuid: R2, values: { [id(0xc1)]: 7, [id(0xc7)]: 'Enemy_002', [id(0xc9)]: 'fire', [id(0xca)]: P1 } }] };
+		for (const [row, expected] of [[R1, BINDING], [R2, BINDING_R2]]) {
+			const inspector = await resolver.resolve({ uuid: row, table_uuid: ENEMY }, shared, fakeApi([], twoRows)) as IDynamicInspector;
+			assert.deepStrictEqual(inspector.binding?.entries.map(entry => entry.uuid), [expected]);
+			assert.deepStrictEqual(inspector.binding?.entries.map(entry => entry.remove.request?.target.uuid), [expected]);
+		}
 	});
 
 	test('a stale Row or unknown table is rejected, never guessed', async () => {

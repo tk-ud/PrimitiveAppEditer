@@ -4,6 +4,7 @@
  *  Boundary: App Editer.md (Kind Dispatch, Inspector), Resolver.md (14, 16, 17), Editor UI.md (3, 4, 15)
  *--------------------------------------------------------------------------------------------*/
 
+import { hasKey } from '../../../../base/common/types.js';
 import { assertBoundaryFlow, BoundaryNode } from './authority.js';
 import { createEditorControls, createEditorUpdateRequest, createRelationSource, IEditorControl } from './editorControls.js';
 import { EnumRegistryIndex, IEnumRegistryEntry } from './enumRegistry.js';
@@ -265,39 +266,51 @@ function sameUuid(a: string, b: string): boolean {
 	return a.toLowerCase() === b.toLowerCase();
 }
 
-function addressUuids(address: IFunctionBindingAddress): readonly string[] {
-	return [address.table_uuid, address.row_uuid, address.column_uuid];
-}
+/** What a Binding must reference to belong to a Selection: a definition UUID, or one Row of one Table. */
+type BindingMatch =
+	| { readonly definitionUuid: string }
+	| { readonly tableUuid: string; readonly rowUuid: string };
 
-function functionBindingUuids(entry: IFunctionBindingEntry): readonly string[] {
+function functionBindingAddresses(entry: IFunctionBindingEntry): readonly IFunctionBindingAddress[] {
 	const arguments_ = [...Object.values(entry.inputs), ...Object.values(entry.parameters)];
-	return [
-		entry.function.uuid,
-		...addressUuids(entry.target.address),
-		...arguments_.flatMap(argument => [...(argument.address ? addressUuids(argument.address) : []), ...(argument.function_binding_uuid ? [argument.function_binding_uuid] : [])]),
-	];
+	return [entry.target.address, ...arguments_.flatMap(argument => argument.address ? [argument.address] : [])];
 }
 
-function rendererBindingUuids(entry: IRendererBindingEntry): readonly string[] {
-	return [entry.renderer.uuid, ...Object.values(entry.bindings).flatMap(value => 'address' in value ? addressUuids(value.address) : [value.asset_uuid])];
+function rendererBindingAddresses(entry: IRendererBindingEntry): readonly IFunctionBindingAddress[] {
+	return Object.values(entry.bindings).flatMap(value => hasKey(value, { address: true }) ? [value.address] : []);
+}
+
+function addressesRow(addresses: readonly IFunctionBindingAddress[], match: { readonly tableUuid: string; readonly rowUuid: string }): boolean {
+	return addresses.some(address => sameUuid(address.table_uuid, match.tableUuid) && sameUuid(address.row_uuid, match.rowUuid));
+}
+
+function functionBindingMatches(entry: IFunctionBindingEntry, match: BindingMatch): boolean {
+	return hasKey(match, { definitionUuid: true }) ? sameUuid(entry.function.uuid, match.definitionUuid) : addressesRow(functionBindingAddresses(entry), match);
+}
+
+function rendererBindingMatches(entry: IRendererBindingEntry, match: BindingMatch): boolean {
+	if (hasKey(match, { definitionUuid: true })) {
+		return sameUuid(entry.renderer.uuid, match.definitionUuid)
+			|| Object.values(entry.bindings).some(value => hasKey(value, { asset_uuid: true }) && sameUuid(value.asset_uuid, match.definitionUuid));
+	}
+	return addressesRow(rendererBindingAddresses(entry), match);
 }
 
 function removeAction(kind: string, uuid: string, label: string): IDynamicAction {
 	return Object.freeze({ type: DynamicActionType.Mutate, label: `Remove ${label}`, request: Object.freeze({ operation: ResolverOperation.Delete, target: Object.freeze({ kind, uuid }) }) });
 }
 
-/** Binding Resolve: Bindings whose stored UUIDs reference any of `uuids`, displayed by the Registry name / label. */
-function resolveBindings(context: IDynamicResolveContext, uuids: readonly string[]): readonly IDynamicBinding[] {
-	const references = (referenced: readonly string[]) => referenced.some(candidate => uuids.some(uuid => sameUuid(candidate, uuid)));
+/** Binding Resolve: Bindings that reference the Selection (a definition UUID, or exactly one Row), displayed by the Registry name / label. */
+function resolveBindings(context: IDynamicResolveContext, match: BindingMatch): readonly IDynamicBinding[] {
 	const bindings: IDynamicBinding[] = [];
 	for (const entry of context.functionBindings) {
-		if (references(functionBindingUuids(entry))) {
+		if (functionBindingMatches(entry, match)) {
 			const label = functionBindingLabel(context, entry);
 			bindings.push(Object.freeze({ kind: 'function_binding', uuid: entry.uuid, label, remove: removeAction('function_binding', entry.uuid, label) }));
 		}
 	}
 	for (const entry of context.rendererBindings) {
-		if (references(rendererBindingUuids(entry))) {
+		if (rendererBindingMatches(entry, match)) {
 			const label = rendererBindingLabel(context, entry);
 			bindings.push(Object.freeze({ kind: 'renderer_binding', uuid: entry.uuid, label, remove: removeAction('renderer_binding', entry.uuid, label) }));
 		}
@@ -358,7 +371,7 @@ const locators: Readonly<Record<string, Locator>> = Object.freeze({
 		const entry = context.functions.find(candidate => sameUuid(candidate.uuid, uuid));
 		return entry && Object.freeze({
 			label: getRegistryDisplayText(entry),
-			bindings: resolveBindings(context, [entry.uuid]),
+			bindings: resolveBindings(context, { definitionUuid: entry.uuid }),
 			properties: Object.freeze([{ label: 'Executor', value: entry.executor }, { label: 'Output', value: entry.output.kind }]),
 		});
 	},
@@ -366,7 +379,7 @@ const locators: Readonly<Record<string, Locator>> = Object.freeze({
 		const entry = context.renderers.find(candidate => sameUuid(candidate.uuid, uuid));
 		return entry && Object.freeze({
 			label: getRegistryDisplayText(entry),
-			bindings: resolveBindings(context, [entry.uuid]),
+			bindings: resolveBindings(context, { definitionUuid: entry.uuid }),
 			properties: Object.freeze([{ label: 'Executor', value: entry.executor }, { label: 'Inputs', value: entry.inputs.map(input => input.name).join(', ') }]),
 		});
 	},
@@ -374,7 +387,7 @@ const locators: Readonly<Record<string, Locator>> = Object.freeze({
 		const entry = context.assets.find(candidate => sameUuid(candidate.uuid, uuid));
 		return entry && Object.freeze({
 			label: getRegistryDisplayText(entry),
-			bindings: resolveBindings(context, [entry.uuid]),
+			bindings: resolveBindings(context, { definitionUuid: entry.uuid }),
 			properties: Object.freeze([{ label: 'Kind', value: entry.kind }, { label: 'Source', value: entry.source }]),
 		});
 	},
@@ -477,7 +490,7 @@ export class DynamicResolver {
 		return this.inspector(definition, rowUuid, label, {
 			components,
 			definition: [],
-			bindings: resolveBindings(context, [table.uuid, rowUuid]),
+			bindings: resolveBindings(context, { tableUuid: table.uuid, rowUuid }),
 			address: { tableUuid: table.uuid, rowUuid },
 		});
 	}
