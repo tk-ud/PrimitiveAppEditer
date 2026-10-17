@@ -1122,8 +1122,15 @@ section:
           - "function.registry"
           - "renderer.registry"
           - "resolver.operation"
-        status: "not started"
-        evidence: []
+        status: "implemented"
+        evidence:
+          - "src/vs/workbench/contrib/primitiveAppEditor/common/editorControls.ts: Kind Dispatch (text->text_field, int/double->number_field, bool->checkbox, date->datepicker, timestamp->datetime_picker, enum->select, json->json_editor, uuid->relation/select) derived from table_registry.columns; no table-specific UI model"
+          - "editorControls.ts: control model with human label (label else name, never UUID), required/readOnly from not_null/writable, enum options via enum_registry, uuid options resolved via relation_registry + generic select with human row labels"
+          - "editorControls.ts: explanation path per Field (tooltip, details/popover content, Inline Message for invalid state); Empty Selection yields no controls / no Mutation Target"
+          - "editorControls.ts: Save = generic update(request) (target raw, address table/row/column UUID); invalid or non-writable values rejected before dispatch; Registry Definition never altered"
+          - "test/common/editorControls.test.ts (7 tests, pass): dispatch, Registry-order derivation, explanation, empty selection, validation, relation/select labels, save request"
+          - "test/node/editorControls.test.ts (pass against real project.sqlite via Resolver): controls derived from Registry, update Save for int/enum, relation label 'Alice' resolved, invalid/read-only rejected with Raw Data unchanged"
+          - "Required integration fixes to earlier producer bundles: none"
         remaining: []
 
       - id: "editor.data-ui"
