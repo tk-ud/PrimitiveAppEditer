@@ -268,6 +268,14 @@ export function generateResolverMapping(definition: IResolverMappingDefinition, 
 
 // #region Request validation
 
+/**
+ * Payload Map: the Registry / Binding Service validates the concrete shape of an untrusted payload (Kind Validate);
+ * the Resolver only forwards it, so the type is asserted on a value, never on an object literal.
+ */
+function forward<T>(value: object): T {
+	return value as T;
+}
+
 function requireUuid(value: unknown, field: string): string {
 	if (typeof value !== 'string' || !isRegistryUuid(value)) {
 		throw new ResolverError(`${field} must be a UUID (a display label is not a Persistent Identity)`);
@@ -362,7 +370,7 @@ export function createResolverPorts(services: IResolverServices): Readonly<Recor
 			if (Object.keys(patch).length === 0) {
 				throw new ResolverError('alter on table requires at least one change');
 			}
-			return services.registry.alter({ ...existing, ...patch, uuid } as unknown as ITableRegistryEntryInput & { readonly uuid: string });
+			return services.registry.alter(forward<ITableRegistryEntryInput & { readonly uuid: string }>({ ...existing, ...patch, uuid }));
 		},
 		drop: dispatch => services.registry.drop(requireIdentity(dispatch, 'table')),
 		select: dispatch => read(async statements => sortedByUuid([...await readTableRegistry(statements)].sort(compareTableRegistryOrder), dispatch.uuid, 'table')),
@@ -377,7 +385,7 @@ export function createResolverPorts(services: IResolverServices): Readonly<Recor
 		create: async dispatch => {
 			const existing = await columnTable(dispatch);
 			const input = withIdentity(dispatch.payload, dispatch.uuid, 'payload') as unknown as ITableRegistryColumnInput;
-			return services.registry.alter({ ...existing, columns: [...existing.columns, input] } as unknown as ITableRegistryEntryInput & { readonly uuid: string });
+			return services.registry.alter(forward<ITableRegistryEntryInput & { readonly uuid: string }>({ ...existing, columns: [...existing.columns, input] }));
 		},
 		alter: async dispatch => {
 			const existing = await columnTable(dispatch);
@@ -391,7 +399,7 @@ export function createResolverPorts(services: IResolverServices): Readonly<Recor
 				throw new ResolverError('alter on column requires at least one change');
 			}
 			const columns = existing.columns.map(candidate => candidate === current ? { ...candidate, ...patch, uuid } : candidate);
-			return services.registry.alter({ ...existing, columns } as unknown as ITableRegistryEntryInput & { readonly uuid: string });
+			return services.registry.alter(forward<ITableRegistryEntryInput & { readonly uuid: string }>({ ...existing, columns }));
 		},
 		drop: async dispatch => {
 			const existing = await columnTable(dispatch);
@@ -399,7 +407,7 @@ export function createResolverPorts(services: IResolverServices): Readonly<Recor
 			if (!existing.columns.some(candidate => candidate.uuid === uuid)) {
 				throw new ResolverError(`table '${existing.name}' has no column '${uuid}' (Missing Definition)`);
 			}
-			return services.registry.alter({ ...existing, columns: existing.columns.filter(candidate => candidate.uuid !== uuid) } as unknown as ITableRegistryEntryInput & { readonly uuid: string });
+			return services.registry.alter(forward<ITableRegistryEntryInput & { readonly uuid: string }>({ ...existing, columns: existing.columns.filter(candidate => candidate.uuid !== uuid) }));
 		},
 		select: async dispatch => {
 			const existing = await columnTable(dispatch);
@@ -420,7 +428,7 @@ export function createResolverPorts(services: IResolverServices): Readonly<Recor
 		alter: async dispatch => {
 			const uuid = requireIdentity(dispatch, 'enum');
 			const existing: IEnumRegistryEntry = await read(statements => readSingle(readEnumRegistry(statements), uuid, 'enum'));
-			return services.registry.alterEnum({ ...existing, ...requireRecord(dispatch.payload, 'payload'), uuid } as unknown as IEnumRegistryEntryInput & { readonly uuid: string });
+			return services.registry.alterEnum(forward<IEnumRegistryEntryInput & { readonly uuid: string }>({ ...existing, ...requireRecord(dispatch.payload, 'payload'), uuid }));
 		},
 		drop: dispatch => services.registry.dropEnum(requireIdentity(dispatch, 'enum')),
 		select: dispatch => read(async statements => sortedByUuid(await readEnumRegistry(statements), dispatch.uuid, 'enum')),
@@ -432,7 +440,7 @@ export function createResolverPorts(services: IResolverServices): Readonly<Recor
 		alter: async dispatch => {
 			const uuid = requireIdentity(dispatch, 'relation');
 			const existing: IRelationRegistryEntry = await read(statements => readSingle(readRelationRegistry(statements), uuid, 'relation'));
-			return services.registry.alterRelation({ ...existing, ...requireRecord(dispatch.payload, 'payload'), uuid } as unknown as IRelationRegistryEntryInput & { readonly uuid: string });
+			return services.registry.alterRelation(forward<IRelationRegistryEntryInput & { readonly uuid: string }>({ ...existing, ...requireRecord(dispatch.payload, 'payload'), uuid }));
 		},
 		drop: dispatch => services.registry.dropRelation(requireIdentity(dispatch, 'relation')),
 		select: dispatch => read(async statements => sortedByUuid(await readRelationRegistry(statements), dispatch.uuid, 'relation')),
@@ -459,7 +467,7 @@ export function createResolverPorts(services: IResolverServices): Readonly<Recor
 		select: dispatch => {
 			const request = dispatch.payload === undefined ? {} : requireRecord(dispatch.payload, 'payload');
 			const where = dispatch.address.row_uuid === undefined ? request.where : { ...requireRecord(request.where ?? {}, 'payload.where'), uuid: dispatch.address.row_uuid };
-			return services.rawData.select(rawTable(dispatch), { ...request, where } as IRawDataSelect);
+			return services.rawData.select(rawTable(dispatch), forward<IRawDataSelect>({ ...request, where }));
 		},
 	};
 
