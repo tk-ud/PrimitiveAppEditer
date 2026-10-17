@@ -159,6 +159,7 @@ suite('Primitive App Editor - Data Editor on project.sqlite', () => {
 		const row = grid.rows.find(candidate => candidate.uuid === R1)!;
 		assert.deepStrictEqual(row.cells.map(cell => cell.displayValue), [undefined, 'Fire', 'Alice', undefined]);
 		await assert.rejects(grid.insertRow({ hp: 'x' }), /Not a valid int value/);
+		await assert.rejects(grid.insertRow({ hp: 1, locked: true }), /not writable/);
 		assert.strictEqual(grid.rows.length, 2);
 
 		// Grid selection writes the same Shared Selection Context, and the single Inspector resolves it
