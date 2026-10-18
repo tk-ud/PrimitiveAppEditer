@@ -126,8 +126,11 @@ section:
               - "Progress Management"
         depends_on:
           - "repository.ci-baseline"
-        status: "not started"
-        evidence: []
+        status: "implemented"
+        evidence:
+          - "README.md: removed the '## Status' section (duplicated progress yaml); 'grep -c \"^## Status\" README.md' returns 0"
+          - "README.md 'Progress Management' section retained unchanged as the progress rule"
+          - "Docs-only change; no integration fix required for earlier producer bundles"
         remaining: []
 
   - name: "GUI Debug Tooling"
