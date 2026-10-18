@@ -117,6 +117,19 @@ section:
           - "No earlier producer bundle required an integration fix."
         remaining: []
 
+      - id: "repository.readme-status-removal"
+        title: "Remove duplicated progress Status from README (progress is managed only in roadmap.yaml, Issue #62)"
+        reference:
+          - source: "../../README.md"
+            role: "implementation"
+            sections:
+              - "Progress Management"
+        depends_on:
+          - "repository.ci-baseline"
+        status: "not started"
+        evidence: []
+        remaining: []
+
   - name: "GUI Debug Tooling"
     bundle:
       - id: "tooling.gui-debugger"

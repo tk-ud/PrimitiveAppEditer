@@ -159,6 +159,19 @@ Implementation Agent:
     - Evidenceの生成
 ```
 
+## Progress Management
+
+進捗の管理先。
+
+```yaml
+progress:
+  authority: docs/primitive-app-editor/roadmap.yaml
+  rule:
+    - 進捗(status / evidence / remaining)はroadmap.yamlのみで管理する
+    - READMEは進捗Statusを持たない
+    - 重複する進捗表示は削除する
+```
+
 ## Specification Model
 
 実装Agentへ供給するSpecificationのscope分類。
