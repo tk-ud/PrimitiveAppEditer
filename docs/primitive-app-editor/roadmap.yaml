@@ -1212,8 +1212,15 @@ section:
           - "binding.dependency"
           - "binding.merge"
           - "editor.registry-ui"
-        status: "not started"
-        evidence: []
+        status: "implemented"
+        evidence:
+          - "src/vs/workbench/contrib/primitiveAppEditor/common/functionGraph.ts: buildFunctionGraph projects function_binding + function_dependency (with function_registry / table_registry lookups, no per-Node Definition copy) into Nodes (Function name/label, Inputs, Parameters, Output, Binding State = execution/Target/Merge; never UUID as primary text) and Edges (function_output Dependency, direction = Execution Dependency)."
+          - "Issue #63 design change (PR #64): IFunctionGraph.executable added. diagnostics = structural diagnostics of the editing state (allowUndeclared: true; cycle, dangling Edge); order = strict Validate identical to Load/Build (buildFunctionExecutionPlan) and returned only when executable. While an unsaved Dependency exists executable=false and order is undefined; pending Edges stay connection candidates and are not treated as valid Edges. functionDependency.ts unchanged (Load/Build still reject)."
+          - "functionGraph.ts: FunctionGraphModel. Read Graph = generic select of function_binding/function_dependency; Edge Add = Resolver insert function_dependency; Edge Delete = Resolver delete function_dependency; each followed by reload so no UI-only state diverges from the DB. addEdge rejects (before any write) self edges, unknown inputs, duplicates and edges whose target input is not declared function_output of the source; pendingEdges lists declared-but-unpersisted Edges. Binding INSERT/DELETE/UPDATE and Parameter/Target/Merge/Runtime/Persistence editing are left to the Registry Driven Inspector."
+          - "functionGraph.ts: selectNode / selectEdge write the existing DataEditorSelection (Shared Selection Context) resolved by the existing DynamicResolver / Registry Driven Inspector; no Graph-specific Inspector. openFunctionGraphTab reuses a single Editor Area tab (DataEditorTarget.FunctionGraph)."
+          - "Tests: test/node/functionGraph.test.ts (2 tests; counted from source, per-file mocha count not isolated in CI output). Added assertions: with an unsaved Dependency executable=false, order undefined and loadFunctionExecutionPlan rejects /input 'x' is 'function_output' without a function_dependency/; after saving, graph.executable=true and order matches; after deleting the Dependency executable=false and Load/Build rejects again."
+          - "Spec: docs/primitive-app-editor/App Editer.md section 20 and Function Graph.md section 8 updated for editing state vs executable state."
+          - "Verification (PR #64 head 318a6787508b4f30c96a0c1d90c8ce83ee928255): all 13 required GitHub Actions jobs success: Compile & Hygiene, Linux / Electron-Unit (20027 passing, 205 pending, 0 failing in the job log), Linux / Electron, Linux / Electron-Smoke, Linux / Browser, Linux / Remote, Monaco Editor checks, Playwright Fixture Tests, Screenshots, Screenshots & Tests, CodeQL, Analyze (javascript-typescript), Analyze (rust); mergeable_state clean. No local test run (dependencies not installed in the agent environment)."
         remaining: []
 
       - id: "editor.inspector"
