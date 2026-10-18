@@ -1341,8 +1341,13 @@ section:
           - "runtime.execution-plan"
           - "renderer.registry"
           - "asset.registry"
-        status: "not started"
-        evidence: []
+        status: "implemented"
+        evidence:
+          - "Implementation commit 49a7f827: src/vs/workbench/contrib/primitiveAppEditor/common/buildValidation.ts. createBuildConfiguration validates and normalizes the §31 Build Configuration minimum contract (build_target / runtime_storage_target pairing via buildTargetRuntimeStorageTargets with PostgreSQL Web Application Output -> ASP.NET Core API + Next.js UI / PostgreSQL, seed_data.include/raw_data.tables/exclude_rows, include.assets/functions/scripts/config, output_path under build/); the Configuration is an in-memory value and is never stored in Registry / Raw Data / Binding (storage/serialization left to the Build implementation)."
+          - "applyBuildTargetFilter: deterministic read-only Build Target Filter -> Selected Authoring View. Registry and Function Binding / Function Dependency / Renderer Binding pass whole; Raw Data selected only by seed_data.include && raw_data.tables minus exclude_rows; assets / functions / scripts / config selected only by include.*; no Editor / Preview classification is inferred."
+          - "validateBuild: pipeline Build Configuration Validate -> Registry Validate -> Physical Schema Validate -> Relation Validate -> Function Executor Validate -> Dependency Validate -> Runtime Address Validate -> Renderer Validate -> Asset Validate, reusing the existing validators (validateTableRegistry / validateRelationRegistry / validateRendererRegistry / validateAssetRegistry, validateRegistryProjection, validateRelationReferences, resolveFunctionExecutors, validateFunctionBindings / validateFunctionBindingAgainstRegistry, validateFunctionDependencies / buildFunctionExecutionPlan, validateRendererBindings / validateRendererBindingAgainstRegistry). First failure throws BuildValidationError carrying the stage. Listed Table / Row / Asset / Path existence, executor Program in include.functions (executor -> Program path supplied by the Build implementation through resolveExecutorProgram; not invented), Binding-referenced Rows not removed by the Filter, and Renderer Binding assets in include.assets are checked."
+          - "Tests: test/common/buildValidation.test.ts, 13 tests (stage order, contract normalization and rejects incl. unsupported target pair / output_path outside build/, Filter selection and read-only/deterministic, valid Build, per-stage rejects for Build Configuration / Registry / Relation / Function Executor / Dependency / Runtime Address / Renderer / Asset, no write to Authoring Data). Verification: esbuild bundle + mocha --ui=tdd -> 13 passing, 0 failing; tsc --strict --noEmit reports no errors in buildValidation.ts and buildValidation.test.ts."
+          - "Required integration fix: none; asset.registry, renderer.registry, registry.relation, runtime.execution-plan and the function/binding validators were consumed unchanged."
         remaining: []
 
       - id: "build.application-output"
