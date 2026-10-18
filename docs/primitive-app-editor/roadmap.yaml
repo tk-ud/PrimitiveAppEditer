@@ -1212,14 +1212,8 @@ section:
           - "binding.dependency"
           - "binding.merge"
           - "editor.registry-ui"
-        status: "implemented"
-        evidence:
-          - "src/vs/workbench/contrib/primitiveAppEditor/common/functionGraph.ts: buildFunctionGraph projects function_binding + function_dependency (with function_registry / table_registry lookups, no per-Node Definition copy) into Nodes (Function name/label, Inputs, Parameters, Output, Binding State = execution/Target/Merge; never UUID as primary text) and Edges (function_output Dependency, direction = Execution Dependency); execution order and diagnostics (cycle, dangling Edge) come from the existing buildFunctionExecutionPlan, so Graph Validate equals Load/Build Validate."
-          - "functionGraph.ts: FunctionGraphModel. Read Graph = generic select of function_binding/function_dependency; Edge Add = Resolver insert function_dependency; Edge Delete = Resolver delete function_dependency; each followed by reload so no UI-only state diverges from the DB. addEdge rejects (before any write) edges whose target input is not already declared function_output of the source, self edges, unknown inputs and duplicates; pendingEdges lists declared-but-unpersisted Edges. Binding INSERT/DELETE/UPDATE and Parameter/Target/Merge/Runtime/Persistence editing are not implemented in the Graph (left to the Registry Driven Inspector / Registry-driven Component)."
-          - "functionGraph.ts: selectNode writes function_binding.uuid and selectEdge writes the consuming binding uuid to the existing DataEditorSelection (Shared Selection Context) resolved by the existing DynamicResolver / Registry Driven Inspector; no Graph-specific Inspector. openFunctionGraphTab reuses a single Editor Area tab (DataEditorTarget.FunctionGraph added to dataEditor.ts) so no duplicate tabs."
-          - "Tests: test/node/functionGraph.test.ts (2 tests: Graph projection / Edge insert-delete / rejected Edges / Node-Edge selection resolved by the Inspector / tab reuse on real @vscode/sqlite3 via openProjectDirectory + Resolver; cycle rejection). It lives under the repository's standard node test glob (test/unit/node/index.js TEST_GLOB '**/test/**/*.test.js')."
-          - "Verification (confirmed on PR #59 head c8aabd48, implementation commit 8b672948): all required GitHub Actions jobs completed with conclusion success: Compile & Hygiene, Linux / Electron-Unit, Linux / Electron, Linux / Electron-Smoke, Linux / Browser, Linux / Remote, Monaco Editor checks, Playwright Fixture Tests, Screenshots, Screenshots & Tests, CodeQL, Analyze (javascript-typescript), Analyze (rust). Additionally a local esbuild-bundled mocha run of all primitiveAppEditor tests passed (232 passing, 0 failing)."
-          - "Required integration fixes to earlier producer bundles: none beyond adding the FunctionGraph enum member to editor.data-ui's DataEditorTarget for Editor Area tab reuse; binding.function, binding.dependency, binding.merge, editor.registry-ui and resolver.dynamic worked unchanged."
+        status: "not started"
+        evidence: []
         remaining: []
 
       - id: "editor.inspector"
