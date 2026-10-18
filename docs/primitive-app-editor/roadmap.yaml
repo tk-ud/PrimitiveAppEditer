@@ -123,7 +123,7 @@ section:
           - source: "../../README.md"
             role: "implementation"
             sections:
-              - "Status"
+              - "Progress Management"
         depends_on:
           - "repository.ci-baseline"
         status: "not started"
