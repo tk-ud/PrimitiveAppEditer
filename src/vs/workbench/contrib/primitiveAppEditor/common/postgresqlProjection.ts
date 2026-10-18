@@ -144,6 +144,22 @@ function qualifiedName(table: Pick<IPostgresqlTable, 'schema' | 'name'>): string
 }
 
 /**
+ * Constraint / index names are relation names shared by one PostgreSQL schema, so they derive from the
+ * Machine Identity (never from table / column names, whose `_` makes concatenations ambiguous):
+ * `pk_<table uuid>` and `idx_<table uuid>_<first 26 hex digits of the column uuid>`, at most 63 bytes
+ * and identical for identical Registry input. `generatePostgresqlDdl` still rejects any residual clash.
+ */
+const hexOf = (uuid: string) => normalizeRegistryUuid(uuid).replace(/-/g, '');
+
+function primaryKeyName(table: Pick<IPostgresqlTable, 'registryUuid'>): string {
+	return `pk_${hexOf(table.registryUuid)}`;
+}
+
+function indexName(table: Pick<IPostgresqlTable, 'registryUuid'>, column: Pick<IPostgresqlColumn, 'registryUuid'>): string {
+	return `idx_${hexOf(table.registryUuid)}_${hexOf(column.registryUuid!).slice(0, 26)}`;
+}
+
+/**
  * DDL Generate: `Required Runtime Schema` (`CREATE SCHEMA`), `CREATE TABLE`, `ALTER / Constraint`
  * (row identity primary key) and `Index` (searchable columns). No physical foreign key, trigger or
  * enum type: Relation and Enum stay Registry-level Logical references.
@@ -157,15 +173,27 @@ export function generatePostgresqlDdl(schema: IPostgresqlSchema): string {
 		const columns = table.columns.map(column => `\t${quoteIdentifier(column.name)} ${column.type}${column.notNull ? ' NOT NULL' : ''}`);
 		statements.push(`CREATE TABLE ${qualifiedName(table)} (\n${columns.join(',\n')}\n);`);
 	}
+	const relations = new Map<string, string>();
+	const claim = (table: Pick<IPostgresqlTable, 'schema'>, relation: string, owner: string) => {
+		const key = `${table.schema}.${relation}`;
+		const other = relations.get(key);
+		if (other !== undefined) {
+			throw new PostgresqlProjectionError(PostgresqlProjectionStage.TableColumnResolve, `${owner} and ${other} resolve to the same PostgreSQL relation '${key}'`);
+		}
+		relations.set(key, owner);
+	};
 	for (const table of schema.tables) {
-		const constraint = `pk_${table.schema}_${table.name}`;
-		checkIdentifier(PostgresqlProjectionStage.TableColumnResolve, constraint, 'constraint');
+		claim(table, table.name, `table '${table.name}'`);
+	}
+	for (const table of schema.tables) {
+		const constraint = primaryKeyName(table);
+		claim(table, constraint, `primary key of table '${table.name}'`);
 		statements.push(`ALTER TABLE ${qualifiedName(table)} ADD CONSTRAINT ${quoteIdentifier(constraint)} PRIMARY KEY (${quoteIdentifier(ROW_IDENTITY)});`);
 	}
 	for (const table of schema.tables) {
 		for (const column of table.columns.filter(column => column.searchable)) {
-			const index = `idx_${table.schema}_${table.name}_${column.name}`;
-			checkIdentifier(PostgresqlProjectionStage.TableColumnResolve, index, 'index');
+			const index = indexName(table, column);
+			claim(table, index, `index of column '${table.name}.${column.name}'`);
 			statements.push(`CREATE INDEX ${quoteIdentifier(index)} ON ${qualifiedName(table)} (${quoteIdentifier(column.name)});`);
 		}
 	}

@@ -111,8 +111,8 @@ suite('Primitive App Editor - PostgreSQL schema and seed projection', () => {
 	"extra" JSONB
 );`));
 		assert.ok(ddl.includes('CREATE TABLE "logs"."event" ('));
-		assert.ok(ddl.includes('ALTER TABLE "items"."player" ADD CONSTRAINT "pk_items_player" PRIMARY KEY ("uuid");'));
-		assert.ok(ddl.includes('CREATE INDEX "idx_items_player_label" ON "items"."player" ("label");'));
+		assert.ok(ddl.includes(`ALTER TABLE "items"."player" ADD CONSTRAINT "pk_${PLAYER.replace(/-/g, '')}" PRIMARY KEY ("uuid");`));
+		assert.ok(ddl.includes(`CREATE INDEX "idx_${PLAYER.replace(/-/g, '')}_${col(1).replace(/-/g, '').slice(0, 26)}" ON "items"."player" ("label");`));
 		assert.ok(!/FOREIGN KEY|REFERENCES|TRIGGER|CREATE TYPE/i.test(ddl));
 		assert.strictEqual(generatePostgresqlDdl(projectPostgresqlSchema(tables())), ddl);
 	});
@@ -122,8 +122,23 @@ suite('Primitive App Editor - PostgreSQL schema and seed projection', () => {
 		rejects(() => projectPostgresqlSchema([reserved]), PostgresqlProjectionStage.RegistryResolve, /row identity column/);
 		const long = createTableRegistryEntry({ uuid: PLAYER, index: 0, schema: LogicalNamespace.Items, name: 'a'.repeat(64), columns: [], created_at: NOW });
 		rejects(() => projectPostgresqlSchema([long]), PostgresqlProjectionStage.TableColumnResolve, /exceeds 63 bytes/);
-		const index = createTableRegistryEntry({ uuid: PLAYER, index: 0, schema: LogicalNamespace.Items, name: 'a'.repeat(30), columns: [column(1, 'b'.repeat(30), TableColumnKind.Text, { searchable: true })], created_at: NOW });
-		rejects(() => generatePostgresqlDdl(projectPostgresqlSchema([index])), PostgresqlProjectionStage.TableColumnResolve, /index .* exceeds/);
+	});
+
+	test('DDL: constraint / index names are Machine Identity based, so `a_b.c` and `a.b_c` do not clash (Issue #76)', () => {
+		const a = createTableRegistryEntry({ uuid: PLAYER, index: 0, schema: LogicalNamespace.Items, name: 'a_b', columns: [column(1, 'c', TableColumnKind.Text, { searchable: true })], created_at: NOW });
+		const b = createTableRegistryEntry({ uuid: LOG, index: 1, schema: LogicalNamespace.Items, name: 'a', columns: [column(2, 'b_c', TableColumnKind.Text, { searchable: true })], created_at: NOW });
+		const long = createTableRegistryEntry({ uuid: OWNER, index: 2, schema: LogicalNamespace.Items, name: 'a'.repeat(60), columns: [column(3, 'b'.repeat(60), TableColumnKind.Text, { searchable: true })], created_at: NOW });
+		const ddl = generatePostgresqlDdl(projectPostgresqlSchema([a, b, long]));
+		const names = [...ddl.matchAll(/(?:CONSTRAINT|INDEX) "([^"]+)"/g)].map(match => match[1]);
+		assert.strictEqual(names.length, 6);
+		assert.strictEqual(new Set(names).size, 6);
+		assert.ok(names.every(name => new TextEncoder().encode(name).length <= 63));
+		assert.strictEqual(generatePostgresqlDdl(projectPostgresqlSchema([b, long, a])), ddl);
+	});
+
+	test('DDL: a generated relation name clashing with a table in the same schema is rejected', () => {
+		const clash = createTableRegistryEntry({ uuid: PLAYER, index: 0, schema: LogicalNamespace.Items, name: `pk_${PLAYER.replace(/-/g, '')}`, columns: [], created_at: NOW });
+		rejects(() => generatePostgresqlDdl(projectPostgresqlSchema([clash])), PostgresqlProjectionStage.TableColumnResolve, /same PostgreSQL relation/);
 	});
 
 	test('Seed: only the Build Target Filter selection becomes DML; values are resolved per kind and rows ordered by identity', () => {
