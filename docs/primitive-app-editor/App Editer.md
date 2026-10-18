@@ -1151,6 +1151,13 @@ cycle detected
   -> Load / Build reject
 ```
 
+```text
+function_output input without saved function_dependency
+  -> Load / Build reject
+```
+
+未保存Dependencyは編集中の不完全な状態であり、Function出力の利用・実行は禁止する。Dependencyの保存成功後にのみ接続は有効となる。
+
 ### Order
 
 ```text

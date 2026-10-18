@@ -304,6 +304,21 @@ Graph Edge Delete
 
 Edgeの方向はExecution Dependencyを表す。
 
+未保存Dependency(`function_output`入力に対応する`function_dependency`が未保存)は編集中状態として扱う。
+
+```text
+Unsaved Dependency
+  -> 接続候補として表示してよい
+  -> 有効なEdgeとして表示しない
+  -> Graphは実行可能状態にならない
+  -> Load / Buildは拒否する
+
+Dependency保存成功
+  -> 接続が有効化される
+```
+
+Graph Validateは編集中状態の構造診断(cycle / dangling Edge)を担い、実行可能状態の判定はLoad / Buildと同一のValidateで行う。
+
 Graph上の描画状態をRuntime Authorityとして使用しない。
 
 ---
