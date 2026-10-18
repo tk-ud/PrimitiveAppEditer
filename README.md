@@ -281,18 +281,3 @@ repository:
     authority: Primitive App Editor
     implementation: roadmap driven
 ```
-
-## Status
-
-現在の開発段階。
-
-```yaml
-status:
-  architecture: Defined
-  concrete_specifications: Defined
-  roadmap: Defined
-  agent_loop: Defined
-  agent_tool: Pending
-  code_oss_baseline: Verified
-  implementation: Pending
-```
