@@ -3,6 +3,7 @@
  *  Specification SSOT: docs/primitive-app-editor/App Editer.md (31. Build Configuration, Build Target Filter, Build Validation)
  *--------------------------------------------------------------------------------------------*/
 
+import { hasKey } from '../../../../base/common/types.js';
 import { IAsset, validateAssetRegistry } from './assetRegistry.js';
 import { IFunctionBindingEntry, validateFunctionBindingAgainstRegistry, validateFunctionBindings } from './functionBinding.js';
 import { buildFunctionExecutionPlan, IFunctionDependencyEntry, validateFunctionDependencies } from './functionDependency.js';
@@ -366,7 +367,7 @@ function* bindingAddresses(authoring: IBuildAuthoringData): Iterable<{ readonly 
 	}
 	for (const binding of authoring.rendererBindings) {
 		for (const [name, value] of Object.entries(binding.bindings)) {
-			if ('address' in value) {
+			if (hasKey(value, { address: true })) {
 				yield { where: `renderer binding '${binding.uuid}' bindings '${name}'`, ...value.address };
 			}
 		}
@@ -496,7 +497,7 @@ export function validateBuild(authoring: IBuildAuthoringData, input: unknown): {
 		const included = new Set(view.assets.map(asset => normalizeRegistryUuid(asset.uuid)));
 		for (const binding of authoring.rendererBindings) {
 			for (const [name, value] of Object.entries(binding.bindings)) {
-				if (!('asset_uuid' in value)) {
+				if (!hasKey(value, { asset_uuid: true })) {
 					continue;
 				}
 				const uuid = normalizeRegistryUuid(value.asset_uuid);
