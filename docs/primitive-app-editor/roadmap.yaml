@@ -1392,8 +1392,11 @@ section:
           - "build.application-output"
           - "registry.physical-expansion"
           - "data.raw"
-        status: "not started"
-        evidence: []
+        status: "implemented"
+        evidence:
+          - "Commit 3fc4bd21: common/postgresqlProjection.ts — Registry Resolve -> Logical Namespace Resolve -> Table/Column Resolve (63-byte identifier check) -> Kind Dispatch -> DDL 001_init_postgresql.sql (CREATE SCHEMA, CREATE TABLE, ALTER ADD CONSTRAINT PK, CREATE INDEX for searchable; no FK/trigger/enum type). Physical Schema is a projection, never reverse-generated."
+          - "Seed 002_seed_data.sql: DML only from Build Target Filter selected Raw Data; per-kind Value Resolve, rejects unknown table/column, kind/not_null violations, duplicate/invalid row uuid, NUL; rows ordered by uuid; registered as Application Output Projection for 'PostgreSQL Web Application Output'."
+          - "Issue #76 fix (commit 86a6f0fe): PK constraint and index names derive from Machine Identity (pk_<table uuid hex>, idx_<table uuid hex>_<26 hex of column uuid>), <=63 bytes, deterministic, no name concatenation ambiguity; generatePostgresqlDdl additionally rejects any residual relation-name clash (tables, PKs, indexes) per schema. Tests: a_b.c vs a.b_c distinct, determinism under input order, 63-byte limit, table-name clash rejection; existing DDL/Seed behavior unchanged. postgresqlProjection.test.ts + applicationOutput.test.ts -> 13 passing (esbuild + mocha tdd)."
         remaining: []
 
       - id: "build.web-program"
