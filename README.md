@@ -172,6 +172,23 @@ progress:
     - 重複する進捗表示は削除する
 ```
 
+## Operational Hooks
+
+開発Agentの運用を補助する`.claude/hooks/`のフック。Code OSS本体・roadmap.yaml・Toolは変更しない。
+
+```yaml
+operational_hooks:
+  require_pr_subscription:
+    file: .claude/hooks/require-pr-subscription.py
+    purpose: PR作成後にsubscribe_pr_activityを呼ばずに終了しない
+    rule:
+      - 対応するtool_resultが成功したcreate_pull_requestのみpending扱いにする
+      - 失敗したcreate_pull_requestはpending扱いにしない
+      - stdinのJSON解析に失敗した場合は何も出力せず正常終了する(フェイルオープン)
+    verification:
+      - 合成トランスクリプトで成功/失敗/購読済み/不正入力の各ケースの出力を確認し、結果をevidenceに記録する
+```
+
 ## Specification Model
 
 実装Agentへ供給するSpecificationのscope分類。

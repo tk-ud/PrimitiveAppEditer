@@ -133,6 +133,19 @@ section:
           - "Docs-only change; no integration fix required for earlier producer bundles"
         remaining: []
 
+      - id: "repository.stop-hook-robustness"
+        title: "Harden require-pr-subscription Stop hook (failed create_pull_request, malformed stdin, Issue #70)"
+        reference:
+          - source: "../../README.md"
+            role: "implementation"
+            sections:
+              - "Operational Hooks"
+        depends_on:
+          - "repository.readme-status-removal"
+        status: "not started"
+        evidence: []
+        remaining: []
+
   - name: "GUI Debug Tooling"
     bundle:
       - id: "tooling.gui-debugger"
