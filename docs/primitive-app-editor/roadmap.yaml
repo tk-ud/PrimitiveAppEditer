@@ -1423,6 +1423,24 @@ section:
           - "Required integration fix: none; producers build.postgresql (projectPostgresqlSchema reused, DDL/API identifiers asserted equal) and build.application-output consumed unchanged."
         remaining: []
 
+      - id: "build.web-program-input-validation"
+        title: "Generated API Insert/Update request validation (400 ProblemDetails instead of 500, Issue #79)"
+        reference:
+          - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "§31 Web Application Program"
+              - "§31 Request Validation"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
+              - "§39 App Editor API / Application Language Boundary"
+        depends_on:
+          - "build.web-program"
+        status: "not started"
+        evidence: []
+        remaining: []
+
       - id: "build.deploy"
         title: "Deployable application artifact layout and Build / Export Configuration surface"
         reference:
@@ -1452,6 +1470,7 @@ section:
               - "§15 UI Responsibility Boundary"
         depends_on:
           - "build.web-program"
+          - "build.web-program-input-validation"
           - "workbench.views"
         status: "not started"
         evidence: []
