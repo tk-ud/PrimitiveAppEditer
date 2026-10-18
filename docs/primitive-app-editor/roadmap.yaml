@@ -1415,8 +1415,12 @@ section:
           - "function.dispatcher"
           - "renderer.registry"
           - "resolver.operation"
-        status: "not started"
-        evidence: []
+        status: "implemented"
+        evidence:
+          - "common/webProgramProjection.ts: Application Output -> Web Program Projection for build_target 'PostgreSQL Web Application Output' (projectWebProgramApplicationOutput). Emits application.definition.json (Registry tables via projectPostgresqlSchema, relations, function/renderer registry, function/dependency/renderer bindings; no Seed Raw Data), api/ (ASP.NET Core: Program.cs HTTP Request -> Query/CRUD via TableRuntime (Npgsql, parameters only, identifiers quoted from the Definition) | Function Runtime via IApplicationFunction executor resolution -> PostgreSQL) and ui/ (Next.js: lib/api.ts, lib/renderers.tsx renderer registry with generic fallback, app/page.tsx Result -> Renderer). Output sorted by path, deterministic, Authoring Data untouched."
+          - "Boundary (§39): Application-specific Function semantics left to Application C# (IApplicationFunction); no dedicated Resolver/Primitive added to App Editor; generated code has no dependency on Editor internals or a Node transport."
+          - "Verification: esbuild + mocha tdd on webProgramProjection.test.ts (7), postgresqlProjection.test.ts and applicationOutput.test.ts -> 20 passing. Generated api/ project compiled with dotnet 8.0.131 (dotnet build: Build succeeded, 0 warnings; application.definition.json copied to output). Next.js UI not built (no npm install of next in this environment)."
+          - "Required integration fix: none; producers build.postgresql (projectPostgresqlSchema reused, DDL/API identifiers asserted equal) and build.application-output consumed unchanged."
         remaining: []
 
       - id: "build.deploy"
