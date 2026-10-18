@@ -79,6 +79,18 @@ function configuration(overrides: Record<string, unknown> = {}): Record<string, 
 	};
 }
 
+function rejects(run: () => unknown, message: RegExp): void {
+	let thrown: unknown;
+	try {
+		run();
+	} catch (error) {
+		thrown = error;
+	}
+	assert.ok(thrown instanceof BuildValidationError, `expected a BuildValidationError, got ${String(thrown)}`);
+	assert.strictEqual(thrown.stage, BuildValidationStage.BuildConfiguration);
+	assert.match(thrown.message, message);
+}
+
 suite('Primitive App Editor - Generic Application Output projection', () => {
 	ensureNoDisposablesAreLeakedInTestSuite();
 
@@ -123,10 +135,10 @@ suite('Primitive App Editor - Generic Application Output projection', () => {
 
 	test('projectApplicationOutput rejects an invalid Build and a build_target without a Projection', () => {
 		const projections = new Map<string, (o: unknown) => string>();
-		assert.throws(() => projectApplicationOutput(authoring(), configuration(), projections), (e: unknown) => e instanceof BuildValidationError && e.stage === BuildValidationStage.BuildConfiguration && /no Application Output Projection/.test(e.message));
+		rejects(() => projectApplicationOutput(authoring(), configuration(), projections), /no Application Output Projection/);
 		let called = false;
 		const registered = new Map([[POSTGRESQL_WEB_APPLICATION_OUTPUT, () => { called = true; return ''; }]]);
-		assert.throws(() => projectApplicationOutput(authoring(), configuration({ output_path: 'dist' }), registered), (e: unknown) => e instanceof BuildValidationError && e.stage === BuildValidationStage.BuildConfiguration);
+		rejects(() => projectApplicationOutput(authoring(), configuration({ output_path: 'dist' }), registered), /output_path/);
 		assert.strictEqual(called, false);
 	});
 });
