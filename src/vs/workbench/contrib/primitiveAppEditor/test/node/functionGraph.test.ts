@@ -132,6 +132,10 @@ suite('Primitive App Editor - Function Graph on project.sqlite', () => {
 		assert.deepStrictEqual(loaded.edges, []);
 		assert.deepStrictEqual(loaded.pendingEdges, [{ source: A, target: B, input: 'x' }]);
 		assert.deepStrictEqual(loaded.diagnostics, []);
+		// Unsaved Dependency = editing state: not executable in the Graph, and Load / Build rejects the same input
+		assert.strictEqual(loaded.executable, false);
+		assert.strictEqual(loaded.order, undefined);
+		await assert.rejects(loadFunctionExecutionPlan(storage.database), /input 'x' is 'function_output' without a function_dependency/);
 
 		// Edge Add = INSERT function_dependency; graph reloaded from the DB
 		const edge = await graph.addEdge(A, B, 'x', E1);
@@ -139,6 +143,8 @@ suite('Primitive App Editor - Function Graph on project.sqlite', () => {
 		assert.deepStrictEqual((await readFunctionDependencies(storage.database)).map(entry => entry.uuid), [E1]);
 		assert.deepStrictEqual(graph.graph.edges.map(candidate => [candidate.source, candidate.target, candidate.input, candidate.label]), [[A, B, 'x', 'Identity → Identity.x']]);
 		assert.deepStrictEqual(graph.graph.pendingEdges, []);
+		// Saved Dependency = executable state: Graph and Load / Build agree
+		assert.strictEqual(graph.graph.executable, true);
 		assert.deepStrictEqual(graph.graph.order, [D, A, B]);
 		assert.deepStrictEqual((await loadFunctionExecutionPlan(storage.database)).map(step => step.binding.uuid), graph.graph.order);
 
@@ -179,6 +185,8 @@ suite('Primitive App Editor - Function Graph on project.sqlite', () => {
 		assert.strictEqual(graph.selectedEdgeUuid, undefined);
 		assert.strictEqual((await readFunctionBindings(storage.database)).length, 3);
 		assert.deepStrictEqual(graph.graph.pendingEdges, [{ source: A, target: B, input: 'x' }]);
+		assert.strictEqual(graph.graph.executable, false);
+		await assert.rejects(loadFunctionExecutionPlan(storage.database), /without a function_dependency/);
 		await assert.rejects(graph.removeEdge(E1), /not in the loaded/);
 	});
 

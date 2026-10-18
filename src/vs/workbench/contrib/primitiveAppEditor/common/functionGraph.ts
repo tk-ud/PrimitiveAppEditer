@@ -35,7 +35,9 @@ import { ITableRegistryEntry } from './tableRegistry.js';
  * Binding INSERT / DELETE (Inspector) and Binding detail UPDATE (Registry-driven Component, including
  * making an input `function_output`) are deliberately not offered here. An Edge can only persist what
  * the target binding's input already declares; the Graph reports the declared-but-unpersisted inputs
- * as {@link IFunctionGraph.pendingEdges}.
+ * as {@link IFunctionGraph.pendingEdges}. A pending Edge is an editing state: it may be shown as a
+ * connection candidate, never as a valid Edge, and the Graph is not `executable` (Load / Build rejects
+ * it) until the Dependency is saved.
  */
 
 export class FunctionGraphError extends Error {
@@ -106,9 +108,14 @@ export interface IFunctionGraph {
 	readonly nodes: readonly IFunctionGraphNode[];
 	readonly edges: readonly IFunctionGraphEdge[];
 	readonly pendingEdges: readonly IFunctionGraphPendingEdge[];
-	/** Derived Execution order (dependency first, then index) for display only; `undefined` with `diagnostics` when invalid. */
+	/**
+	 * Execution-ready state, decided by the same strict Validate as Load / Build. `false` while any
+	 * input is still a {@link pendingEdges} (editing state) or while `diagnostics` is not empty.
+	 */
+	readonly executable: boolean;
+	/** Derived Execution order (dependency first, then index) for display only; `undefined` unless `executable`. */
 	readonly order?: readonly string[];
-	/** Validate failures (cycle, dangling Edge, ...) from the same builder Load / Build uses. */
+	/** Editing-state Validate failures (cycle, dangling Edge, ...); pending Edges are not diagnostics but block `executable`. */
 	readonly diagnostics: readonly string[];
 }
 
@@ -175,17 +182,27 @@ export function buildFunctionGraph(context: IFunctionGraphContext): IFunctionGra
 		}
 	}
 
-	let order: readonly string[] | undefined;
+	// Editing state: a pending Edge is an incomplete connection, not a failure. Only structural
+	// failures (cycle, dangling / inconsistent Edge) are diagnostics here.
 	const diagnostics: string[] = [];
 	try {
-		order = Object.freeze(buildFunctionExecutionPlan(context.bindings, context.dependencies, { allowUndeclared: true }).map(step => step.binding.uuid));
+		buildFunctionExecutionPlan(context.bindings, context.dependencies, { allowUndeclared: true });
 	} catch (error) {
 		diagnostics.push(error instanceof Error ? error.message : String(error));
+	}
+	// Executable state: the strict Validate Load / Build runs. A pending Edge makes it not executable,
+	// so its Function output is never offered as used or executed before the Dependency is saved.
+	let order: readonly string[] | undefined;
+	try {
+		order = Object.freeze(buildFunctionExecutionPlan(context.bindings, context.dependencies).map(step => step.binding.uuid));
+	} catch {
+		order = undefined;
 	}
 	return Object.freeze({
 		nodes: Object.freeze(nodes),
 		edges: Object.freeze(edges),
 		pendingEdges: Object.freeze(pendingEdges),
+		executable: order !== undefined,
 		...(order ? { order } : {}),
 		diagnostics: Object.freeze(diagnostics),
 	});
