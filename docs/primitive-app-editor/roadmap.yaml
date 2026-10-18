@@ -94,7 +94,6 @@ section:
               - "Repository / Upstream"
               - "Development Model"
               - "Implementation Flow"
-              - "Status"
         depends_on:
           - "tooling.roadmap-agent"
         status: "implemented"
