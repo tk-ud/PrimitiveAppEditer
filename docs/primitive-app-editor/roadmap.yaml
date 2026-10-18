@@ -1366,8 +1366,12 @@ section:
         depends_on:
           - "build.validation"
           - "renderer.runtime"
-        status: "not started"
-        evidence: []
+        status: "implemented"
+        evidence:
+          - "Implementation commit 0e47c868: src/vs/workbench/contrib/primitiveAppEditor/common/applicationOutput.ts. createApplicationOutput projects the Selected Authoring View (from build.validation's applyBuildTargetFilter) into a target-independent Application Output: Application Definition (schema: tables/relations/functions/renderers whole; data.seed: filtered Raw Data; binding: function bindings/dependencies/renderer bindings whole) and Application Program (functions/scripts/config paths sorted, include.assets). The Output is derived only from the Selected Authoring View, so the Editor is excluded; pure, deterministic, Authoring Data untouched."
+          - "projectApplicationOutput: validateBuild -> Build Target Filter -> createApplicationOutput -> the build_target's ApplicationOutputProjection (serialization/layout left to the Build implementation of each target, per SSOT). A build_target without a Projection, or any Build Validation failure, rejects with BuildValidationError before any Projection runs."
+          - "Tests: test/common/applicationOutput.test.ts, 5 tests (Definition/Program split, determinism and no Authoring Data mutation, seed_data.include=false and unselected content, Projection invocation, rejects). Verification: esbuild bundle + mocha --ui=tdd with buildValidation.test.ts -> 18 passing, 0 failing; tsc --strict --noEmit reports no errors in the new files."
+          - "Required integration fix: none; build.validation (validateBuild / applyBuildTargetFilter / ISelectedAuthoringView) was consumed unchanged."
         remaining: []
 
       - id: "build.postgresql"
