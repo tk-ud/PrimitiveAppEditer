@@ -1392,8 +1392,11 @@ section:
           - "build.application-output"
           - "registry.physical-expansion"
           - "data.raw"
-        status: "not started"
-        evidence: []
+        status: "implemented"
+        evidence:
+          - "Commit 3fc4bd21: common/postgresqlProjection.ts — Registry Resolve (reuses expandRegistryPhysicalSchema) -> Logical Namespace Resolve (items|logs -> PostgreSQL schema) -> Table/Column Resolve (63-byte identifier check) -> Kind Dispatch (uuid UUID, text/enum TEXT, int BIGINT, double DOUBLE PRECISION, bool BOOLEAN, date DATE, timestamp TIMESTAMPTZ, json JSONB) -> DDL 001_init_postgresql.sql (CREATE SCHEMA, CREATE TABLE, ALTER ADD CONSTRAINT PK, CREATE INDEX for searchable; no FK/trigger/enum type). Physical Schema is a projection, never reverse-generated."
+          - "Seed 002_seed_data.sql: DML generated only from Build Target Filter selected Raw Data (seed_data.include && tables && !exclude_rows); per-kind Value Resolve with isTableColumnValue, rejects unknown table/column, kind/not_null violations, duplicate/invalid row uuid, NUL; rows ordered by uuid; no seed file when nothing selected. Registered as Application Output Projection for build_target 'PostgreSQL Web Application Output' (projectPostgresqlApplicationOutput via projectApplicationOutput)."
+          - "Tests: test/common/postgresqlProjection.test.ts (6 tests) + applicationOutput.test.ts -> 11 passing (esbuild + mocha tdd); strict tsc reports no errors in new files. Required integration fix: none to earlier producers (build.application-output, build.validation, registry.physical-expansion consumed unchanged)."
         remaining: []
 
       - id: "build.web-program"
