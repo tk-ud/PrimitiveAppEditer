@@ -142,8 +142,11 @@ section:
               - "Operational Hooks"
         depends_on:
           - "repository.readme-status-removal"
-        status: "not started"
-        evidence: []
+        status: "implemented"
+        evidence:
+          - "Modified .claude/hooks/require-pr-subscription.py: create_pull_request becomes pending only when its matching tool_result (by tool_use_id) is not an error; failed results (is_error or Error/Failed text) are ignored; stdin JSON parse failure exits 0 with no output (fail-open)."
+          - "Synthetic transcript verification via python3 hook: success -> block JSON output; failed (is_error) -> no output rc=0; failed (Error text) -> no output rc=0; subscribed -> no output rc=0; malformed stdin 'not json' -> no output rc=0; empty stdin -> no output rc=0."
+          - "No required integration fix to an earlier producer bundle."
         remaining: []
 
   - name: "GUI Debug Tooling"
