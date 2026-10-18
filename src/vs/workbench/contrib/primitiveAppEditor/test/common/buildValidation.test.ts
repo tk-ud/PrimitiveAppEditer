@@ -84,12 +84,15 @@ function configuration(overrides: Record<string, unknown> = {}): Record<string, 
 }
 
 function rejects(stage: BuildValidationStage, run: () => unknown, message: RegExp): void {
-	assert.throws(run, (error: unknown) => {
-		assert.ok(error instanceof BuildValidationError, String(error));
-		assert.strictEqual(error.stage, stage);
-		assert.match(error.message, message);
-		return true;
-	});
+	let thrown: unknown;
+	try {
+		run();
+	} catch (error) {
+		thrown = error;
+	}
+	assert.ok(thrown instanceof BuildValidationError, `expected a BuildValidationError, got ${String(thrown)}`);
+	assert.strictEqual(thrown.stage, stage);
+	assert.match(thrown.message, message);
 }
 
 suite('Primitive App Editor - Build Configuration / Target Filter / Validation', () => {
