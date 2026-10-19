@@ -1597,8 +1597,15 @@ section:
         depends_on:
           - "foundation.sqlite"
           - "foundation.project-directory"
-        status: "not started"
-        evidence: []
+        status: "implemented"
+        evidence:
+          - "common/projectSqliteBridge.ts: bridge contract (channel 'primitiveAppEditorProjectSqlite', commands) and renderer-side ProjectSqliteBridgeDatabaseFactory / database implementing IProjectSqliteDatabaseFactory / IProjectSqliteDatabase over an IChannel; only JSON-safe handle/SQL/params cross the bridge; transactions and statements outside a transaction are serialized client-side."
+          - "node/projectSqliteBridgeChannel.ts: IServerChannel hosting the Node-side ProjectSqliteDatabaseFactory (handle table; renderer transaction maps to one adapter transaction; close finishes a running transaction by rollback; dispose closes all handles). No change to project.sqlite Authority / Schema / SQL contract."
+          - "code/electron-utility/sharedProcess/sharedProcessMain.ts: registers the bridge channel in the shared process; eslint.config.js: code-import-patterns allow for the two bridge modules."
+          - "electron-browser/projectSqliteBridge.contribution.ts + workbench.desktop.main.ts: desktop renderer registers IProjectSqliteDatabaseFactoryService backed by ISharedProcessService channel, registered after the common Unavailable default so it wins; Workbenches without the bridge (web) keep Project: Failed."
+          - "Tests: test/node/projectSqliteBridge.test.ts (Create/Open round trip on a real project.sqlite through the channel with JSON-serialized args/results, adapter errors, transaction commit/rollback, outside statements wait for a transaction, close waits for a running transaction)."
+          - "Verification (node 24): all primitiveAppEditor node tests 297 passing; eslint --max-warnings 0 clean on primitiveAppEditor, sharedProcessMain.ts, workbench.desktop.main.ts, eslint.config.js; layersChecker clean; tsc shows no errors in changed files (remaining sharedProcessMain parentPort/Electron errors are pre-existing: electron not installed in this environment). Real Electron launch (Project: Ready in desktop Workbench) was not run in this environment."
+          - "Required integration fixes: none needed in earlier producer bundles."
         remaining: []
 
       - id: "workbench.views"
