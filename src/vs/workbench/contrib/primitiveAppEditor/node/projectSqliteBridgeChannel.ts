@@ -76,7 +76,8 @@ export class ProjectSqliteBridgeChannel implements IServerChannel, IDisposable {
 			throw new ProjectSqliteError('project.sqlite transaction is already running', database.resource);
 		}
 		let resolveStatements!: (statements: IProjectSqliteStatements) => void;
-		const statements = new Promise<IProjectSqliteStatements>(resolve => resolveStatements = resolve);
+		let rejectStatements!: (error: unknown) => void;
+		const statements = new Promise<IProjectSqliteStatements>((resolve, reject) => { resolveStatements = resolve; rejectStatements = reject; });
 		let release!: (commit: boolean) => void;
 		const finished = new Promise<boolean>(resolve => release = resolve);
 		const done = database.transaction(async inner => {
@@ -89,8 +90,16 @@ export class ProjectSqliteBridgeChannel implements IServerChannel, IDisposable {
 				throw error;
 			}
 		});
+		// `BEGIN` failing rejects `done` without ever calling the work: surface it to `begin` instead of hanging.
+		// After `begin` resolved this is a no-op; `end` still observes `done` itself (commit failure).
+		done.catch(error => rejectStatements(error));
 		this.transactions.set(handle, { statements, finish: async commit => { release(commit); await done; } });
-		await statements;
+		try {
+			await statements;
+		} catch (error) {
+			this.transactions.delete(handle);
+			throw error;
+		}
 	}
 
 	private async end(handle: number, commit: boolean): Promise<void> {

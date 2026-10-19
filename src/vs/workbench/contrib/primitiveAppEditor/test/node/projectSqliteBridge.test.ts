@@ -12,9 +12,19 @@ import { URI } from '../../../../../base/common/uri.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
 import { IChannel } from '../../../../../base/parts/ipc/common/ipc.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
-import { ProjectSqliteOpenMode } from '../../common/projectSqlite.js';
+import { IProjectSqliteDatabase, IProjectSqliteDatabaseFactory, ProjectSqliteOpenMode } from '../../common/projectSqlite.js';
 import { ProjectSqliteBridgeDatabaseFactory } from '../../common/projectSqliteBridge.js';
 import { ProjectSqliteBridgeChannel } from '../../node/projectSqliteBridgeChannel.js';
+import { ProjectSqliteDatabaseFactory } from '../../node/projectSqliteDatabase.js';
+
+/** Serializes arguments like the IPC does, so only JSON-safe values cross the bridge. */
+function bridgeFactory(server: ProjectSqliteBridgeChannel): ProjectSqliteBridgeDatabaseFactory {
+	const channel: IChannel = {
+		call: <T>(command: string, arg?: unknown) => server.call<T>('window', command, arg === undefined ? undefined : JSON.parse(JSON.stringify(arg))).then(result => result === undefined ? result : JSON.parse(JSON.stringify(result))),
+		listen: <T>() => Event.None as Event<T>,
+	};
+	return new ProjectSqliteBridgeDatabaseFactory(channel);
+}
 
 suite('Primitive App Editor - project.sqlite bridge', () => {
 	ensureNoDisposablesAreLeakedInTestSuite();
@@ -29,12 +39,7 @@ suite('Primitive App Editor - project.sqlite bridge', () => {
 		await fs.mkdir(tempRoot, { recursive: true });
 		resource = URI.file(join(tempRoot, 'project.sqlite'));
 		server = new ProjectSqliteBridgeChannel();
-		// Serialize arguments like the IPC does, so only JSON-safe values cross the bridge.
-		const channel: IChannel = {
-			call: <T>(command: string, arg?: unknown) => server.call<T>('window', command, arg === undefined ? undefined : JSON.parse(JSON.stringify(arg))).then(result => result === undefined ? result : JSON.parse(JSON.stringify(result))),
-			listen: <T>() => Event.None as Event<T>,
-		};
-		factory = new ProjectSqliteBridgeDatabaseFactory(channel);
+		factory = bridgeFactory(server);
 	});
 
 	teardown(async () => {
@@ -115,5 +120,45 @@ suite('Primitive App Editor - project.sqlite bridge', () => {
 		const reopened = await factory.open(resource, ProjectSqliteOpenMode.Open);
 		assert.deepStrictEqual(await reopened.all('SELECT id FROM t'), [{ id: 'x' }]);
 		await reopened.close();
+	});
+
+	test('a failing BEGIN rejects the transaction and leaves the handle usable', async () => {
+		let failBegin = true;
+		const real = new ProjectSqliteDatabaseFactory();
+		const failing: IProjectSqliteDatabaseFactory = {
+			async open(resource, mode) {
+				const database = await real.open(resource, mode);
+				return new Proxy(database, {
+					get(target, property) {
+						if (property === 'transaction') {
+							return (work: Parameters<IProjectSqliteDatabase['transaction']>[0]) => {
+								if (failBegin) {
+									failBegin = false;
+									return Promise.reject(new Error('database is locked'));
+								}
+								return target.transaction(work);
+							};
+						}
+						const value = Reflect.get(target, property);
+						return typeof value === 'function' ? value.bind(target) : value;
+					},
+				});
+			},
+		};
+		const failingServer = new ProjectSqliteBridgeChannel(failing);
+		try {
+			const database = await bridgeFactory(failingServer).open(resource, ProjectSqliteOpenMode.Create);
+			await database.exec('CREATE TABLE t (id TEXT PRIMARY KEY)');
+
+			await assert.rejects(() => database.transaction(async () => assert.fail('work must not run')), /database is locked/);
+
+			// The handle is not stuck in a transaction: statements, a new transaction and close all complete.
+			assert.deepStrictEqual(await database.all('SELECT id FROM t'), []);
+			await database.transaction(async statements => { await statements.run('INSERT INTO t (id) VALUES (?)', ['after']); });
+			assert.deepStrictEqual(await database.all('SELECT id FROM t'), [{ id: 'after' }]);
+			await database.close();
+		} finally {
+			failingServer.dispose();
+		}
 	});
 });
