@@ -1946,6 +1946,8 @@ export default defineConfig(
 						'vs/editor/~',
 						'vs/editor/contrib/*/~',
 						'vs/code/~',
+						'vs/workbench/contrib/primitiveAppEditor/common/projectSqliteBridge.js', // project.sqlite bridge channel name (workbench.project-bridge)
+						'vs/workbench/contrib/primitiveAppEditor/node/projectSqliteBridgeChannel.js', // shared process hosts the bridge channel (workbench.project-bridge)
 						{
 							'when': 'hasBrowser',
 							'pattern': 'vs/workbench/workbench.web.main.js'

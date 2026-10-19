@@ -34,6 +34,7 @@ import './electron-browser/parts/dialogs/dialog.contribution.js';
 
 //#region --- workbench services
 
+import './contrib/primitiveAppEditor/electron-browser/projectSqliteBridge.contribution.js';
 import './services/textfile/electron-browser/nativeTextFileService.js';
 import './services/dialogs/electron-browser/fileDialogService.js';
 import './services/workspaces/electron-browser/workspacesService.js';

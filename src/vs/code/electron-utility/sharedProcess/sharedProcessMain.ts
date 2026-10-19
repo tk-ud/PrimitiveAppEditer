@@ -152,6 +152,8 @@ import { IMeteredConnectionService } from '../../../platform/meteredConnection/c
 import { MeteredConnectionChannelClient, METERED_CONNECTION_CHANNEL } from '../../../platform/meteredConnection/common/meteredConnectionIpc.js';
 import { PlaywrightChannel } from '../../../platform/browserView/node/playwrightChannel.js';
 import { AgentNetworkFilterService } from '../../../platform/networkFilter/common/networkFilterService.js';
+import { ProjectSqliteBridgeChannel } from '../../../workbench/contrib/primitiveAppEditor/node/projectSqliteBridgeChannel.js';
+import { PROJECT_SQLITE_BRIDGE_CHANNEL } from '../../../workbench/contrib/primitiveAppEditor/common/projectSqliteBridge.js';
 import { ILocalGitService } from '../../../platform/git/common/localGitService.js';
 import { LocalGitService } from '../../../platform/git/node/localGitService.js';
 
@@ -424,6 +426,9 @@ class SharedProcessMain extends Disposable implements IClientConnectionFilter {
 
 		// Web Content Extractor
 		services.set(ISharedWebContentExtractorService, new SyncDescriptor(SharedWebContentExtractorService));
+
+		// Primitive App Editor project.sqlite bridge
+		this.server.registerChannel(PROJECT_SQLITE_BRIDGE_CHANNEL, this._register(new ProjectSqliteBridgeChannel()));
 
 		// Local Git
 		services.set(ILocalGitService, new SyncDescriptor(LocalGitService, undefined, false /* proxied to other processes */));
