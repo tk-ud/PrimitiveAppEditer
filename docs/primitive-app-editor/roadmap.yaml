@@ -1522,8 +1522,32 @@ section:
           - "Tests: test/node/projectOpenSession.test.ts (Create, Open, Asset Scan, failing step, concurrent same-root open shares one storage, A then B ends in B, close during open). Verification: all primitiveAppEditor tests 276 passing (node 24), eslint --max-warnings 0 clean, tsc no primitiveAppEditor errors, layersChecker clean."
           - "Required integration fixes: none needed in earlier producer bundles."
         remaining:
-          - "Node-side project.sqlite bridge for the sandboxed Electron renderer (IProjectSqliteDatabaseFactoryService is currently the Unavailable default, so the desktop Workbench shows Project: Failed until a main/shared-process adapter is registered)."
-          - "Activity Bar view containers / Primary Side Bar views, Secondary Side Bar Inspector, Bottom Panel and Editor Area registrations (Registry, Data, Assets, Functions, Renderer, Debug, Build) are not implemented in this bundle iteration."
+          - "Verification only (no new code in this bundle): after workbench.project-bridge registers the Node-side adapter for IProjectSqliteDatabaseFactoryService, confirm the desktop Workbench reaches Project: Ready, then record this bundle implemented with roadmap.complete. Scope boundary (Issue #84): this bundle owns only Project Open wiring and the Status Bar open state; Activity Bar / Side Bar / Inspector / Bottom Panel / Editor Area registrations belong to workbench.views, and the Electron renderer-to-Node project.sqlite bridge belongs to workbench.project-bridge."
+
+      - id: "workbench.project-bridge"
+        title: "Electron project.sqlite bridge: sandboxed renderer to Node-side ProjectSqlite adapter (main / shared process)"
+        reference:
+          - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "§39 Working Directory Integration"
+              - "§39 Project Sqlite Bridge"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
+              - "§34 Boundary Rules"
+              - "§39 Boundary"
+          - source: "./Editor UI.md"
+            role: "boundary"
+            sections:
+              - "§15 UI Responsibility Boundary"
+        depends_on:
+          - "foundation.sqlite"
+          - "foundation.project-directory"
+          - "workbench.integration"
+        status: "not started"
+        evidence: []
+        remaining: []
 
       - id: "workbench.views"
         title: "Activity Bar, Side Bar, Editor Tabs and Bottom Panel"
@@ -1548,6 +1572,7 @@ section:
               - "§2 Placement"
         depends_on:
           - "workbench.integration"
+          - "workbench.project-bridge"
           - "editor.function-graph"
           - "editor.debug-viewer"
         status: "not started"
