@@ -13,6 +13,8 @@ roadmap:
       authority: "roadmap Agent Tool specification SSOT"
     - source: "./GUI Debug Tool.md"
       authority: "Roadmap Driven GUI Debug Tool specification / roadmap diagnostics write contract SSOT"
+    - source: "./Deploy Configuration.md"
+      authority: "Deploy Template / Selection / Docker Projection / Deploy Validation / Deploy E2E SSOT"
     - source: "../../README.md"
       authority: "Repository / Upstream / Development Baseline"
   status_values:
@@ -1444,9 +1446,52 @@ section:
           - "Verification: generated RequestValidation.cs + Definition.cs compiled and exercised with dotnet 8 console harness (missing/null/wrong-kind/non-object/unknown-key cases produced expected error maps); Program.cs wiring order verified by regex against the evaluated template; webProgramProjection.test.ts extended with a validation test (node_modules unavailable in this environment so the mocha suite was not executed locally)."
         remaining: []
 
+      - id: "build.deploy-projection"
+        title: "Deploy Template Definition, Deploy Selection and Docker Projection (Dockerfile / compose.yaml / .env.example) with Deploy Validation"
+        reference:
+          - source: "./Deploy Configuration.md"
+            role: "implementation"
+            sections:
+              - "§3 Definition Schema"
+              - "§5 Docker Projection"
+              - "§7 Build Validation / E2E / 7.1 Build / Deploy Validation"
+              - "§9 Decisions"
+          - source: "./Deploy Configuration.md"
+            role: "boundary"
+            sections:
+              - "§1 Purpose / Scope"
+              - "§2 Existing Authority / Boundary"
+          - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "§31 Deploy"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
+              - "§31 Build Configuration"
+              - "§31 Build Validation"
+              - "§31 Application Output"
+              - "§31 Web Application Program"
+              - "§39 App Editor API / Application Language Boundary"
+        depends_on:
+          - "build.web-program"
+          - "build.web-program-input-validation"
+        status: "not started"
+        evidence: []
+        remaining: []
+
       - id: "build.deploy"
         title: "Deployable application artifact layout and Build / Export Configuration surface"
         reference:
+          - source: "./Deploy Configuration.md"
+            role: "implementation"
+            sections:
+              - "§4 UI / Registrar Integration"
+          - source: "./Deploy Configuration.md"
+            role: "boundary"
+            sections:
+              - "§2 Existing Authority / Boundary"
+              - "§9 Decisions"
           - source: "./App Editer.md"
             role: "implementation"
             sections:
@@ -1474,6 +1519,7 @@ section:
         depends_on:
           - "build.web-program"
           - "build.web-program-input-validation"
+          - "build.deploy-projection"
           - "workbench.views"
         status: "not started"
         evidence: []
@@ -1614,6 +1660,14 @@ section:
               - "§2 Overall Structure"
               - "§37 Core Flow"
               - "§39 Purpose"
+          - source: "./Deploy Configuration.md"
+            role: "implementation"
+            sections:
+              - "§7 Build Validation / E2E / 7.2 E2E"
+          - source: "./Deploy Configuration.md"
+            role: "boundary"
+            sections:
+              - "§9 Decisions"
           - source: "./App Editer.md"
             role: "boundary"
             sections:
@@ -1635,6 +1689,64 @@ section:
         depends_on:
           - "workbench.ai-development"
           - "build.deploy"
+        status: "not started"
+        evidence: []
+        remaining: []
+
+  - name: "Deploy Extensions"
+    bundle:
+      - id: "build.deploy-setup-script"
+        title: "Generated setup.sh / setup.bat with Docker / Compose prerequisites check and consent-gated install assistance"
+        reference:
+          - source: "./Deploy Configuration.md"
+            role: "implementation"
+            sections:
+              - "§6 Setup Script / Docker Prerequisites"
+          - source: "./Deploy Configuration.md"
+            role: "boundary"
+            sections:
+              - "§1 Purpose / Scope"
+              - "§2 Existing Authority / Boundary"
+              - "§5 Docker Projection"
+              - "§9 Decisions"
+        depends_on:
+          - "build.deploy"
+        status: "not started"
+        evidence: []
+        remaining: []
+
+      - id: "build.deploy-template-registrar"
+        title: "User-defined Deploy Template registration / editing / selection / validation and Build / Export Configuration integration"
+        reference:
+          - source: "./Deploy Configuration.md"
+            role: "implementation"
+            sections:
+              - "§3 Definition Schema"
+              - "§4 UI / Registrar Integration"
+          - source: "./Deploy Configuration.md"
+            role: "boundary"
+            sections:
+              - "§2 Existing Authority / Boundary"
+              - "§5 Docker Projection"
+              - "§7 Build Validation / E2E / 7.1 Build / Deploy Validation"
+              - "§9 Decisions"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
+              - "§31 Build Configuration"
+              - "§32 Persistence Boundary"
+          - source: "./Editor UI.md"
+            role: "boundary"
+            sections:
+              - "§3 Workbench Placement"
+              - "§9 Primary Side Bar Regulation"
+              - "§10 Editor Area Regulation"
+              - "§13 Export / Build Configuration"
+              - "§15 UI Responsibility Boundary"
+        depends_on:
+          - "build.deploy"
+          - "build.deploy-projection"
+          - "workbench.views"
         status: "not started"
         evidence: []
         remaining: []
