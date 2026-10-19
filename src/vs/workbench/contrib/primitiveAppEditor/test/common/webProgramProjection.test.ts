@@ -66,7 +66,7 @@ suite('Primitive App Editor - ASP.NET Core API and Next.js application projectio
 		const { result } = projectWebProgramApplicationOutput(authoring(), configuration());
 		const paths = result.files.map(file => file.path);
 		assert.deepStrictEqual(paths, [...paths].sort());
-		for (const expected of [WEB_PROGRAM_DEFINITION_FILE, 'api/Program.cs', 'api/TableRuntime.cs', 'api/FunctionRuntime.cs', 'api/PrimitiveApplication.Api.csproj', 'ui/package.json', 'ui/app/page.tsx', 'ui/lib/renderers.tsx', 'ui/lib/api.ts']) {
+		for (const expected of [WEB_PROGRAM_DEFINITION_FILE, 'api/Program.cs', 'api/TableRuntime.cs', 'api/RequestValidation.cs', 'api/FunctionRuntime.cs', 'api/PrimitiveApplication.Api.csproj', 'ui/package.json', 'ui/app/page.tsx', 'ui/lib/renderers.tsx', 'ui/lib/api.ts']) {
 			assert.ok(paths.includes(expected), `missing ${expected}`);
 		}
 	});
@@ -99,6 +99,20 @@ suite('Primitive App Editor - ASP.NET Core API and Next.js application projectio
 		assert.ok(api.includes('${i + 1}'));
 		// Boundary: no dependency on the Node-side Editor API or a fixed transport to it.
 		assert.ok(!/primitiveAppEditor|workbench|vscode/i.test(api));
+	});
+
+	test('API validates Insert / Update bodies against the Definition and answers 400 ProblemDetails before any SQL', () => {
+		const files = projectWebProgramApplicationOutput(authoring(), configuration()).result.files;
+		const program = files.find(file => file.path === 'api/Program.cs')!.content;
+		const validation = files.find(file => file.path === 'api/RequestValidation.cs')!.content;
+		assert.match(program, /RequestValidation\.Validate\(t, values, isInsert: true\)[\s\S]*Results\.ValidationProblem\(errors\)[\s\S]*runtime\.InsertAsync/);
+		assert.match(program, /RequestValidation\.Validate\(t, values, isInsert: false\)[\s\S]*Results\.ValidationProblem\(errors\)[\s\S]*runtime\.UpdateAsync/);
+		assert.match(validation, /JsonValueKind\.Object/);
+		assert.match(validation, /isInsert && column\.NotNull/);
+		for (const kind of ['uuid', 'int', 'double', 'bool', 'date', 'timestamp']) {
+			assert.ok(validation.includes(`"${kind}" =>`), `kind ${kind}`);
+		}
+		assert.ok(!/primitiveAppEditor|workbench|vscode/i.test(validation));
 	});
 
 	test('UI resolves Renderer Binding values through the C# API', () => {
