@@ -1440,8 +1440,12 @@ section:
               - "§39 App Editor API / Application Language Boundary"
         depends_on:
           - "build.web-program"
-        status: "not started"
-        evidence: []
+        status: "implemented"
+        evidence:
+          - "Issue #85 fix (commit beb8e866): webProgramProjection.ts RequestValidation.IsValid uuid kind now uses JsonElement.TryGetGuid instead of Guid.TryParse, so Validation and TableRuntime/Program GetGuid accept the same formats for both normal UUID columns and RowIdentity."
+          - "Verification (dotnet 8): D format 00112233-4455-6677-8899-aabbccddeeff TryGetGuid=True GetGuid ok; N format 00112233445566778899aabbccddeeff TryGetGuid=False and GetGuid throws (previously Guid.TryParse=True); 'bad' rejected by both -> N format now yields 400 ValidationProblem before SQL."
+          - "Tests: esbuild + mocha tdd on webProgramProjection.test.ts (new Issue #85 test + existing validation tests), postgresqlProjection.test.ts, applicationOutput.test.ts -> 23 passing."
+          - "Original implementation evidence retained: Commit d138f37c (Issue #79)."
         remaining: []
 
       - id: "build.deploy-projection"
