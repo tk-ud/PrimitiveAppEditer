@@ -254,7 +254,7 @@ export function createDeployTemplate(input: unknown): IDeployTemplate {
 			database: Object.freeze({ image, data_volume: dataVolume, password_env: passwordEnv }),
 		}),
 		capabilities: Object.freeze({ compose: true, prerequisites_check: prerequisitesCheck, installer_assistance: installerAssistance, setup_script: setupScript }),
-	} as IDeployTemplate);
+	});
 }
 
 // #endregion
