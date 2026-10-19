@@ -130,6 +130,15 @@ implementation:
       - UI Marker Resolution
       - GUI Map YAML
       - Roadmap Diagnostics
+
+  docs/primitive-app-editor/Deploy Configuration.md:
+    purpose: Deploy構成の個別把握
+    authority: Deploy Configuration仕様SSOT
+    defines:
+      - Deploy Template / Selection
+      - Docker Projection
+      - Deploy Validation
+      - Deploy E2E
 ```
 
 ## Development Model
