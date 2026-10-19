@@ -44,6 +44,13 @@ const playerColumns = [
 	column(8, 'extra', TableColumnKind.Json),
 ];
 
+/** Independent reference: lowercase RFC 4648 Base32 (no padding) of table uuid + column uuid bytes. */
+function expectedBase32(tableUuid: string, columnUuid: string): string {
+	const alphabet = 'abcdefghijklmnopqrstuvwxyz234567';
+	const bits = (tableUuid + columnUuid).replace(/-/g, '').split('').map(c => parseInt(c, 16).toString(2).padStart(4, '0')).join('');
+	return (bits.match(/.{1,5}/g) ?? []).map(chunk => alphabet[parseInt(chunk.padEnd(5, '0'), 2)]).join('');
+}
+
 function tables() {
 	return [
 		createTableRegistryEntry({ uuid: PLAYER, index: 0, schema: LogicalNamespace.Items, name: 'player', columns: playerColumns, created_at: NOW }),
@@ -112,7 +119,7 @@ suite('Primitive App Editor - PostgreSQL schema and seed projection', () => {
 );`));
 		assert.ok(ddl.includes('CREATE TABLE "logs"."event" ('));
 		assert.ok(ddl.includes(`ALTER TABLE "items"."player" ADD CONSTRAINT "pk_${PLAYER.replace(/-/g, '')}" PRIMARY KEY ("uuid");`));
-		assert.ok(ddl.includes(`CREATE INDEX "idx_${PLAYER.replace(/-/g, '')}_${col(1).replace(/-/g, '').slice(0, 26)}" ON "items"."player" ("label");`));
+		assert.ok(ddl.includes(`CREATE INDEX "idx_${expectedBase32(PLAYER, col(1))}" ON "items"."player" ("label");`));
 		assert.ok(!/FOREIGN KEY|REFERENCES|TRIGGER|CREATE TYPE/i.test(ddl));
 		assert.strictEqual(generatePostgresqlDdl(projectPostgresqlSchema(tables())), ddl);
 	});
@@ -134,6 +141,24 @@ suite('Primitive App Editor - PostgreSQL schema and seed projection', () => {
 		assert.strictEqual(new Set(names).size, 6);
 		assert.ok(names.every(name => new TextEncoder().encode(name).length <= 63));
 		assert.strictEqual(generatePostgresqlDdl(projectPostgresqlSchema([b, long, a])), ddl);
+	});
+
+	test('DDL: columns whose uuids share a 26 hex digit prefix get distinct, order-independent index names (Issue #82)', () => {
+		const t = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+		const c1 = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1';
+		const c2 = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2';
+		const table = (columns: ITableRegistryColumnInput[]) => createTableRegistryEntry({ uuid: t, index: 0, schema: LogicalNamespace.Items, name: 'x', columns, created_at: NOW });
+		const a = { uuid: c1, index: 1, name: 'a', kind: TableColumnKind.Text, not_null: false, writable: true, searchable: true };
+		const b = { uuid: c2, index: 2, name: 'b', kind: TableColumnKind.Text, not_null: false, writable: true, searchable: true };
+		const ddl = generatePostgresqlDdl(projectPostgresqlSchema([table([a, b])]));
+		const names = [...ddl.matchAll(/INDEX "([^"]+)"/g)].map(match => match[1]);
+		assert.deepStrictEqual(names.slice().sort(), [`idx_${expectedBase32(t, c1)}`, `idx_${expectedBase32(t, c2)}`].sort());
+		assert.strictEqual(new Set(names).size, 2);
+		assert.ok(names.every(name => name.length === 56));
+		const reversed = generatePostgresqlDdl(projectPostgresqlSchema([table([b, a])]));
+		const byColumn = (text: string, column: string) => new RegExp(`INDEX "([^"]+)" ON "items"."x" \\("${column}"\\)`).exec(text)![1];
+		assert.strictEqual(byColumn(reversed, 'a'), byColumn(ddl, 'a'));
+		assert.strictEqual(byColumn(reversed, 'b'), byColumn(ddl, 'b'));
 	});
 
 	test('DDL: a generated relation name clashing with a table in the same schema is rejected', () => {
