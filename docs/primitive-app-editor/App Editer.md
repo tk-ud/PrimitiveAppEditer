@@ -3033,6 +3033,34 @@ SQLite / Registry / Asset / Function Load
 
 専用Project Container Fileを必須としない。
 
+### Project Sqlite Bridge
+
+Electron Workbenchのrendererはsandboxされ、Node側のproject.sqlite adapterへ直接到達できない。
+rendererからNode側adapterへの到達はmain / shared processのbridgeが担当する。
+
+```text
+Renderer (sandbox)
+  IProjectSqliteDatabaseFactoryService
+        |
+        v
+main / shared process bridge
+        |
+        v
+Node-side ProjectSqlite adapter
+        |
+        v
+project.sqlite
+```
+
+```text
+Project Open wiring / Status Bar open state = workbench.integration
+Activity Bar / Side Bar / Inspector / Bottom Panel / Editor Area = workbench.views
+project.sqlite bridge = workbench.project-bridge
+```
+
+- bridgeはproject.sqliteのAuthority・Schema・SQL契約を変更しない。
+- bridge未登録のWorkbenchはProject: Failedを表示する(既存動作を維持する)。
+
 ```text
 Folder
   = Project
