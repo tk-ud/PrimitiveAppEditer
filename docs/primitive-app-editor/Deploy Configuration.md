@@ -81,38 +81,91 @@ Editor
 
 ## 3. Definition Schema
 
-### 3.1 概念的な構成
+### 3.1 Deploy Template Definition Schema
+
+組込みTemplate・利用者定義Templateに共通の確定Schema。Validation（§7.1）、Projection（§5）、Template Registrarが導出するUI Control（§4）はすべてこのSchemaのみを根拠とする。
 
 ```yaml
-# Field names are provisional; schema illustration, not a migration instruction.
 deploy_template:
-  id: text                         # Template identifier; not Application table UUID
-  label: text
-  provider: docker_compose         # MVP candidate
+  id: docker-compose-default
+  label: Docker Compose (default)
+  description: ASP.NET Core API + Next.js UI + PostgreSQL
+  provider: docker_compose
   supported_hosts: [linux, windows_wsl2, macos]
   compatible_build_targets: ["PostgreSQL Web Application Output"]
   services:
-    api:                           # ASP.NET Core
+    api:
       dockerfile: generated
-      internal_port: int
-    ui:                            # Next.js
+      internal_port: 8080
+    ui:
       dockerfile: generated
-      internal_port: int
-    database:                      # PostgreSQL
-      image: validated_image_ref
-      data_volume: text
+      internal_port: 3000
+    database:
+      image: "postgres:<pinned tag>"
+      data_volume: application-db
   parameters:
-    - key: text
-      type: string | int | bool | port | path | secret_reference
-      required: bool
-      default: optional
-      description: text
+    - key: api_port
+      type: port
+      required: true
+      default: 8080
+      description: Host port published for the API
+    - key: db_password
+      type: secret_reference
+      required: true
+      description: Environment variable in .env holding the PostgreSQL password
   capabilities:
     compose: true
-    prerequisites_check: bool
-    installer_assistance: bool
-    setup_script: bool
+    prerequisites_check: false
+    installer_assistance: false
+    setup_script: false
 ```
+
+#### Key定義
+
+| Path | 必須 | 型 / 許容値 |
+|---|---|---|
+| `deploy_template` | 必須 | mapping。文書rootの唯一のkey |
+| `deploy_template.id` | 必須 | string。`^[a-z][a-z0-9-]{0,62}$` |
+| `deploy_template.label` | 必須 | string。1〜128文字、改行なし |
+| `deploy_template.description` | 任意 | string。省略時は空 |
+| `deploy_template.provider` | 必須 | enum: `docker_compose` |
+| `deploy_template.supported_hosts` | 必須 | list of enum `linux` / `windows_wsl2` / `macos`。1件以上、重複不可 |
+| `deploy_template.compatible_build_targets` | 必須 | list of string。1件以上、重複不可。各値は既存Build Target識別子（§31 Build Configuration `build_target`）と完全一致 |
+| `deploy_template.services` | 必須 | mapping。key は `api` / `ui` / `database` の3つすべて必須 |
+| `services.api` / `services.ui` | 必須 | mapping |
+| `services.api.dockerfile` / `services.ui.dockerfile` | 必須 | enum: `generated` |
+| `services.api.internal_port` / `services.ui.internal_port` | 必須 | int。1〜65535。api と ui で異なる値 |
+| `services.database` | 必須 | mapping |
+| `services.database.image` | 必須 | string。`<name>:<tag>` または `<name>@sha256:<64 hex>`。tag省略・`latest`はreject |
+| `services.database.data_volume` | 必須 | string。`^[a-z0-9][a-z0-9_.-]{0,62}$` |
+| `deploy_template.parameters` | 任意 | list of mapping。省略時は空list |
+| `parameters[].key` | 必須 | string。`^[a-z][a-z0-9_]{0,62}$`。Template内で一意 |
+| `parameters[].type` | 必須 | enum: `string` / `int` / `bool` / `port` / `path` / `secret_reference` |
+| `parameters[].required` | 必須 | bool |
+| `parameters[].default` | 任意 | `type`に適合する値。`secret_reference`では指定不可 |
+| `parameters[].description` | 必須 | string。1〜512文字 |
+| `deploy_template.capabilities` | 必須 | mapping |
+| `capabilities.compose` | 必須 | bool。値は`true`のみ |
+| `capabilities.prerequisites_check` / `installer_assistance` / `setup_script` | 任意 | bool。省略時は`false`。`installer_assistance: true`は`prerequisites_check: true`を要する |
+
+Parameter値の型規則：
+
+| type | 値 |
+|---|---|
+| `string` | string。改行なし |
+| `int` | 整数 |
+| `bool` | `true` / `false` |
+| `port` | int。1〜65535 |
+| `path` | Application Output相対path。絶対path・`..`成分・空文字はreject |
+| `secret_reference` | `.env`の変数名 `^[A-Z][A-Z0-9_]{0,62}$`。値そのものはTemplate / Selection / 生成物に書かない |
+
+#### 未知Key / 文書形式の境界
+
+- 上表に無いkeyは、root・`deploy_template`・`services`・各service・`parameters[]`・`capabilities`の**すべての階層でValidation reject**とする（無視・保持しない）。
+- 型不一致、enum外の値、必須keyの欠落は同様にrejectし、該当Pathを診断に含める。
+- ファイルはUTF-8のYAML 1.2単一文書とする。複数文書、anchor / alias / merge key（`&` / `*` / `<<`）、明示tagはreject。commentは許容するが、Deploy Template Serviceの書き出し時には保持しない。
+- 書き出しは上表のkey順・2 space indent・省略可能keyは値が既定と異なる場合のみ出力し、同じDefinitionから同じbyte列を生成する。
+- `origin`（builtin / user）はファイルに保存しない導出値である（§3.3）。
 
 `provider`, `services`, `parameters`は**Deploy用Definition**であり、ApplicationのTable/Column/Functionの定義ではない。対象OSやDocker構成はテンプレートごとの対応可否を宣言し、非対応な組み合わせは選択不能またはValidation rejectとする。
 
@@ -148,7 +201,7 @@ build_configuration:
 ```yaml
 user_deploy_template:
   storage: "<Working Directory>/config/deploy/templates/<template_id>.yaml"
-  format: YAML（§3.1 deploy_templateの1文書。未知のkeyはValidation reject）
+  format: §3.1 Deploy Template Definition Schemaに従うYAML文書（未知Key / 文書形式の境界も§3.1）
   authority: Working Directory（Authoring Persistent / config/）。project.sqlite・Registryには保存しない
   id:
     pattern: "^[a-z][a-z0-9-]{0,62}$"
@@ -156,16 +209,13 @@ user_deploy_template:
       - ファイル名（拡張子除く）とidが一致する
       - 組込みTemplateのidは予約済み。同じidの利用者定義Templateはreject（上書き・shadowingしない）
       - 利用者定義Template間でも一意
-  origin: builtin | user           # 一覧・UIで区別する。builtinは読取専用
+  origin: builtin | user           # 保存しない導出値。組込み同梱 = builtin、config/deploy/templates/ 由来 = user。builtinは読取専用
 ```
 
 - **優先関係:** 同一idの共存を許さないため、名前解決に優先順位は存在しない。Selectionの`template_id`は組込み / 利用者定義を問わず完全一致で1件に解決し、0件は「Template未解決」としてBuild Validation reject。組込みTemplateを変更したい場合は「複製」により新しいidの利用者定義Templateを作成する。
 - **Validation（§7.1に追加）:**
-  - §3.1のSchema（`provider`、`services.api / ui / database`の必須、`parameters`の型）に適合する。MVPの`provider`は`docker_compose`のみ。
-  - `compatible_build_targets`に既存Build Targetが1つ以上含まれ、`supported_hosts`は§3.1の値に限る。
-  - `database.image`等のImage参照はtagまたはdigestで固定し、`latest` / 省略をrejectする（§5 再現性）。
-  - `secret_reference`型のParameterは`default`を持たない（§5 機密値）。
-  - Parameterの`key`はTemplate内で一意で、`compose.yaml` / `.env.example`の変数名へ決定的に写像できる。
+  - §3.1のKey定義・型規則・未知Key / 文書形式の境界をすべて満たす（組込みTemplateにも同じ検証を適用する）。
+  - Parameterの`key`は`compose.yaml` / `.env.example`の変数名へ決定的に写像できる（大文字化した`key`を変数名とし、写像後の重複はreject）。
   - 不正なTemplateは一覧に`Invalid`として表示し、Selectionに選べない。既存SelectionがInvalid化したTemplateを参照する場合はBuild Validationで明示し、Buildしない。
 - **編集とSelection:** Templateの編集・削除はSelectionを自動書換しない。参照中Templateの削除は確認を要し、削除後のSelectionは「Template未解決」となる。
 - **Mutation経路:** 作成・編集・複製・削除はApp Editor側のDeploy Template Service経由で行い、Validationを通過した内容のみ一時ファイル + renameで原子的に書き込む。UIから直接ファイルを書き換えない。外部エディタでの手編集は再読込時に同じValidationを通す。
