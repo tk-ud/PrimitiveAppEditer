@@ -146,8 +146,9 @@ function qualifiedName(table: Pick<IPostgresqlTable, 'schema' | 'name'>): string
 /**
  * Constraint / index names are relation names shared by one PostgreSQL schema, so they derive from the
  * Machine Identity (never from table / column names, whose `_` makes concatenations ambiguous):
- * `pk_<table uuid>` and `idx_<table uuid>_<first 26 hex digits of the column uuid>`, at most 63 bytes
- * and identical for identical Registry input. `generatePostgresqlDdl` still rejects any residual clash.
+ * `pk_<table uuid>` and `idx_<base32 of table uuid + column uuid>` (both full 128-bit UUIDs, lowercase RFC 4648
+ * Base32 without padding: 52 characters, 56 bytes in total), at most 63 bytes, injective and identical for
+ * identical Registry input. `generatePostgresqlDdl` still rejects any residual clash.
  */
 const hexOf = (uuid: string) => normalizeRegistryUuid(uuid).replace(/-/g, '');
 
@@ -155,8 +156,27 @@ function primaryKeyName(table: Pick<IPostgresqlTable, 'registryUuid'>): string {
 	return `pk_${hexOf(table.registryUuid)}`;
 }
 
+const BASE32_ALPHABET = 'abcdefghijklmnopqrstuvwxyz234567';
+
+/** Lowercase RFC 4648 Base32 without padding of the hex string `hex`. */
+function base32OfHex(hex: string): string {
+	let bits = 0;
+	let value = 0;
+	let out = '';
+	for (let i = 0; i < hex.length; i += 2) {
+		value = (value << 8) | parseInt(hex.slice(i, i + 2), 16);
+		bits += 8;
+		while (bits >= 5) {
+			out += BASE32_ALPHABET[(value >>> (bits - 5)) & 31];
+			bits -= 5;
+		}
+		value &= (1 << bits) - 1;
+	}
+	return bits > 0 ? out + BASE32_ALPHABET[(value << (5 - bits)) & 31] : out;
+}
+
 function indexName(table: Pick<IPostgresqlTable, 'registryUuid'>, column: Pick<IPostgresqlColumn, 'registryUuid'>): string {
-	return `idx_${hexOf(table.registryUuid)}_${hexOf(column.registryUuid!).slice(0, 26)}`;
+	return `idx_${base32OfHex(hexOf(table.registryUuid) + hexOf(column.registryUuid!))}`;
 }
 
 /**
