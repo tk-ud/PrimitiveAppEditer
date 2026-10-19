@@ -68,7 +68,14 @@ function withDeploy(overrides: Record<string, unknown> = {}): Record<string, unk
 }
 
 function rejects(run: () => unknown, pattern: RegExp): void {
-	assert.throws(run, error => (error instanceof DeployValidationError || error instanceof BuildValidationError) && pattern.test(error.message));
+	let thrown: unknown;
+	try {
+		run();
+	} catch (error) {
+		thrown = error;
+	}
+	assert.ok(thrown instanceof DeployValidationError || thrown instanceof BuildValidationError, `expected a validation error, got ${String(thrown)}`);
+	assert.ok(pattern.test(thrown.message), `${thrown.message} does not match ${pattern}`);
 }
 
 suite('Primitive App Editor - Deploy Template Registry, Selection, Docker Scaffold and Deploy Validation', () => {
