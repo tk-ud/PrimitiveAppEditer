@@ -1514,9 +1514,16 @@ section:
           - "asset.registry"
           - "editor.registry-ui"
           - "editor.data-ui"
-        status: "not started"
-        evidence: []
-        remaining: []
+        status: "partial"
+        evidence:
+          - "common/projectOpenSession.ts: ProjectOpenSession wires ProjectSqliteStorage (Create/Open), EditorDdlMigrator (Editor DDL Scan / Schema Version Resolve / Migration Apply), Registry Load (table/enum/relation/function/renderer registries + renderer bindings with cross-validation), createFunctionScanStep and createAssetScanStep into one openProjectDirectory run; exposes ProjectOpenState None/Opening/Ready/Incomplete/Failed."
+          - "browser/primitiveAppEditor.contribution.ts: workbench contribution opens the single workspace folder (Folder = Project) and shows the open state in Status Bar entry id status.primitiveAppEditor.project (tooltip + aria label, error kind on failure); registered in workbench.common.main.ts; common/projectSqliteService.ts adds IProjectSqliteDatabaseFactoryService with an Unavailable default so a Workbench without an adapter ends in a visible Failed state."
+          - "build/lib/i18n.resources.json: added vs/workbench/contrib/primitiveAppEditor."
+          - "Tests: test/node/projectOpenSession.test.ts (Create, Open, Asset Scan, failing step). Verification: all primitiveAppEditor tests 273 passing (node 24), eslint --max-warnings 0 clean, tsc no primitiveAppEditor errors, layersChecker clean."
+          - "Required integration fixes: none needed in earlier producer bundles; all existing Open steps plugged in as-is."
+        remaining:
+          - "Node-side project.sqlite bridge for the sandboxed Electron renderer (IProjectSqliteDatabaseFactoryService is currently the Unavailable default, so the desktop Workbench shows Project: Failed until a main/shared-process adapter is registered)."
+          - "Activity Bar view containers / Primary Side Bar views, Secondary Side Bar Inspector, Bottom Panel and Editor Area registrations (Registry, Data, Assets, Functions, Renderer, Debug, Build) are not implemented in this bundle iteration."
 
       - id: "workbench.views"
         title: "Activity Bar, Side Bar, Editor Tabs and Bottom Panel"
