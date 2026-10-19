@@ -115,6 +115,12 @@ suite('Primitive App Editor - ASP.NET Core API and Next.js application projectio
 		assert.ok(!/primitiveAppEditor|workbench|vscode/i.test(validation));
 	});
 
+	test('UUID validation uses JsonElement.TryGetGuid so it accepts exactly what GetGuid converts (Issue #85)', () => {
+		const validation = projectWebProgramApplicationOutput(authoring(), configuration()).result.files.find(file => file.path === 'api/RequestValidation.cs')!.content;
+		assert.match(validation, /"uuid" => value\.ValueKind == JsonValueKind\.String && value\.TryGetGuid\(out _\)/);
+		assert.ok(!/Guid\.TryParse/.test(validation));
+	});
+
 	test('UI resolves Renderer Binding values through the C# API', () => {
 		const files = projectWebProgramApplicationOutput(authoring(), configuration()).result.files;
 		const page = files.find(file => file.path === 'ui/app/page.tsx')!.content;

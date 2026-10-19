@@ -299,7 +299,7 @@ public static class RequestValidation
 \t\t}
 \t\treturn kind switch
 \t\t{
-\t\t\t"uuid" => value.ValueKind == JsonValueKind.String && Guid.TryParse(value.GetString(), out _),
+\t\t\t"uuid" => value.ValueKind == JsonValueKind.String && value.TryGetGuid(out _),
 \t\t\t"int" => value.ValueKind == JsonValueKind.Number && value.TryGetInt64(out _),
 \t\t\t"double" => value.ValueKind == JsonValueKind.Number && value.TryGetDouble(out var d) && double.IsFinite(d),
 \t\t\t"bool" => value.ValueKind is JsonValueKind.True or JsonValueKind.False,
