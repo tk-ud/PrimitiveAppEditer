@@ -1525,25 +1525,6 @@ section:
         evidence: []
         remaining: []
 
-      - id: "build.deploy-setup-script"
-        title: "Generated setup.sh / setup.bat and Docker prerequisites check / install assistance (additional UX)"
-        reference:
-          - source: "./Deploy Configuration.md"
-            role: "implementation"
-            sections:
-              - "§6 Setup Script / Docker Prerequisites"
-          - source: "./Deploy Configuration.md"
-            role: "boundary"
-            sections:
-              - "§1 Purpose / Scope"
-              - "§5 Docker Projection"
-              - "§9 Decisions"
-        depends_on:
-          - "build.deploy"
-        status: "not started"
-        evidence: []
-        remaining: []
-
   - name: "Workbench"
     bundle:
       - id: "workbench.integration"
@@ -1704,6 +1685,20 @@ future:
             - "§4 UI / Registrar Integration"
             - "§9 Decisions"
       reason: "MVPは組込みDeploy Templateのみ（Deploy Configuration.md §9 Decision 1 / 2）"
+    - title: "Generated setup.sh / setup.bat and Docker prerequisites check / install assistance (additional UX, future bundle build.deploy-setup-script)"
+      reference:
+        - source: "./Deploy Configuration.md"
+          role: "implementation"
+          sections:
+            - "§6 Setup Script / Docker Prerequisites"
+        - source: "./Deploy Configuration.md"
+          role: "boundary"
+          sections:
+            - "§1 Purpose / Scope"
+            - "§5 Docker Projection"
+            - "§9 Decisions"
+      reason: "追加UXでありMVP loop外（Deploy Configuration.md §9 Decision 5）"
+      resume_condition: "completion.end-to-end implemented後、Ownerが独立Bundle build.deploy-setup-script（depends_on build.deploy）としてsectionへ登録した時点で現行loopへ戻す"
 
 diagnostics:
   gui_debug:

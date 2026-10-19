@@ -2,7 +2,7 @@
 
 > **状態:** 採用（roadmap登録済み。Bundle配分は§8、決定事項は§9）  
 > **Authority:** Deploy Configuration仕様SSOT（Deploy Template / Selection / Docker Projection / Deploy Validation / Deploy E2E）  
-> **対象:** `build.deploy-projection` / `build.deploy` / `build.deploy-setup-script` / `completion.end-to-end`  
+> **対象:** `build.deploy-projection` / `build.deploy` / `completion.end-to-end`（Setup Scriptはroadmap `future`）  
 > **目的:** ユーザーが展開環境を選択し、Definitionから生成された環境構築成果物によって、Editorに依存せずApplicationを起動・検証できること。
 
 ## 1. Purpose / Scope
@@ -283,12 +283,14 @@ build.deploy (not started)
   -> Deploy Environment選択・Definition由来の入力Control・Validation表示（§4）
   -> depends_on build.deploy-projection, workbench.views
 
-build.deploy-setup-script (not started, 追加UX)
-  -> setup.sh / setup.bat生成、Docker Prerequisites検出と導入案内（§6）
-  -> completion.end-to-endの前提にしない
-
 completion.end-to-end (not started)
   -> Authoring -> Build -> Deploy -> Runtime -> Rendererを実環境で検証（§7.2）
+
+future.excluded_from_current_loop: build.deploy-setup-script（追加UX）
+  -> setup.sh / setup.bat生成、Docker Prerequisites検出と導入案内（§6）
+  -> 現行MVP loopのBundleとして登録しない（roadmap.nextに選択させない）
+  -> 再開条件: completion.end-to-end implemented後、Ownerが独立Bundle
+     （depends_on build.deploy）としてsectionへ登録する
 ```
 
 各Bundleのstatus / evidence / remainingはroadmap.yamlのみで管理し、Tool First（`roadmap.next` / `roadmap.complete`）に従って更新する。本資料はBundleの進捗を持たない。
@@ -301,6 +303,6 @@ completion.end-to-end (not started)
 | 2 | レジストラへのDeploy Template登録の統合 | 現行loop対象外（roadmap `future`）。MVPのUIは組込みTemplateの選択とParameter入力のみ |
 | 3 | `build.deploy`系のMVP境界 | Dockerfile / Compose生成とDeploy Validationを完了条件に含める（`build.deploy-projection`）。UI Surfaceは`build.deploy` |
 | 4 | `completion.end-to-end`の最小ホスト環境 | Docker Engine + Compose Pluginが事前に利用可能なLinux（`host: linux`）。Windows WSL2 / macOSは対応宣言のみでE2E必須にしない |
-| 5 | Setup Script / Docker自動導入支援 | 独立Bundle `build.deploy-setup-script`として後置し、`completion.end-to-end`の依存に含めない |
+| 5 | Setup Script / Docker自動導入支援 | 現行MVP loopから外し、roadmap `future.excluded_from_current_loop`に将来の独立Bundle `build.deploy-setup-script`として記録する。`completion.end-to-end`の依存に含めない。再開は`completion.end-to-end` implemented後にOwnerがsectionへ登録する |
 
 具体的なImage / Dependency Version、Template IDの細則、Parameterの既定値は、§5の制約（再現性・機密値非埋め込み）を満たす範囲で`build.deploy-projection`の実装時に決定し、evidenceへ記録する。
