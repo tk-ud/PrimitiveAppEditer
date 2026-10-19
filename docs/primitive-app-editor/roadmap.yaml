@@ -1478,8 +1478,12 @@ section:
         depends_on:
           - "build.web-program"
           - "build.web-program-input-validation"
-        status: "not started"
-        evidence: []
+        status: "implemented"
+        evidence:
+          - "common/deployProjection.ts: Template schema validation (createDeployTemplate / parseDeployTemplate, unknown-key and YAML document boundary rejection, deterministic serializeDeployTemplate), Editor Template Registry read (built-in docker-compose-default pinned postgres:16.4, user documents validated identically, Invalid listing, no id shadowing), Selection (template_id/host only), Deploy Validation (validateDeploy), non-overwriting Scaffold (compose.yml, .env.example, api/Dockerfile, ui/Dockerfile with -NNN sequence before extension, .yml/.yaml collision, adopted names cross-referenced, exhaustion stops) and projectDeployScaffold wiring Build Validation -> Application Output -> Deploy Validation -> Scaffold."
+          - "Decisions: physical persistence of user Templates is left to the Registrar caller (documents supplied to createDeployTemplateRegistry); DB data kept via named volume and initdb only on empty volume; password only as ${DB_PASSWORD} reference, .env.example holds a placeholder; image versions: postgres:16.4, dotnet sdk/aspnet 8.0, node 20.15-alpine."
+          - "Required integration fix (build.web-program): ui/lib/api.ts API_BASE now prefers server-side runtime API_BASE_URL over NEXT_PUBLIC_API_BASE, because the Next.js server component fetches the API and cannot reach the host-published address from inside the ui container; compose sets API_BASE_URL=http://api:<internal_port> and NEXT_PUBLIC_API_BASE=http://localhost:<api.host_port>. Also the API Dockerfile uses the Output root as build context since the csproj links ../application.definition.json."
+          - "Tests: esbuild + mocha tdd on test/common/deployProjection.test.ts (14) and webProgramProjection.test.ts (9) -> 23 passing; tsc --strict on the new files reports no errors. Not verified: docker compose up (no Docker in this environment)."
         remaining: []
 
       - id: "build.deploy"
