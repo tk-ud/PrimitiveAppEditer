@@ -2215,7 +2215,7 @@ Required Raw Data
   -> PostgreSQL Seed Projection
 ```
 
-展開環境の選択（Deploy Template / Selection）とDocker Scaffold（Dockerfile / Compose YAML / Setup Script）、Deploy Validation、Deploy E2Eの詳細は`Deploy Configuration.md`をSSOTとする。
+展開環境の選択（Deploy Template / Selection）、Docker Scaffold、Deploy Validation、Deploy E2Eの詳細は`Deploy Configuration.md`をSSOTとする。
 
 BuildはAuthoring Authorityを変更しない。
 
