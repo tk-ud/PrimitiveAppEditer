@@ -45,6 +45,8 @@ suite('git smoke test', function () {
 		fs.writeFileSync(file('app.js'), 'hello', 'utf8');
 		fs.writeFileSync(file('index.pug'), 'hello', 'utf8');
 		cp.execSync('git init -b main', { cwd });
+		// The Primitive App Editor creates project.sqlite in every opened folder (Folder = Project); keep it out of the working tree changes under test.
+		fs.appendFileSync(path.join(cwd, '.git', 'info', 'exclude'), 'project.sqlite*\n', 'utf8');
 		cp.execSync('git config user.name testuser', { cwd });
 		cp.execSync('git config user.email monacotools@example.com', { cwd });
 		cp.execSync('git config commit.gpgsign false', { cwd });

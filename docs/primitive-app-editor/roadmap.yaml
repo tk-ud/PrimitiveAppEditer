@@ -1597,8 +1597,16 @@ section:
         depends_on:
           - "foundation.sqlite"
           - "foundation.project-directory"
-        status: "not started"
-        evidence: []
+        status: "implemented"
+        evidence:
+          - "common/projectSqliteBridge.ts: bridge contract (channel 'primitiveAppEditorProjectSqlite', commands) and renderer-side ProjectSqliteBridgeDatabaseFactory / database implementing IProjectSqliteDatabaseFactory / IProjectSqliteDatabase over an IChannel; only JSON-safe handle/SQL/params cross the bridge; transactions and statements outside a transaction are serialized client-side."
+          - "node/projectSqliteBridgeChannel.ts: IServerChannel hosting the Node-side ProjectSqliteDatabaseFactory (handle table; renderer transaction maps to one adapter transaction; close finishes a running transaction by rollback; dispose closes all handles). begin() propagates a failing BEGIN (adapter transaction rejects before the work runs) to the caller, removes the transaction entry and leaves no unhandled rejection (AUDIT NG Blocking 1). No change to project.sqlite Authority / Schema / SQL contract."
+          - "code/electron-utility/sharedProcess/sharedProcessMain.ts: registers the bridge channel in the shared process; eslint.config.js: code-import-patterns allow for the two bridge modules."
+          - "electron-browser/projectSqliteBridge.contribution.ts + workbench.desktop.main.ts: desktop renderer registers IProjectSqliteDatabaseFactoryService backed by ISharedProcessService channel, registered after the common Unavailable default so it wins; Workbenches without the bridge (web) keep Project: Failed."
+          - "Tests: test/node/projectSqliteBridge.test.ts (Create/Open round trip on a real project.sqlite through the channel with JSON-serialized args/results, adapter errors, transaction commit/rollback, outside statements wait for a transaction, close waits for a running transaction, failing BEGIN rejects and the same handle still serves all / transaction / close)."
+          - "Verification (node 24): all primitiveAppEditor node tests 298 passing; eslint --max-warnings 0 clean on primitiveAppEditor, sharedProcessMain.ts, workbench.desktop.main.ts, eslint.config.js; layersChecker clean. PR #96 CI (Compile & Hygiene, Electron, Electron-Unit, Electron-Smoke, Browser, Remote) green on head b6b1e345 before the begin() fix."
+          - "Required integration fix (consumer exposed by the bridge): extensions/git/src/test/smoke.test.ts adds 'project.sqlite*' to .git/info/exclude. With the bridge registered the desktop Workbench runs Project Open and creates project.sqlite in the opened folder (Folder = Project), which the Linux / Electron git smoke test counted as an untracked change (3 failures). Test-only; verified by Linux / Electron going green on b6b1e345. This is the first real-Electron evidence that the bridge reaches the Node adapter."
+          - "Out of scope, tracked separately: shared process does not reclaim handles/transactions when a renderer disconnects (Issue #97)."
         remaining: []
 
       - id: "workbench.views"
