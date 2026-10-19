@@ -457,7 +457,9 @@ const nextConfig = {};
 export default nextConfig;
 `;
 
-const UI_API_TS = `export const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:5000';
+const UI_API_TS = `// API_BASE_URL (server-side, runtime) lets a deployment reach the API over its internal address;
+// NEXT_PUBLIC_API_BASE is the public address.
+export const API_BASE = process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:5000';
 
 export interface RendererInput {
 \treadonly name: string;
