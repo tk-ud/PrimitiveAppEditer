@@ -1566,6 +1566,7 @@ section:
           - "asset.registry"
           - "editor.registry-ui"
           - "editor.data-ui"
+          - "workbench.project-bridge"
         status: "partial"
         evidence:
           - "common/projectOpenSession.ts: ProjectOpenSession wires ProjectSqliteStorage (Create/Open), EditorDdlMigrator (Editor DDL Scan / Schema Version Resolve / Migration Apply), Registry Load (table/enum/relation/function/renderer registries + renderer bindings with cross-validation), createFunctionScanStep and createAssetScanStep into one openProjectDirectory run; exposes ProjectOpenState None/Opening/Ready/Incomplete/Failed. open/close are serialized with generation tokens: opens of the same root share the in-flight open, a superseded open closes its own project.sqlite and never overwrites state (AUDIT NG Blocking 1)."
@@ -1596,7 +1597,6 @@ section:
         depends_on:
           - "foundation.sqlite"
           - "foundation.project-directory"
-          - "workbench.integration"
         status: "not started"
         evidence: []
         remaining: []
