@@ -1447,13 +1447,13 @@ section:
         remaining: []
 
       - id: "build.deploy-projection"
-        title: "Deploy Template Definition, Deploy Selection and Docker Projection (Dockerfile / compose.yaml / .env.example) with Deploy Validation"
+        title: "Editor-wide Deploy Template Registry read, Deploy Selection (template_id / host) and selectable Docker Scaffold (Dockerfile / compose.yml / .env.example, no overwrite) with Deploy Validation"
         reference:
           - source: "./Deploy Configuration.md"
             role: "implementation"
             sections:
               - "§3 Definition Schema"
-              - "§5 Docker Projection"
+              - "§5 Docker Projection / Scaffold"
               - "§7 Build Validation / E2E / 7.1 Build / Deploy Validation"
               - "§9 Decisions"
           - source: "./Deploy Configuration.md"
@@ -1481,7 +1481,7 @@ section:
         remaining: []
 
       - id: "build.deploy"
-        title: "Deployable application artifact layout and Build / Export Configuration surface"
+        title: "Deployable application artifact layout and Build / Export Configuration surface (Template selection and Scaffold)"
         reference:
           - source: "./Deploy Configuration.md"
             role: "implementation"
@@ -1707,7 +1707,7 @@ section:
             sections:
               - "§1 Purpose / Scope"
               - "§2 Existing Authority / Boundary"
-              - "§5 Docker Projection"
+              - "§5 Docker Projection / Scaffold"
               - "§9 Decisions"
         depends_on:
           - "build.deploy"
@@ -1716,7 +1716,7 @@ section:
         remaining: []
 
       - id: "build.deploy-template-registrar"
-        title: "User-defined Deploy Template registration / editing / selection / validation and Build / Export Configuration integration"
+        title: "Editor-wide Deploy Template Registry registration / editing / duplication / deletion UI and service with validation"
         reference:
           - source: "./Deploy Configuration.md"
             role: "implementation"
@@ -1727,7 +1727,7 @@ section:
             role: "boundary"
             sections:
               - "§2 Existing Authority / Boundary"
-              - "§5 Docker Projection"
+              - "§5 Docker Projection / Scaffold"
               - "§7 Build Validation / E2E / 7.1 Build / Deploy Validation"
               - "§9 Decisions"
           - source: "./App Editer.md"
