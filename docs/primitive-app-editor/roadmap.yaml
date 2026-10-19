@@ -1437,8 +1437,11 @@ section:
               - "§39 App Editor API / Application Language Boundary"
         depends_on:
           - "build.web-program"
-        status: "not started"
-        evidence: []
+        status: "implemented"
+        evidence:
+          - "Commit d138f37c: webProgramProjection.ts adds generated api/RequestValidation.cs (body must be JSON object; per-column kind validation for uuid/int/double/bool/date/timestamp/text/json/enum; not_null required on Insert, null rejected on Insert/Update, missing allowed on Update; RowIdentity uuid format; unknown keys ignored; all violations collected) and Program.cs POST/PUT return Results.ValidationProblem (400 application/problem+json) before any SQL."
+          - "TableRuntime date/timestamp parsing made InvariantCulture so validation and parameter binding agree (integration fix within the same producer)."
+          - "Verification: generated RequestValidation.cs + Definition.cs compiled and exercised with dotnet 8 console harness (missing/null/wrong-kind/non-object/unknown-key cases produced expected error maps); Program.cs wiring order verified by regex against the evaluated template; webProgramProjection.test.ts extended with a validation test (node_modules unavailable in this environment so the mocha suite was not executed locally)."
         remaining: []
 
       - id: "build.deploy"
