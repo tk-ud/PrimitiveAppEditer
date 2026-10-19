@@ -2132,6 +2132,41 @@ Query / CRUD           Function Runtime
               Next.js UI
 ```
 
+#### Request Validation
+
+生成APIのInsert / Update入力は、Application Definition(Registryのprojection)に基づいてRuntimeで検証する。不正なClient入力は未処理例外(HTTP 500)ではなく、HTTP 400 `application/problem+json`(ProblemDetails)で返す。
+
+```text
+HTTP Request (POST / PUT body)
+      |
+      v
+Request Validation   <- Application Definition (column kind / not_null)
+      |
+      +-- invalid -> 400 ProblemDetails (errors: column name -> message), no SQL executed
+      |
+      v
+Query / CRUD (parameters only)
+```
+
+```text
+validation:
+  body:
+    - JSON objectであること(object以外は400)
+  column:
+    - Definitionに存在する列のみ対象とする(未知のキーは無視する現行挙動を維持)
+    - kindに対応するJSON型・形式であること(uuid / int / double / bool / date / timestamp / text / json / enum)
+    - not_null列: Insertでは値が必須(欠落・nullは400)、Updateでは欠落は許容するがnullは400
+    - RowIdentity(uuid)が指定される場合はuuid形式であること
+  response:
+    - status: 400
+    - body: ProblemDetails + errors(列名 -> メッセージ)。全違反を1応答で返す
+  non_goals:
+    - DB制約違反(unique / foreign key等)の4xx変換はこのValidationの対象外
+    - Application固有のsemantic検証はApplication Responsibility(§39 Boundary)であり、App Editorは専用Validatorを追加しない
+```
+
+検証規則はDefinitionのみから導出し、Registry・Authoring Dataを変更しない。生成コードはEditor内部実装・Node transportに依存しない。
+
 ### Deploy
 
 ```text
