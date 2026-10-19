@@ -339,6 +339,9 @@ import './contrib/externalTerminal/browser/externalTerminal.contribution.js';
 // Relauncher
 import './contrib/relauncher/browser/relauncher.contribution.js';
 
+// Primitive App Editor
+import './contrib/primitiveAppEditor/browser/primitiveAppEditor.contribution.js';
+
 // Modern UI (experimental)
 import './contrib/modernUI/browser/modernUI.contribution.js';
 
