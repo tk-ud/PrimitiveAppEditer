@@ -393,29 +393,31 @@ export function serializeDeployTemplate(template: IDeployTemplate): string {
 export const BUILTIN_DEPLOY_TEMPLATE_ID = 'docker-compose-default';
 
 /** Image / dependency versions are pinned for reproducibility (5); they match the generated `net8.0` API and Next.js 14 UI. */
-export const BUILTIN_DEPLOY_TEMPLATE_DOCUMENT = `deploy_template:
-  id: docker-compose-default
-  label: "Docker Compose (default)"
-  description: "ASP.NET Core API + Next.js UI + PostgreSQL"
-  provider: docker_compose
-  supported_hosts: [linux, windows_wsl2, macos]
-  compatible_build_targets: [${JSON.stringify(POSTGRESQL_WEB_APPLICATION_OUTPUT)}]
-  services:
-    api:
-      dockerfile: generated
-      internal_port: 8080
-      host_port: 8080
-    ui:
-      dockerfile: generated
-      internal_port: 3000
-      host_port: 3000
-    database:
-      image: "postgres:16.4"
-      data_volume: application-db
-      password_env: DB_PASSWORD
-  capabilities:
-    compose: true
-`;
+export const BUILTIN_DEPLOY_TEMPLATE_DOCUMENT = [
+	'deploy_template:',
+	'  id: docker-compose-default',
+	'  label: "Docker Compose (default)"',
+	'  description: "ASP.NET Core API + Next.js UI + PostgreSQL"',
+	'  provider: docker_compose',
+	'  supported_hosts: [linux, windows_wsl2, macos]',
+	`  compatible_build_targets: [${JSON.stringify(POSTGRESQL_WEB_APPLICATION_OUTPUT)}]`,
+	'  services:',
+	'    api:',
+	'      dockerfile: generated',
+	'      internal_port: 8080',
+	'      host_port: 8080',
+	'    ui:',
+	'      dockerfile: generated',
+	'      internal_port: 3000',
+	'      host_port: 3000',
+	'    database:',
+	'      image: "postgres:16.4"',
+	'      data_volume: application-db',
+	'      password_env: DB_PASSWORD',
+	'  capabilities:',
+	'    compose: true',
+	'',
+].join('\n');
 
 /** One Registry entry: a Valid Template, or an `Invalid` document listed with its diagnostic (never selectable). */
 export interface IDeployTemplateRegistryEntry {
