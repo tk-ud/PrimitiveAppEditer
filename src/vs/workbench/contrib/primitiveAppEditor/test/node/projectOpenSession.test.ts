@@ -94,4 +94,43 @@ suite('Primitive App Editor - Project Open wiring (workbench.integration)', () =
 		assert.ok(state.error);
 		assert.strictEqual(session.database, undefined);
 	});
+
+	test('concurrent opens of the same root share one open and keep one storage', async () => {
+		const first = session.open(root);
+		const second = session.open(root);
+		assert.strictEqual(first, second);
+
+		const state = await first;
+		assert.strictEqual(state.state, ProjectOpenState.Ready);
+		assert.strictEqual(state.result?.mode, ProjectOpenMode.Create);
+
+		await session.close();
+		await fs.rm(join(root.fsPath, 'project.sqlite'));
+	});
+
+	test('opening root A then B ends in B and releases the storage of A', async () => {
+		const rootA = URI.file(join(tempRoot, 'a'));
+		const rootB = URI.file(join(tempRoot, 'b'));
+		const seen: string[] = [];
+		session.onDidChangeState(state => seen.push(`${state.state}:${state.root?.path.split('/').pop()}`));
+
+		const a = session.open(rootA);
+		const b = session.open(rootB);
+		const [stateA, stateB] = await Promise.all([a, b]);
+
+		assert.strictEqual(stateA.root?.toString(), rootB.toString());
+		assert.strictEqual(stateB.state, ProjectOpenState.Ready);
+		assert.strictEqual(session.state.root?.toString(), rootB.toString());
+		assert.ok(!seen.includes('ready:a'));
+		// A never reached Ready, so its storage was never kept and project.sqlite of A can be removed.
+		await fs.rm(join(rootA.fsPath, 'project.sqlite'), { force: true });
+	});
+
+	test('close() during an open discards the open result', async () => {
+		const opening = session.open(root);
+		const closing = session.close();
+		await Promise.all([opening, closing]);
+		assert.strictEqual(session.state.state, ProjectOpenState.None);
+		assert.strictEqual(session.database, undefined);
+	});
 });

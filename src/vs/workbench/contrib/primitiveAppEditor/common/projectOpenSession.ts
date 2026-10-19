@@ -88,6 +88,9 @@ export class ProjectOpenSession {
 	private _state: IProjectOpenSessionState = noneState;
 	private storage: ProjectSqliteStorage | undefined;
 	private listeners: ((state: IProjectOpenSessionState) => void)[] = [];
+	private queue: Promise<void> = Promise.resolve();
+	private generation = 0;
+	private latest: { readonly root: URI; readonly promise: Promise<IProjectOpenSessionState> } | undefined;
 
 	constructor(
 		private readonly fileService: IFileService,
@@ -108,9 +111,53 @@ export class ProjectOpenSession {
 		return { dispose: () => { this.listeners = this.listeners.filter(candidate => candidate !== listener); } };
 	}
 
-	async open(root: URI): Promise<IProjectOpenSessionState> {
-		await this.close();
+	/**
+	 * Opens `root` as the Project, replacing the previous one. Opens and closes are serialized and
+	 * numbered: an open for the root already being opened shares that open, and an open superseded
+	 * by a later open / close releases its own `project.sqlite` and never touches the state.
+	 */
+	open(root: URI): Promise<IProjectOpenSessionState> {
+		if (this.latest && this.latest.root.toString() === root.toString()) {
+			return this.latest.promise;
+		}
+		const generation = ++this.generation;
 		this.update({ ...noneState, state: ProjectOpenState.Opening, root });
+		const promise = this.sequence(() => this.run(root, generation));
+		const latest = { root, promise };
+		this.latest = latest;
+		const settled = () => { if (this.latest === latest) { this.latest = undefined; } };
+		promise.then(settled, settled);
+		return promise;
+	}
+
+	close(): Promise<void> {
+		this.generation++;
+		this.latest = undefined;
+		return this.sequence(async () => {
+			await this.release();
+			if (this._state.state !== ProjectOpenState.None) {
+				this.update(noneState);
+			}
+		});
+	}
+
+	private sequence<T>(operation: () => Promise<T>): Promise<T> {
+		const result = this.queue.then(operation);
+		this.queue = result.then(() => undefined, () => undefined);
+		return result;
+	}
+
+	private async release(): Promise<void> {
+		const storage = this.storage;
+		this.storage = undefined;
+		await storage?.close();
+	}
+
+	private async run(root: URI, generation: number): Promise<IProjectOpenSessionState> {
+		if (generation !== this.generation) {
+			return this._state;
+		}
+		await this.release();
 
 		const storage = new ProjectSqliteStorage(this.databaseFactory);
 		const migrator = new EditorDdlMigrator(storage, this.ddlResources);
@@ -129,27 +176,25 @@ export class ProjectOpenSession {
 			assetScan: createAssetScanStep(this.fileService, async () => [], found => { assets = found; }),
 		};
 
+		let next: IProjectOpenSessionState;
 		try {
 			const result = await openProjectDirectory(this.fileService, root, steps);
-			if (result.status === ProjectOpenStatus.Ready) {
-				this.storage = storage;
-				return this.update({ state: ProjectOpenState.Ready, root, result, error: undefined, registry, functionScan, assets });
-			}
-			await storage.close();
-			return this.update({ ...noneState, state: ProjectOpenState.Incomplete, root, result });
+			next = result.status === ProjectOpenStatus.Ready
+				? { state: ProjectOpenState.Ready, root, result, error: undefined, registry, functionScan, assets }
+				: { ...noneState, state: ProjectOpenState.Incomplete, root, result };
 		} catch (error) {
+			next = { ...noneState, state: ProjectOpenState.Failed, root, error: error instanceof Error ? error : new Error(String(error)) };
+		}
+		if (generation !== this.generation || next.state !== ProjectOpenState.Ready) {
 			await storage.close();
-			return this.update({ ...noneState, state: ProjectOpenState.Failed, root, error: error instanceof Error ? error : new Error(String(error)) });
 		}
-	}
-
-	async close(): Promise<void> {
-		const storage = this.storage;
-		this.storage = undefined;
-		await storage?.close();
-		if (this._state.state !== ProjectOpenState.None) {
-			this.update(noneState);
+		if (generation !== this.generation) {
+			return this._state;
 		}
+		if (next.state === ProjectOpenState.Ready) {
+			this.storage = storage;
+		}
+		return this.update(next);
 	}
 
 	private update(state: IProjectOpenSessionState): IProjectOpenSessionState {
