@@ -1606,8 +1606,29 @@ section:
           - "Tests: test/node/projectSqliteBridge.test.ts (Create/Open round trip on a real project.sqlite through the channel with JSON-serialized args/results, adapter errors, transaction commit/rollback, outside statements wait for a transaction, close waits for a running transaction, failing BEGIN rejects and the same handle still serves all / transaction / close)."
           - "Verification (node 24): all primitiveAppEditor node tests 298 passing; eslint --max-warnings 0 clean on primitiveAppEditor, sharedProcessMain.ts, workbench.desktop.main.ts, eslint.config.js; layersChecker clean. PR #96 CI (Compile & Hygiene, Electron, Electron-Unit, Electron-Smoke, Browser, Remote) green on head b6b1e345 before the begin() fix."
           - "Required integration fix (consumer exposed by the bridge): extensions/git/src/test/smoke.test.ts adds 'project.sqlite*' to .git/info/exclude. With the bridge registered the desktop Workbench runs Project Open and creates project.sqlite in the opened folder (Folder = Project), which the Linux / Electron git smoke test counted as an untracked change (3 failures). Test-only; verified by Linux / Electron going green on b6b1e345. This is the first real-Electron evidence that the bridge reaches the Node adapter."
-          - "Out of scope, tracked separately: shared process does not reclaim handles/transactions when a renderer disconnects (Issue #97)."
+          - "Out of scope, tracked separately: shared process does not reclaim handles/transactions when a renderer disconnects (Issue #97; design change adds bundle workbench.project-bridge-lifecycle)."
         remaining: []
+
+      - id: "workbench.project-bridge-lifecycle"
+        title: "project.sqlite bridge: reclaim handles and transactions of disconnected renderer clients (Issue #97)"
+        reference:
+          - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "§39 Project Sqlite Bridge"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
+              - "§34 Boundary Rules"
+              - "§39 Boundary"
+        depends_on:
+          - "workbench.project-bridge"
+        status: "not started"
+        evidence: []
+        remaining:
+          - "node/projectSqliteBridgeChannel.ts: key the handle table by call ctx (client identity); reject use of a handle by a client that did not open it."
+          - "On client disconnect (renderer close / reload / crash), rollback the running transaction and close every handle owned by that client; other clients are unaffected. Wire the disconnect signal in sharedProcessMain.ts."
+          - "Tests: a client's disconnect releases its handle and BEGIN IMMEDIATE lock so another client can open and write; disconnect of client A leaves client B's handles usable; cross-client handle use is rejected. No change to the bridge command contract or project.sqlite Authority / Schema / SQL."
 
       - id: "workbench.views"
         title: "Activity Bar, Side Bar, Editor Tabs and Bottom Panel"
