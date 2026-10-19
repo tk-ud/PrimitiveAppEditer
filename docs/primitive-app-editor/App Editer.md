@@ -3064,6 +3064,17 @@ project.sqlite bridge = workbench.project-bridge
 - bridge未登録のWorkbenchはProject: Failedを表示する(既存動作を維持する)。
 
 ```text
+handle / transaction ownership
+  = bridge channel call ctx (client identity = renderer Window)
+```
+
+- bridgeが保持するhandleと実行中transactionは、それを開いたclient(renderer Window)に所有される。
+- handle表はclient単位で管理し、あるclientが操作できるのは自身が開いたhandleのみとする。
+- clientの切断(close / reload / crash)を検出した場合、bridgeは当該clientのhandleについて、実行中transactionをrollbackしてからcloseする。他clientのhandleには影響しない。
+- 回収によりproject.sqliteのlockを解放し、他Windowからの再オープンをブロックしない。
+- 回収はbridge内部の寿命管理であり、project.sqliteのAuthority・Schema・SQL契約、およびrenderer向けbridge契約(command・JSON-safe引数)を変更しない。
+
+```text
 Folder
   = Project
 ```
