@@ -2,7 +2,7 @@
 
 > **状態:** 採用（roadmap登録済み。Bundle配分は§8、決定事項は§9）  
 > **Authority:** Deploy Configuration仕様SSOT（Deploy Template / Selection / Docker Projection / Deploy Validation / Deploy E2E）  
-> **対象:** `build.deploy-projection` / `build.deploy` / `completion.end-to-end`（Setup Scriptはroadmap `future`）  
+> **対象:** MVP `build.deploy-projection` / `build.deploy` / `completion.end-to-end`、MVP E2E後の拡張 `build.deploy-setup-script` / `build.deploy-template-registrar`  
 > **目的:** ユーザーが展開環境を選択し、Definitionから生成された環境構築成果物によって、Editorに依存せずApplicationを起動・検証できること。
 
 ## 1. Purpose / Scope
@@ -46,7 +46,7 @@ Authoring Data + Build Configuration
 
 - **対象:** 現行Build TargetであるPostgreSQL Web Application Output（ASP.NET Core API + Next.js UI / PostgreSQL）を、Docker Composeによって展開可能にするための定義と導出物。
 - **MVPの検証に必要な範囲:** 定義を選択してDockerfile / Compose構成を生成し、実際に起動してE2E検証すること。
-- **追加のUX構想:** Docker未導入環境の検出、プラットフォーム別の導入支援、セットアップ用 `.sh` / `.bat` の生成。
+- **MVP E2E後の拡張（現行roadmapで実装）:** Docker未導入環境の検出、プラットフォーム別の導入支援、セットアップ用 `.sh` / `.bat` の生成（§6）、利用者定義Deploy Templateのレジストラ登録（§3.3 / §4）。
 - **対象外:** Editorが利用者のOSを遠隔管理すること、Editor内にApplication固有の運用ロジックをハードコードすること、Docker Desktopのライセンスや利用条件を回避すること。
 
 MVPへの採否と各Bundleへの配分は§8 / §9で確定し、roadmap.yamlへ登録済みである。
@@ -139,11 +139,40 @@ build_configuration:
 - **Validation:** 必須項目・型・ポートの同一ホスト上での競合・Path・Build Targetとの整合を確認。
 - **Projection:** 同じDefinition + 同じSelection + 同じApplication Outputから、決定的なファイル群を生成。
 
-**MVP決定（§9）:** Deploy TemplateはEditorに同梱する組込みDefinition（`docker-compose-default`）のみとし、Selectionは§31 Build Configurationの`deploy`拡張として保持する。利用者定義Templateの物理保存場所・ファイル形式・ID仕様・既存レジストラとの接続方式は現行loop対象外とする。既存の`table_registry`へDeploy metadataを混在させない。
+**決定（§9）:** MVPのDeploy TemplateはEditorに同梱する組込みDefinition（`docker-compose-default`）とし、Selectionは§31 Build Configurationの`deploy`拡張として保持する。利用者定義Templateは§3.3の契約でMVP E2E後に実装する（`build.deploy-template-registrar`）。既存の`table_registry`へDeploy metadataを混在させない。
+
+### 3.3 利用者定義Template
+
+`build.deploy-template-registrar`が実装する契約。§3.1と同じDefinition Schemaを用い、組込みTemplateと同じValidation / Projectionを通す。
+
+```yaml
+user_deploy_template:
+  storage: "<Working Directory>/config/deploy/templates/<template_id>.yaml"
+  format: YAML（§3.1 deploy_templateの1文書。未知のkeyはValidation reject）
+  authority: Working Directory（Authoring Persistent / config/）。project.sqlite・Registryには保存しない
+  id:
+    pattern: "^[a-z][a-z0-9-]{0,62}$"
+    rule:
+      - ファイル名（拡張子除く）とidが一致する
+      - 組込みTemplateのidは予約済み。同じidの利用者定義Templateはreject（上書き・shadowingしない）
+      - 利用者定義Template間でも一意
+  origin: builtin | user           # 一覧・UIで区別する。builtinは読取専用
+```
+
+- **優先関係:** 同一idの共存を許さないため、名前解決に優先順位は存在しない。Selectionの`template_id`は組込み / 利用者定義を問わず完全一致で1件に解決し、0件は「Template未解決」としてBuild Validation reject。組込みTemplateを変更したい場合は「複製」により新しいidの利用者定義Templateを作成する。
+- **Validation（§7.1に追加）:**
+  - §3.1のSchema（`provider`、`services.api / ui / database`の必須、`parameters`の型）に適合する。MVPの`provider`は`docker_compose`のみ。
+  - `compatible_build_targets`に既存Build Targetが1つ以上含まれ、`supported_hosts`は§3.1の値に限る。
+  - `database.image`等のImage参照はtagまたはdigestで固定し、`latest` / 省略をrejectする（§5 再現性）。
+  - `secret_reference`型のParameterは`default`を持たない（§5 機密値）。
+  - Parameterの`key`はTemplate内で一意で、`compose.yaml` / `.env.example`の変数名へ決定的に写像できる。
+  - 不正なTemplateは一覧に`Invalid`として表示し、Selectionに選べない。既存SelectionがInvalid化したTemplateを参照する場合はBuild Validationで明示し、Buildしない。
+- **編集とSelection:** Templateの編集・削除はSelectionを自動書換しない。参照中Templateの削除は確認を要し、削除後のSelectionは「Template未解決」となる。
+- **Mutation経路:** 作成・編集・複製・削除はApp Editor側のDeploy Template Service経由で行い、Validationを通過した内容のみ一時ファイル + renameで原子的に書き込む。UIから直接ファイルを書き換えない。外部エディタでの手編集は再読込時に同じValidationを通す。
 
 ## 4. UI / Registrar Integration
 
-Deploy Templateをレジストラの操作体系で登録・選択できる構想とする。個別の固定フォームを増やさず、Definitionから入力コントロールを導出する。MVP（`build.deploy`）は組込みTemplateの選択とParameter入力をBuild / Export Configuration Surfaceで扱い、利用者定義Templateのレジストラ登録は現行loop対象外とする（§9）。
+Deploy Templateをレジストラの操作体系で登録・選択する。個別の固定フォームを増やさず、Definitionから入力コントロールを導出する。MVP（`build.deploy`）は組込みTemplateの選択とParameter入力をBuild / Export Configuration Surfaceで扱い、利用者定義Templateの登録・編集はMVP E2E後の`build.deploy-template-registrar`で扱う（§4 Template Registrar）。
 
 ```text
 Primary Side Bar / Build
@@ -172,7 +201,35 @@ Bottom Panel
 6. ユーザーが確認してBuild / Exportする。
 7. 結果は`build/`配下に出力し、生成LogをBottom Panelへ表示する。
 
-UI Placementは`Editor UI.md` §3 / §9 / §10 / §13 / §15に従う。レジストラの技術的な実装方法はOwner決定事項とする。
+UI Placementは`Editor UI.md` §3 / §9 / §10 / §13 / §15に従う。
+
+### Template Registrar
+
+`build.deploy-template-registrar`が実装する利用者定義TemplateのUI責務。保存・ID・Validation・優先関係は§3.3に従う。
+
+```text
+Primary Side Bar / Build
+  -> Deploy Template一覧（builtin / user / Invalidを区別）
+  -> 新規作成 / 組込みTemplateから複製 / 削除 / Editor Areaで開く
+
+Editor Area / Deploy Template Editor
+  -> §3.1 Schemaから導出したControl（provider / supported_hosts /
+     compatible_build_targets / services / parameters / capabilities）
+  -> builtinは読取専用表示
+  -> 保存はValidation通過時のみ（Deploy Template Service経由）
+
+Editor Area / Build / Export Configuration
+  -> 互換かつValidなTemplate（builtin + user）からDeploy Environmentを選択
+
+Secondary Side Bar / Inspector
+  -> 選択中Template / Parameterの補足情報、参照中Selection
+
+Bottom Panel
+  -> Template Validation結果 / Diagnostics
+```
+
+- Primary Side BarはDiscovery / Navigation / Selectionに留め、Template編集はEditor Areaで行う（`Editor UI.md` §9 / §10 / §13）。
+- Template RegistrarはApplication Registry（`table_registry`等）のUIを流用・拡張して保存先にしない。操作体系（一覧・選択・Inspector・Validation表示）のみを揃える。
 
 ## 5. Docker Projection
 
@@ -232,7 +289,16 @@ Continue             Explain prerequisites
 - **Dockerアカウントは原則として必須にしない。** 利用条件、匿名イメージ取得制限、Docker Desktopのライセンス、ホストの管理者権限等は別の前提として明示する。
 - Linux Docker EngineとWindows/macOS Docker Desktopの導入手順は同一視しない。WindowsのWSL2/仮想化/再起動の有無を検出・案内できることが望ましい。
 - 自動インストール、権限昇格、再起動、ネットワーク変更は、ユーザーの明示的な同意なしに実行しない。
-- **MVPの必須条件としない:** Docker未インストール時の完全自動復旧。MVPでは、事前にDockerが利用できるE2E環境を前提にComposeを検証可能とする。
+- **MVPの必須条件としない:** Docker未インストール時の完全自動復旧。MVPでは、事前にDockerが利用できるE2E環境を前提にComposeを検証可能とする。本節はMVP E2E後に`build.deploy-setup-script`で実装する。
+
+### Setup Script Contract
+
+- `setup.sh`（Linux / macOS、POSIX sh）と`setup.bat`（Windows）を、§5のDocker Projectionと同じDeploy Selectionから決定的に生成し、Application Output直下に置く。選択されたTemplateの`capabilities.setup_script`が`false`の場合は生成しない。
+- 処理順: OS / Architecture判定 → `docker` / `docker compose`の有無とEngine稼働確認 → 不足時は前提とOS別導入手順を表示 → 同意が得られた場合のみ案内に沿った導入を実行（`capabilities.installer_assistance: true`のときのみ）→ 再確認 → `docker compose up`。
+- 権限昇格（`sudo` / UAC）、パッケージ導入、再起動、ネットワーク設定変更は、それぞれ実行直前に内容を表示して対話的な明示同意を得た場合にのみ行う。非対話実行（stdinがTTYでない等）では同意なしとみなし、前提不足なら非0で終了する。
+- 既存Volume・コンテナ・`.env`を削除・上書きしない。`.env`が無い場合は`.env.example`の存在を案内して終了し、機密値を生成・埋め込みしない。
+- 終了コード: 0 = 起動成功、非0 = 前提不足 / 同意拒否 / 起動失敗（原因をメッセージで区別）。
+- 検証: 生成物の決定性、Docker有り環境（Linux）での起動、Docker無し・非対話環境で同意なしに変更を行わず非0終了することをテストする。
 
 ## 7. Build Validation / E2E
 
@@ -286,11 +352,14 @@ build.deploy (not started)
 completion.end-to-end (not started)
   -> Authoring -> Build -> Deploy -> Runtime -> Rendererを実環境で検証（§7.2）
 
-future.excluded_from_current_loop: build.deploy-setup-script（追加UX）
+Deploy Extensions（Completionより後のsection。completion.end-to-endの依存に含めない）
+build.deploy-setup-script (not started)
   -> setup.sh / setup.bat生成、Docker Prerequisites検出と導入案内（§6）
-  -> 現行MVP loopのBundleとして登録しない（roadmap.nextに選択させない）
-  -> 再開条件: completion.end-to-end implemented後、Ownerが独立Bundle
-     （depends_on build.deploy）としてsectionへ登録する
+  -> depends_on build.deploy
+
+build.deploy-template-registrar (not started)
+  -> 利用者定義Templateの登録・編集・複製・削除・選択・Validation（§3.3 / §4 Template Registrar）
+  -> depends_on build.deploy, build.deploy-projection, workbench.views
 ```
 
 各Bundleのstatus / evidence / remainingはroadmap.yamlのみで管理し、Tool First（`roadmap.next` / `roadmap.complete`）に従って更新する。本資料はBundleの進捗を持たない。
@@ -299,10 +368,10 @@ future.excluded_from_current_loop: build.deploy-setup-script（追加UX）
 
 | # | 論点 | 決定 |
 |---|---|---|
-| 1 | Deploy Templateの保存先と形式 | MVPはEditorに同梱する組込みDefinition `docker-compose-default`のみ。Selection（`template_id` / `host` / `parameters`）は§31 Build Configurationの`deploy`拡張として保持し、Registry / Raw Dataへ書き込まない。利用者定義Templateの保存先・形式は現行loop対象外 |
-| 2 | レジストラへのDeploy Template登録の統合 | 現行loop対象外（roadmap `future`）。MVPのUIは組込みTemplateの選択とParameter入力のみ |
+| 1 | Deploy Templateの保存先と形式 | MVPはEditorに同梱する組込みDefinition `docker-compose-default`。Selection（`template_id` / `host` / `parameters`）は§31 Build Configurationの`deploy`拡張として保持し、Registry / Raw Dataへ書き込まない。利用者定義Templateは`config/deploy/templates/<template_id>.yaml`（§3.3）。組込みidは予約され、shadowingしない |
+| 2 | レジストラへのDeploy Template登録の統合 | MVP E2E後に`build.deploy-template-registrar`で実装（§4 Template Registrar）。Application Registryとは保存先を共有せず、操作体系のみ揃える |
 | 3 | `build.deploy`系のMVP境界 | Dockerfile / Compose生成とDeploy Validationを完了条件に含める（`build.deploy-projection`）。UI Surfaceは`build.deploy` |
 | 4 | `completion.end-to-end`の最小ホスト環境 | Docker Engine + Compose Pluginが事前に利用可能なLinux（`host: linux`）。Windows WSL2 / macOSは対応宣言のみでE2E必須にしない |
-| 5 | Setup Script / Docker自動導入支援 | 現行MVP loopから外し、roadmap `future.excluded_from_current_loop`に将来の独立Bundle `build.deploy-setup-script`として記録する。`completion.end-to-end`の依存に含めない。再開は`completion.end-to-end` implemented後にOwnerがsectionへ登録する |
+| 5 | Setup Script / Docker自動導入支援 | MVP E2E後に`build.deploy-setup-script`で実装（§6 Setup Script Contract）。roadmapではCompletionより後の`Deploy Extensions` sectionに置き、`completion.end-to-end`の依存に含めない |
 
-具体的なImage / Dependency Version、Template IDの細則、Parameterの既定値は、§5の制約（再現性・機密値非埋め込み）を満たす範囲で`build.deploy-projection`の実装時に決定し、evidenceへ記録する。
+具体的なImage / Dependency Version、Parameterの既定値は、§5の制約（再現性・機密値非埋め込み）を満たす範囲で`build.deploy-projection`の実装時に決定し、evidenceへ記録する。
