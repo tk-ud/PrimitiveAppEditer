@@ -133,7 +133,8 @@ public sealed class ApplicationDefinition
 }
 `;
 
-const TABLE_RUNTIME_CS = `using System.Text.Json;
+const TABLE_RUNTIME_CS = `using System.Globalization;
+using System.Text.Json;
 using Npgsql;
 using NpgsqlTypes;
 
@@ -224,12 +225,101 @@ public sealed class TableRuntime(NpgsqlDataSource dataSource)
 \t\t\t"int" => new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Bigint, Value = value.GetInt64() },
 \t\t\t"double" => new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Double, Value = value.GetDouble() },
 \t\t\t"bool" => new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Boolean, Value = value.GetBoolean() },
-\t\t\t"date" => new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Date, Value = DateOnly.Parse(value.GetString()!) },
-\t\t\t"timestamp" => new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.TimestampTz, Value = DateTimeOffset.Parse(value.GetString()!).UtcDateTime },
+\t\t\t"date" => new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Date, Value = DateOnly.Parse(value.GetString()!, CultureInfo.InvariantCulture) },
+\t\t\t"timestamp" => new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.TimestampTz, Value = DateTimeOffset.Parse(value.GetString()!, CultureInfo.InvariantCulture).UtcDateTime },
 \t\t\t"json" => new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Jsonb, Value = value.GetRawText() },
 \t\t\t_ => new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Text, Value = value.GetString() },
 \t\t};
 \t}
+}
+`;
+
+const REQUEST_VALIDATION_CS = `using System.Globalization;
+using System.Text.Json;
+
+namespace ${API_NAMESPACE};
+
+/// <summary>
+/// Request Validation for Insert / Update bodies. Rules derive only from the Application Definition (column kind / not_null);
+/// every violation is collected so that one 400 ProblemDetails reports them all. Unknown keys are ignored.
+/// </summary>
+public static class RequestValidation
+{
+\tprivate const string RowIdentity = "uuid";
+
+\tpublic static Dictionary<string, string[]> Validate(TableDefinition table, JsonElement body, bool isInsert)
+\t{
+\t\tvar errors = new Dictionary<string, string[]>();
+\t\tif (body.ValueKind != JsonValueKind.Object)
+\t\t{
+\t\t\terrors[""] = ["The request body must be a JSON object."];
+\t\t\treturn errors;
+\t\t}
+\t\tforeach (var column in table.Columns)
+\t\t{
+\t\t\tvar present = body.TryGetProperty(column.Name, out var value);
+\t\t\tif (column.Name == RowIdentity)
+\t\t\t{
+\t\t\t\tif (present && !IsValid("uuid", value, allowNull: false))
+\t\t\t\t{
+\t\t\t\t\terrors[column.Name] = ["Must be a UUID string."];
+\t\t\t\t}
+\t\t\t\tcontinue;
+\t\t\t}
+\t\t\tif (!present)
+\t\t\t{
+\t\t\t\tif (isInsert && column.NotNull)
+\t\t\t\t{
+\t\t\t\t\terrors[column.Name] = ["A value is required."];
+\t\t\t\t}
+\t\t\t\tcontinue;
+\t\t\t}
+\t\t\tif (value.ValueKind == JsonValueKind.Null)
+\t\t\t{
+\t\t\t\tif (column.NotNull)
+\t\t\t\t{
+\t\t\t\t\terrors[column.Name] = ["Must not be null."];
+\t\t\t\t}
+\t\t\t\tcontinue;
+\t\t\t}
+\t\t\tif (!IsValid(column.Kind, value, allowNull: true))
+\t\t\t{
+\t\t\t\terrors[column.Name] = [Expected(column.Kind)];
+\t\t\t}
+\t\t}
+\t\treturn errors;
+\t}
+
+\t/// <summary>Kind Dispatch of the column kind to the accepted JSON type / format (the inverse of TableRuntime.Parameter).</summary>
+\tinternal static bool IsValid(string kind, JsonElement value, bool allowNull)
+\t{
+\t\tif (value.ValueKind == JsonValueKind.Null)
+\t\t{
+\t\t\treturn allowNull;
+\t\t}
+\t\treturn kind switch
+\t\t{
+\t\t\t"uuid" => value.ValueKind == JsonValueKind.String && Guid.TryParse(value.GetString(), out _),
+\t\t\t"int" => value.ValueKind == JsonValueKind.Number && value.TryGetInt64(out _),
+\t\t\t"double" => value.ValueKind == JsonValueKind.Number && value.TryGetDouble(out var d) && double.IsFinite(d),
+\t\t\t"bool" => value.ValueKind is JsonValueKind.True or JsonValueKind.False,
+\t\t\t"date" => value.ValueKind == JsonValueKind.String && DateOnly.TryParse(value.GetString(), CultureInfo.InvariantCulture, out _),
+\t\t\t"timestamp" => value.ValueKind == JsonValueKind.String && DateTimeOffset.TryParse(value.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.None, out _),
+\t\t\t"json" => true,
+\t\t\t_ => value.ValueKind == JsonValueKind.String,
+\t\t};
+\t}
+
+\tprivate static string Expected(string kind) => kind switch
+\t{
+\t\t"uuid" => "Must be a UUID string.",
+\t\t"int" => "Must be a 64-bit integer.",
+\t\t"double" => "Must be a finite number.",
+\t\t"bool" => "Must be true or false.",
+\t\t"date" => "Must be a date string (yyyy-MM-dd).",
+\t\t"timestamp" => "Must be a timestamp string (ISO 8601).",
+\t\t_ => "Must be a string.",
+\t};
 }
 `;
 
@@ -314,6 +404,7 @@ tables.MapGet("{uuid:guid}", async (string schema, string table, Guid uuid, Appl
 tables.MapPost("", async (string schema, string table, JsonElement values, ApplicationDefinition definition, TableRuntime runtime, CancellationToken cancellation) =>
 {
 \tif (definition.Find(schema, table) is not { } t) { return Results.NotFound(); }
+\tif (RequestValidation.Validate(t, values, isInsert: true) is { Count: > 0 } errors) { return Results.ValidationProblem(errors); }
 \tvar uuid = values.TryGetProperty("uuid", out var given) ? given.GetGuid() : Guid.NewGuid();
 \tawait runtime.InsertAsync(t, uuid, values, cancellation);
 \treturn Results.Created($"/api/tables/{schema}/{table}/{uuid}", new { uuid });
@@ -322,6 +413,7 @@ tables.MapPost("", async (string schema, string table, JsonElement values, Appli
 tables.MapPut("{uuid:guid}", async (string schema, string table, Guid uuid, JsonElement values, ApplicationDefinition definition, TableRuntime runtime, CancellationToken cancellation) =>
 {
 \tif (definition.Find(schema, table) is not { } t) { return Results.NotFound(); }
+\tif (RequestValidation.Validate(t, values, isInsert: false) is { Count: > 0 } errors) { return Results.ValidationProblem(errors); }
 \treturn await runtime.UpdateAsync(t, uuid, values, cancellation) ? Results.NoContent() : Results.NotFound();
 });
 
@@ -508,6 +600,7 @@ export const webProgramApplicationOutputProjection: ApplicationOutputProjection<
 		{ path: 'api/appsettings.json', content: APPSETTINGS },
 		{ path: 'api/ApplicationDefinition.cs', content: DEFINITION_CS },
 		{ path: 'api/TableRuntime.cs', content: TABLE_RUNTIME_CS },
+		{ path: 'api/RequestValidation.cs', content: REQUEST_VALIDATION_CS },
 		{ path: 'api/FunctionRuntime.cs', content: FUNCTION_RUNTIME_CS },
 		{ path: 'api/Program.cs', content: PROGRAM_CS },
 		{ path: 'ui/package.json', content: UI_PACKAGE_JSON },
