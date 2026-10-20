@@ -1031,7 +1031,19 @@ GUI Mapの報告定義と実測Errorをfield名前空間を分けてMergeする�
   first_seen: "<UTC ISO 8601>"
   last_seen: "<UTC ISO 8601>"
   occurrences: 1
-  # state: planned | wontfix | resolved のrecordのみ (open recordは持たない)
+```
+
+```text
+state
+  = GUI Debug Toolが生成するrecordは常に "open" (上記の例は生成時の初期record)
+  = 語彙は open / planned / wontfix / resolved (### State)
+  = open以外への変更はOwner承認のdesign_change PRのみ
+```
+
+Owner判断後にdesign_change PRが付与する任意field (GUI Debug Toolは生成しない。open recordは持たない):
+
+```yaml
+  state: "planned | wontfix | resolved"
   resolution:
     bundle_ids:                   # 対応する修正Bundle id (wontfixは空または省略)
       - "<bundle id>"
