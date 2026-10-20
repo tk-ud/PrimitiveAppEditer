@@ -1,0 +1,4 @@
+# GUI-independent parts need only PyYAML. PySide6 / Playwright are needed to run the Tool window.
+PyYAML==6.0.3
+PySide6==6.8.1
+playwright==1.49.1
