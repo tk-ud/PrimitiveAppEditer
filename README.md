@@ -377,6 +377,7 @@ rules:
   - GUI実機での観測を要する確認がBundleの契約に含まれる場合、同じ契約を自動テスト (単体 / 統合 / 契約テスト) で検証してevidenceへ記録し、GUI上の観測はGUI MapのCheckpointへ委ねる
   - 開発Agentはremainingに含まれるGUI実機確認を前項で扱い、進捗はroadmap.completeで記録する (開発Agentはroadmap.yamlを直接編集しない)
   - GUI実機確認を完了条件として含む既存remainingの文言修正は、Owner判断の設計変更PR (design_change) でのみ行い、status / evidence / depends_onは変更しない
+  - 進捗更新 (実装結果の記録) と設計定義変更 (design_change PRによるremainingの契約・検証条件文言の修正 / Bundle追加) は区別する。前者はroadmap.completeのみ、後者はdesign_change PRのみが行い、適用境界はAgent tool.md rulesを正とする
   - depends_onは実装上の依存関係のみを表し、GUI MapのCheckpoint conditionを依存条件に流用しない
   - GUI Debug Toolはtooling.gui-debugger implemented後に実行でき、Bundle完了を待つ実行条件はCheckpoint condition (GUI Map) のみが定義する
   - GUI検証結果からの修正Bundle追加 / 既存Bundleのreopenは、Owner判断を必須とする。GUI Debug Tool / 開発Agentは自動で追加・reopenしない

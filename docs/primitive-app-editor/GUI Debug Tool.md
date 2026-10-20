@@ -15,6 +15,7 @@ authority:
     - "本資料はApp Editer.mdのArchitecture / Authority / Boundaryを再定義せず、GUI Debug Toolについて具体化する"
     - "UI Markerの規約はEditor UI.md §19 UI Marker Regulationが定義し、本資料はその解決方法とGUI Mapでの利用を定義する"
     - "roadmap.yamlの進捗Authority (status / evidence / remaining) はroadmap Agent Tool (Agent tool.md) のroadmap.completeのみが更新する"
+    - "進捗更新 (実装結果のstatus / evidence / remaining記録) はroadmap.completeのみが行う。Owner判断のdesign_change PRによる既存remainingの契約・検証条件文言の修正と修正Bundle追加は設計定義変更であり進捗更新ではない (status / evidence / depends_onは変更しない。Agent tool.md / README.md GUI Verification Cycle)"
     - "roadmap.yamlのdiagnostics.gui_debugの書込契約は本資料のみが定義する"
     - "roadmap.yamlは本ToolのBundle / Dependency / Progressを定義し、Tool挙動を再定義しない"
     - "GUI検証 (Checkpoint実行 / 結果) は開発Bundleのimplemented条件に含めない (README.md GUI Verification Cycle)"
@@ -1267,9 +1268,35 @@ workbench.integration
 - 後続UI BundleでのUI Marker付与責務 (後続Bundleのreference追加はOwner判断)
 - diagnostics recordの肥大化時の整理方針
 - roadmap.complete / GUI Debug Tool間のrename直前比較以降の同時書込 (TOCTOU) 対策
-- tooling.gui-debugger以降に実装されるSurface (workbench.views等) のGUI Map / UI Marker作成責務
-  (各UI Bundleへのreference追加 / GUI Map作成専用Bundleの追加 / gui_verification phaseでの作成のいずれとするかはOwner判断)
-- Owner Feedback後のrecord state値 (open以外) の語彙と、対応Bundle idの記録方法
+```
+
+### 解決済み: Surface別のGUI Map / UI Marker作成責務 (設計変更, Issue #101)
+
+```text
+UI Marker (data-pae-marker / data-pae-item)
+  = 作成者: 当該Surfaceを実装するUI Bundle (PAE-owned UI code内, Editor UI.md §19)
+  = 当該Bundleの契約テスト (marker/identifier解決) で検証し、evidenceへ記録する
+  != GUI Map作成 / GUI Debug Tool実行
+
+GUI Map (Checkpoint定義)
+  = 作成者: 開発Agent (GPT / Claude)。gui_verification phaseで作成する (README.md GUI Verification Cycle step 2)
+  = 各UI Bundleのreference追加は行わない (Bundle完了条件にGUI Mapを含めない)
+  = 作成が必要な場合の追加作業はOwner判断のdesign_changeで修正Bundleとして追加する
+  = 作成済みでないCheckpointは未作成として扱う (§17)
+```
+
+### 解決済み: diagnostics record stateと対応Bundleの記録 (設計変更, Issue #101)
+
+```text
+state語彙 (Owner Feedback後)
+  open     : GUI Debug Toolが記録した未対応record (GUI Debug Toolのみが設定)
+  planned  : Owner判断で修正Bundleを追加済み (design_changeで設定)
+  wontfix  : Owner判断で修正しない (design_changeで設定)
+  resolved : 修正Bundleimplemented後の再検証で成功を確認済み (design_changeで設定)
+
+対応Bundle id
+  = recordの拡張key resolution.bundle_ids (list) へ設定する
+  = 設定者は人間 / Auditorのdesign_changeのみ。GUI Debug Toolはstate変更 / resolution設定を行わない
 ```
 
 ---
@@ -1313,32 +1340,32 @@ checkpoints:
     origin: "workbench.views (Activity Bar / Primary Side Bar / Editor Tabs / Bottom Panel のGUI配置)"
     bundles: ["workbench.views"]
     locator_candidate: "未定 (GD-GAP-01: view / marker識別子はworkbench.views実装時に確定)"
-    created_by: "未定 (§16 Open Issues)"
+    created_by: "開発Agent (gui_verification phase, §16 解決済み)"
 
   - id: "cp.registry.duplicate-name-table"
     state: "not created"
     origin: "§9 GUI Map YAMLの記述例 (未実装UI想定。Marker値は実装時に確定)"
     bundles: ["workbench.views", "editor.inspector"]
-    created_by: "未定 (§16 Open Issues)"
+    created_by: "開発Agent (gui_verification phase, §16 解決済み)"
 
   - id: "cp.editor.surfaces (仮)"
     state: "not created"
     origin: "editor.function-graph / editor.debug-viewer / renderer.runtime のWorkbench Surface"
     bundles: ["workbench.views", "editor.function-graph", "editor.debug-viewer"]
     locator_candidate: "未定 (GD-GAP-08: webview / iframe探索)"
-    created_by: "未定 (§16 Open Issues)"
+    created_by: "開発Agent (gui_verification phase, §16 解決済み)"
 
   - id: "cp.build.export-configuration (仮)"
     state: "not created"
     origin: "build.deploy / build.deploy-template-registrar のBuild / Export Configuration Surface"
     bundles: ["build.deploy", "build.deploy-template-registrar"]
-    created_by: "未定 (§16 Open Issues)"
+    created_by: "開発Agent (gui_verification phase, §16 解決済み)"
 
   - id: "cp.completion.authoring-flow (仮)"
     state: "not created"
     origin: "completion.end-to-end のうちEditor GUI操作によるAuthoring Flowの観測"
     bundles: ["completion.end-to-end"]
-    created_by: "未定 (§16 Open Issues)"
+    created_by: "開発Agent (gui_verification phase, §16 解決済み)"
 ```
 
 `(仮)`のidは責務の受け皿を示す仮名であり、GUI Map作成時に§7 / §9に従って確定する。

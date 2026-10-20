@@ -251,9 +251,9 @@ section:
               target:
                 - "src/vs/workbench/contrib/primitiveAppEditor/common/projectDirectory.ts (openProjectDirectory, IProjectOpenSteps, ProjectOpenStatus)"
               expected: "A Project Open checkpoint can wait for a GUI-observable Ready / Incomplete state with a stable identifier (Editor UI.md §3 Workbench Placement: Status Bar = Project / Runtime / Build Status)."
-              current: "openProjectDirectory returns ProjectOpenStatus.Ready / Incomplete to code only; Registry Load / Function Scan / Asset Scan steps are not wired into a workbench open (workbench.integration not started); no status bar item exists."
-              missing: "A GUI surface and identifier exposing the Project Open state."
-              follow_up: "Provided by the bundle that wires the open into the workbench and the Status Bar; the GUI Map then waits on its identifier. The identifier itself is decided at that implementation."
+              current: "workbench.integration wires the open into the workbench (ProjectOpenSession) and shows the open state in Status Bar entry id status.primitiveAppEditor.project; the GUI Map for cp.workbench.project-open is not created yet."
+              missing: "The GUI Map Checkpoint waiting on the Status Bar identifier (fixture: GD-GAP-10)."
+              follow_up: "Create the GUI Map in the gui_verification phase (GUI Debug Tool.md §16)."
               confirmed:
                 - "ProjectOpenStatus Ready / Incomplete and getRequiredOpenPhases exist in projectDirectory.ts (foundation.project-directory evidence)."
               to_verify:
