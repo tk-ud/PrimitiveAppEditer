@@ -328,7 +328,7 @@ section:
               expected: "The implementation agent of tooling.gui-debugger can read this audit."
               current: "render_prompt renders id / title / status / depends_on / evidence / remaining and the referenced sections only. parseRoadmap accepts extra bundle keys and roadmap.complete preserves them (verifyUpdate compares the whole document)."
               missing: "Automatic delivery of audit through roadmap.next."
-              follow_up: "GUI Debug Tool.md §15 Implementation Bundle names this audit as implementation input. Whether the roadmap Tool template should render extension keys is an Owner decision (roadmap Tool specification change plus implementation)."
+              follow_up: "Design decision (Issue #108): not a tooling.gui-debugger implemented condition (GUI Debug Tool.md §15 / resolved section). If rendering extension keys becomes necessary, a separate design_change changes Agent tool.md."
               confirmed:
                 - "Template and parser behavior as described above."
               to_verify: []
@@ -358,7 +358,7 @@ section:
               expected: "Markers inside Function Graph / Debug Viewer / Renderer surfaces are resolvable by the GUI Debug Tool."
               current: "The surfaces and their rendering technology do not exist yet."
               missing: "Frame traversal design if those surfaces use webviews."
-              follow_up: "The Webview / iframe frame traversal method is defined as an identification contract in the UI Map design step (README.md GUI Verification Cycle). After the bundles are implemented, audit their Marker assignment against the UI Map identification contract."
+              follow_up: "The Webview / iframe frame traversal method is defined as an identification contract in the UI Map design step (README.md GUI Verification Cycle) before the target bundles start (Issue #108 decision). After the bundles are implemented, audit their Marker assignment against the UI Map identification contract."
               confirmed:
                 - "Related bundles are 'not started'."
               to_verify:
@@ -387,7 +387,7 @@ section:
               expected: "GUI checkpoints that save Authoring Data run only against a disposable Working Directory (GUI Debug Tool.md §14 Boundary)."
               current: "Project fixtures exist only inside unit / node tests (in-memory file system and temporary directories)."
               missing: "A GUI fixture Working Directory and the procedure to open it in the running editor."
-              follow_up: "Define during tooling.gui-debugger implementation together with GD-GAP-02."
+              follow_up: "Design decision (Issue #108): the fixture Working Directory is defined as a precondition of the Checkpoint (GUI Map) together with GD-GAP-02, not as a tooling.gui-debugger implemented condition."
               confirmed:
                 - "Existing fixtures are test-only."
               to_verify:

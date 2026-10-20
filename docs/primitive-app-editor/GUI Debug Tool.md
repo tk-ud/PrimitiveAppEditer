@@ -1272,9 +1272,10 @@ verification:
   - "GUI非依存部分 (GUI Map validation / applicability / diagnostics merge / write protocol) の自動test"
   - "diagnostics追記後もroadmap.nextの選択結果が不変であること"
   - "diagnostics追記後もroadmap.completeが成功し、diagnosticsが保持されること"
-  - "§6 Unverified項目の検証結果"
-  - "起動中のPrimitive App Editorに対するTool動作検証 (接続 / Marker解決 / Checkpoint実行 / Run Artifact出力 / diagnostics書込が機能すること)"
+  - "§6 Unverified項目のうち、stand-in (Chromium上のworkbench相当ページ) とCDP attachで自動testできる契約の検証結果"
+  - "stand-inに対するTool動作検証の自動test (接続 / Marker解決 / Checkpoint実行 / Run Artifact出力 / diagnostics書込が機能すること)"
 verification_excludes:
+  - "起動中のPrimitive App Editor (scripts/code.sh起動のWorkbench) に対するGUI実機確認 (§6 Unverifiedのうち実機でのみ観測できる項目を含む)。Checkpoint (GUI Map) の責務とし、README.md GUI Verification Cycle step 4 で扱う"
   - "Checkpointがpassedであること (Product GUIの不具合はdiagnostics.gui_debugへ記録し、本Bundleの完了条件にしない)"
   - "§17 Checkpoint Coverageの未作成Checkpoint全件のGUI Map作成"
 audit_input:
@@ -1318,6 +1319,24 @@ workbench.integration
 - 後続UI BundleでのUI Marker付与責務 (後続Bundleのreference追加はOwner判断)
 - diagnostics recordの肥大化時の整理方針
 - roadmap.complete / GUI Debug Tool間のrename直前比較以降の同時書込 (TOCTOU) 対策
+```
+
+### 解決済み: §15 verificationとGUI実機検証の分離 (設計変更, Issue #108 / Owner委任の自律判断)
+
+```text
+§15 verification
+  = GUI非依存部分の自動test + stand-in (Chromium上のworkbench相当ページ) に対するCDP attach契約test
+  != 起動中Primitive App Editor (scripts/code.sh起動のWorkbench) に対するGUI実機確認
+
+GUI実機確認 (実機でのみ観測できる §6 Unverified項目を含む)
+  = Checkpoint (GUI Map) の責務。README.md GUI Verification Cycle step 4 で実行し、結果は diagnostics.gui_debug へ記録する
+  != 開発Bundle (tooling.gui-debugger) のimplemented条件
+  (README.md bundle_implemented.excludes / 本書 §7 と整合)
+
+audit gap
+  GD-GAP-06 = roadmap.nextのaudit供給は本Bundleのimplemented条件にしない。必要になった時点で Agent tool.md の変更を design_change で別途行う
+  GD-GAP-08 = Webview / iframe frame traversal はUI Map設計工程の識別契約で定義する (対象Bundle着手前)
+  GD-GAP-10 = 検証用Working Directory fixtureはCheckpoint (GUI Map) のpreconditionとして定義する。Bundle条件にしない
 ```
 
 ### 解決済み: UI Map設計とUI Markerの工程順序 (設計変更, Issue #101 / Owner決定)
