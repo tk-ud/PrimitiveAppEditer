@@ -34,6 +34,7 @@ roadmap:
     verification:
       - "Run the smallest sufficient build/tests/validation for the selected bundle."
       - "Compare implementation behavior against every reference section listed by the bundle."
+      - "Bundle verification is unit / integration / contract tests, CI and evidence. GUI Debug Tool Checkpoint execution and GUI observation of a running Workbench are not bundle verification (../../README.md GUI Verification Cycle)."
     update:
       - "Set status to 'implemented' only when the bundle contract is fully satisfied and verification passes."
       - "Set status to 'partial' when useful implementation exists but the bundle contract is incomplete or verification fails."
@@ -45,6 +46,11 @@ roadmap:
       - "A reference conflict prevents a deterministic implementation decision."
       - "A destructive or authority-violating change would be required."
       - "Required dependency cannot be implemented within the current repository scope."
+    gui_verification:
+      - "GUI verification runs after this loop completes (roadmap.next = completed) and is not a stop condition or a completion condition of any bundle (../../README.md GUI Verification Cycle)."
+      - "GUI verification results are recorded only in diagnostics.gui_debug by the GUI Debug Tool (./GUI Debug Tool.md §12 Roadmap Diagnostics)."
+      - "A fix derived from GUI verification results is added to this roadmap as a bundle only by an Owner decision through design_change; it then re-enters this loop and GUI verification is re-run after it is implemented."
+      - "depends_on expresses implementation dependency only; GUI Map Checkpoint conditions are never used as depends_on."
 
   invariants:
     - "Registry is the authority for application physical schema."
@@ -175,6 +181,7 @@ section:
               - "§14 Boundary"
               - "§15 Implementation Bundle"
               - "§16 Open Issues"
+              - "§17 Checkpoint Coverage"
           - source: "./Editor UI.md"
             role: "implementation"
             sections:
@@ -199,6 +206,7 @@ section:
             sections:
               - "Tool First"
               - "GUI Debug"
+              - "GUI Verification Cycle"
         depends_on:
           - "tooling.roadmap-agent"
           - "workbench.integration"
@@ -1522,6 +1530,10 @@ section:
               - "§10 Editor Area Regulation"
               - "§14 Debug Viewer and Bottom Panel"
               - "§15 UI Responsibility Boundary"
+          - source: "../../README.md"
+            role: "boundary"
+            sections:
+              - "GUI Verification Cycle"
         depends_on:
           - "build.web-program"
           - "build.web-program-input-validation"
@@ -1553,6 +1565,10 @@ section:
               - "§3 Workbench Placement"
               - "§15 UI Responsibility Boundary"
               - "§16 Explanation / Help and General Workbench Rules"
+          - source: "../../README.md"
+            role: "boundary"
+            sections:
+              - "GUI Verification Cycle"
         depends_on:
           - "foundation.project-directory"
           - "foundation.sqlite"
@@ -1651,6 +1667,10 @@ section:
             role: "implementation"
             sections:
               - "§2 Placement"
+          - source: "../../README.md"
+            role: "boundary"
+            sections:
+              - "GUI Verification Cycle"
         depends_on:
           - "workbench.integration"
           - "workbench.project-bridge"
@@ -1677,6 +1697,10 @@ section:
             sections:
               - "§16 Explanation / Help and General Workbench Rules"
               - "§17 Non-Goals"
+          - source: "../../README.md"
+            role: "boundary"
+            sections:
+              - "GUI Verification Cycle"
         depends_on:
           - "workbench.views"
           - "build.application-output"
@@ -1721,6 +1745,10 @@ section:
             role: "boundary"
             sections:
               - "§17 Boundary"
+          - source: "../../README.md"
+            role: "boundary"
+            sections:
+              - "GUI Verification Cycle"
         depends_on:
           - "workbench.ai-development"
           - "build.deploy"
@@ -1778,6 +1806,10 @@ section:
               - "§10 Editor Area Regulation"
               - "§13 Export / Build Configuration"
               - "§15 UI Responsibility Boundary"
+          - source: "../../README.md"
+            role: "boundary"
+            sections:
+              - "GUI Verification Cycle"
         depends_on:
           - "build.deploy"
           - "build.deploy-projection"

@@ -300,6 +300,93 @@ authority:
   tool_specification: docs/primitive-app-editor/GUI Debug Tool.md
   ui_marker_regulation: docs/primitive-app-editor/Editor UI.md (§19 UI Marker Regulation)
   tool_implementation_progress: docs/primitive-app-editor/roadmap.yaml (tooling.gui-debugger)
+  development_verification_cycle: README.md (GUI Verification Cycle)
+```
+
+## GUI Verification Cycle
+
+開発ロードマップとGUI検証の責務分離 (Owner決定)。開発Bundleの完了とGUI検証の完了を分離し、GUI検証結果はOwner判断を経て開発ロードマップへ還元する。
+
+```yaml
+cycle:
+  - step: 1
+    phase: development
+    action: 開発ロードマップのBundleをroadmap.next / roadmap.completeで順次実装し、implementedにする
+  - step: 2
+    phase: gui_verification
+    action: 開発ロードマップ完了後 (roadmap.next = completed)、GUI MapのCheckpointをGUI Debug Toolで実行する (Regression Run)
+  - step: 3
+    phase: gui_verification
+    action: GUI検証結果をroadmap.yaml diagnostics.gui_debugへ記録する (GUI Debug Toolのみが書込)
+  - step: 4
+    phase: owner_triage
+    action: 不具合を分析し、Owner判断で修正方針を確定する
+  - step: 5
+    phase: owner_triage
+    action: 確定した修正作業をdesign_changeにより開発ロードマップへBundleとして追加する
+  - step: 6
+    phase: development -> gui_verification
+    action: 追加Bundleをstep 1と同じloopで実装し、implemented後にGUI検証を再実行する
+```
+
+```text
+development (roadmap.next / roadmap.complete)
+    |
+    v
+roadmap.next = completed
+    |
+    v
+gui_verification (GUI Debug Tool / GUI Map Checkpoint)
+    |
+    v
+diagnostics.gui_debug
+    |
+    v
+owner_triage (Owner判断)
+    |
+    v
+design_change: 修正Bundle追加
+    |
+    v
+development
+    ↺
+```
+
+```yaml
+completion:
+  bundle_implemented:
+    authority: roadmap.complete (Agent tool.md)
+    requires:
+      - Bundle referenceが定義する契約の実装
+      - 単体テスト / 統合テスト / 契約テスト
+      - CI
+      - evidence
+    excludes:
+      - GUI Debug ToolによるCheckpoint実行 / Checkpoint結果
+      - 起動中Workbenchに対するGUI実機確認 (目視確認を含む)
+
+  gui_verification:
+    unit: Checkpoint (GUI Map YAML, GUI Debug Tool.md §7 / §9)
+    record: roadmap.yaml diagnostics.gui_debug
+    does_not_update:
+      - Bundle status / evidence / remaining
+      - depends_on
+
+rules:
+  - GUI検証の未実施 / 未作成Checkpoint / not_applicableは、Bundleをpartialに留める理由にしない
+  - GUI実機での観測を要する確認がBundleの契約に含まれる場合、同じ契約を自動テスト (単体 / 統合 / 契約テスト) で検証してevidenceへ記録し、GUI上の観測はGUI MapのCheckpointへ委ねる
+  - 既存remainingにGUI実機確認が含まれる場合も前項で扱い、進捗はroadmap.completeで記録する (roadmap.yamlを直接編集しない)
+  - depends_onは実装上の依存関係のみを表し、GUI MapのCheckpoint conditionを依存条件に流用しない
+  - GUI Debug Toolはtooling.gui-debugger implemented後に実行でき、Bundle完了を待つ実行条件はCheckpoint condition (GUI Map) のみが定義する
+  - GUI検証結果からの修正Bundle追加 / 既存Bundleのreopenは、Owner判断を必須とする。GUI Debug Tool / 開発Agentは自動で追加・reopenしない
+  - 未実施 / not_applicable / precondition_failed / connection_errorを検証成功として記録しない
+  - 対応するGUI Mapが存在しないCheckpointは未作成として扱い、検証済みとして扱わない
+
+authority:
+  development_policy: README.md (GUI Verification Cycle)
+  gui_verification_specification: docs/primitive-app-editor/GUI Debug Tool.md
+  progress: docs/primitive-app-editor/roadmap.yaml (section[].bundle[])
+  gui_diagnostics: docs/primitive-app-editor/roadmap.yaml (diagnostics.gui_debug)
 ```
 
 ## Repository / Upstream
