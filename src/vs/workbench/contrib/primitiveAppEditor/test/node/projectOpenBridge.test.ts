@@ -20,6 +20,7 @@ import { editorDdlResources } from '../../common/editorDdlResources.js';
 import { createFunctionPrimitiveExecutorCatalog } from '../../common/functionPrimitive.js';
 import { ProjectOpenMode, ProjectOpenStatus } from '../../common/projectDirectory.js';
 import { ProjectOpenSession, ProjectOpenState } from '../../common/projectOpenSession.js';
+import { IProjectSqliteDatabaseFactory } from '../../common/projectSqlite.js';
 import { IProjectStatusEntry, PROJECT_STATUS_ENTRY_ID, toProjectStatusEntry } from '../../common/projectStatusEntry.js';
 import { ProjectSqliteBridgeDatabaseFactory } from '../../common/projectSqliteBridge.js';
 import { ProjectSqliteBridgeChannel } from '../../node/projectSqliteBridgeChannel.js';
@@ -76,26 +77,42 @@ suite('Primitive App Editor - Project Open through the project.sqlite bridge (wo
 	test('Status Bar entry content reflects Opening then Ready for a folder opened through the bridge', async () => {
 		const session = new ProjectOpenSession(fileService, bridgeFactory(server), editorDdlResources, createFunctionPrimitiveExecutorCatalog());
 		const entries: IProjectStatusEntry[] = [];
-		session.onDidChangeState(state => entries.push(toProjectStatusEntry(state)));
+		session.onDidChangeState(state => state.state !== ProjectOpenState.None && entries.push(toProjectStatusEntry(state)));
 
 		await session.open(root);
 		await session.close();
 
 		assert.strictEqual(PROJECT_STATUS_ENTRY_ID, 'status.primitiveAppEditor.project');
-		assert.strictEqual(entries.length, 3);
+		assert.strictEqual(entries.length, 2);
 		assert.ok(entries[0].text.includes('Project: Opening'));
 		assert.ok(entries[1].text.includes('Project: Ready'));
 		assert.strictEqual(entries[1].kind, undefined);
 	});
 
-	test('Status Bar entry content shows Failed when the bridge cannot open project.sqlite', async () => {
-		const failing = bridgeFactory(server);
-		await fs.writeFile(join(tempRoot, 'game'), 'not a directory');
-		const session = new ProjectOpenSession(fileService, failing, editorDdlResources, createFunctionPrimitiveExecutorCatalog());
-		const state = await session.open(root);
+	test('Status Bar entry content shows Failed when the Node-side open behind the bridge fails', async () => {
+		const opened: string[] = [];
+		const failingFactory: IProjectSqliteDatabaseFactory = {
+			open: async resource => {
+				opened.push(resource.toString());
+				throw new Error('project.sqlite is corrupt');
+			}
+		};
+		const failingServer = new ProjectSqliteBridgeChannel(failingFactory);
+		const session = new ProjectOpenSession(fileService, bridgeFactory(failingServer), editorDdlResources, createFunctionPrimitiveExecutorCatalog());
+		try {
+			const state = await session.open(root);
 
-		assert.strictEqual(state.state, ProjectOpenState.Failed);
-		assert.strictEqual(toProjectStatusEntry(state).kind, 'error');
-		await session.close();
+			assert.strictEqual(opened.length, 1, 'the bridge forwarded open to the Node-side factory');
+			assert.ok(opened[0].endsWith('/project.sqlite'));
+			assert.strictEqual(state.state, ProjectOpenState.Failed);
+			assert.ok(state.error?.message.includes('project.sqlite is corrupt'));
+			const entry = toProjectStatusEntry(state);
+			assert.ok(entry.text.includes('Project: Failed'));
+			assert.strictEqual(entry.kind, 'error');
+			assert.ok(entry.tooltip.includes('project.sqlite is corrupt'));
+		} finally {
+			await session.close();
+			failingServer.dispose();
+		}
 	});
 });
