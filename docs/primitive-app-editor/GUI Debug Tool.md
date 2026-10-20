@@ -1312,10 +1312,10 @@ workbench.integration
 
 ```text
 - PySide6 / Python Playwrightの採否、Python version、依存管理方式
-- §6 Unverifiedの全項目
+- §6 Unverifiedのうち実機 (scripts/code.sh起動のWorkbench) でのみ観測できる項目 (stand-in契約testで検証済みの項目は除く。Checkpoint (GUI Map) の責務として実行し、diagnostics.gui_debugへ記録する)
 - Python fileに対するbuild/hygiene (indentation / copyright filter) の適用範囲
 - CIでGUI Debug Toolのtestを実行するか (GUI非依存部分のみか)
-- 検証用Working Directory fixtureの作成・選択方法
+- 検証用Working Directory fixtureの具体的な作成・選択方法 (定義の場所はGD-GAP-10により決定済み: Checkpoint (GUI Map) のprecondition。個別fixtureはUI Map設計工程で定める)
 - 後続UI BundleでのUI Marker付与責務 (後続Bundleのreference追加はOwner判断)
 - diagnostics recordの肥大化時の整理方針
 - roadmap.complete / GUI Debug Tool間のrename直前比較以降の同時書込 (TOCTOU) 対策
@@ -1454,4 +1454,17 @@ GUI検証 (gui_verification)
 completion.end-to-end
   -X-> implemented条件: GUI Debug ToolのCheckpoint結果
   -X-> depends_on: tooling.gui-debugger
+```
+
+### 解決済み: §16 Open Issues の更新とevidence内Issue参照の扱い (設計変更, Issue #110 / Owner委任の自律判断)
+
+```text
+§16 Open Issues
+  = §6 Unverified全項目 → 実機でのみ観測できる項目に限定 (残りはstand-in契約testで検証済み)
+  = 検証用Working Directory fixture → 定義場所はGD-GAP-10で決定済み、具体fixtureのみ未決
+
+evidence内の「Issue #108」参照
+  = evidenceは進捗記録であり設計変更PRでは変更しない (status / evidence / remaining不変の契約)
+  = #108はクローズ後も履歴参照として許容する。解決内容は本書「解決済み: §15 verificationとGUI実機検証の分離」を正とする
+  != roadmap.yaml tooling.gui-debugger evidenceの書換え
 ```
