@@ -18,9 +18,9 @@ import { ProjectSqliteBridgeChannel } from '../../node/projectSqliteBridgeChanne
 import { ProjectSqliteDatabaseFactory } from '../../node/projectSqliteDatabase.js';
 
 /** Serializes arguments like the IPC does, so only JSON-safe values cross the bridge. */
-function bridgeFactory(server: ProjectSqliteBridgeChannel): ProjectSqliteBridgeDatabaseFactory {
+function bridgeFactory(server: ProjectSqliteBridgeChannel, ctx = 'window'): ProjectSqliteBridgeDatabaseFactory {
 	const channel: IChannel = {
-		call: <T>(command: string, arg?: unknown) => server.call<T>('window', command, arg === undefined ? undefined : JSON.parse(JSON.stringify(arg))).then(result => result === undefined ? result : JSON.parse(JSON.stringify(result))),
+		call: <T>(command: string, arg?: unknown) => server.call<T>(ctx, command, arg === undefined ? undefined : JSON.parse(JSON.stringify(arg))).then(result => result === undefined ? result : JSON.parse(JSON.stringify(result))),
 		listen: <T>() => Event.None as Event<T>,
 	};
 	return new ProjectSqliteBridgeDatabaseFactory(channel);
@@ -160,5 +160,56 @@ suite('Primitive App Editor - project.sqlite bridge', () => {
 		} finally {
 			failingServer.dispose();
 		}
+	});
+	test('disconnect rolls back the transaction and releases the handle and lock for other clients', async () => {
+		const a = bridgeFactory(server, 'window:1');
+		const b = bridgeFactory(server, 'window:2');
+		const databaseA = await a.open(resource, ProjectSqliteOpenMode.Create);
+		await databaseA.exec('CREATE TABLE t (id TEXT PRIMARY KEY)');
+
+		// Leave a transaction running (BEGIN IMMEDIATE) on A's handle, then drop the client.
+		let leave!: () => void;
+		const left = new Promise<void>(resolve => leave = resolve);
+		const running = databaseA.transaction(async statements => {
+			await statements.run('INSERT INTO t (id) VALUES (?)', ['uncommitted']);
+			leave();
+			await new Promise(() => { });
+		});
+		running.catch(() => { });
+		await left;
+		await server.onDidDisconnect('window:1');
+
+		const databaseB = await b.open(resource, ProjectSqliteOpenMode.Open);
+		assert.deepStrictEqual(await databaseB.all('SELECT id FROM t'), []);
+		await databaseB.transaction(async statements => { await statements.run('INSERT INTO t (id) VALUES (?)', ['b']); });
+		assert.deepStrictEqual(await databaseB.all('SELECT id FROM t'), [{ id: 'b' }]);
+		await databaseB.close();
+		// The disconnected client's handle is gone on the Node side (its own renderer-side chain is not used: the client is gone).
+		await assert.rejects(() => server.call('window:1', 'exec', [1, 'SELECT 1']), /not open/);
+	});
+
+	test('disconnect of one client leaves the handles of another client usable', async () => {
+		const a = bridgeFactory(server, 'window:1');
+		const b = bridgeFactory(server, 'window:2');
+		const databaseA = await a.open(resource, ProjectSqliteOpenMode.Create);
+		await databaseA.exec('CREATE TABLE t (id TEXT PRIMARY KEY)');
+		const otherResource = URI.file(join(tempRoot, 'other.sqlite'));
+		const databaseB = await b.open(otherResource, ProjectSqliteOpenMode.Create);
+		await databaseB.exec('CREATE TABLE t (id TEXT PRIMARY KEY)');
+
+		await server.onDidDisconnect('window:1');
+		await databaseB.run('INSERT INTO t (id) VALUES (?)', ['b']);
+		assert.deepStrictEqual(await databaseB.all('SELECT id FROM t'), [{ id: 'b' }]);
+		await databaseB.close();
+	});
+
+	test('a client cannot use a handle opened by another client', async () => {
+		const a = bridgeFactory(server, 'window:1');
+		const databaseA = await a.open(resource, ProjectSqliteOpenMode.Create);
+		const handle = (databaseA as unknown as { handle: number }).handle;
+		await assert.rejects(() => server.call('window:2', 'exec', [handle, 'SELECT 1']), /not open/);
+		await assert.rejects(() => server.call('window:2', 'close', [handle]), /not open/);
+		await databaseA.exec('SELECT 1');
+		await databaseA.close();
 	});
 });

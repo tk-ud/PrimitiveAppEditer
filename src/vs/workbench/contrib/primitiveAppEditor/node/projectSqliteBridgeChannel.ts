@@ -32,7 +32,8 @@ interface IOpenTransaction {
 export class ProjectSqliteBridgeChannel implements IServerChannel, IDisposable {
 
 	private nextHandle = 1;
-	private readonly databases = new Map<number, IProjectSqliteDatabase>();
+	/** Handle table per client (ctx): a client can only operate on the handles it opened. */
+	private readonly clients = new Map<string, Map<number, IProjectSqliteDatabase>>();
 	private readonly transactions = new Map<number, IOpenTransaction>();
 
 	constructor(private readonly factory: IProjectSqliteDatabaseFactory = new ProjectSqliteDatabaseFactory()) { }
@@ -41,17 +42,22 @@ export class ProjectSqliteBridgeChannel implements IServerChannel, IDisposable {
 		throw new Error(`Event not found: ${event}`);
 	}
 
-	async call<T>(_ctx: string, command: string, arg?: unknown): Promise<T> {
+	async call<T>(ctx: string, command: string, arg?: unknown): Promise<T> {
 		if (command === ProjectSqliteBridgeCommand.Open) {
 			const [resource, mode] = arg as readonly [string, ProjectSqliteOpenMode];
 			const database = await this.factory.open(URI.parse(resource), mode);
 			const handle = this.nextHandle++;
-			this.databases.set(handle, database);
+			let databases = this.clients.get(ctx);
+			if (!databases) {
+				databases = new Map();
+				this.clients.set(ctx, databases);
+			}
+			databases.set(handle, database);
 			return handle as T;
 		}
 
 		const [handle, sql, params] = arg as readonly [number, string?, (readonly ProjectSqliteValue[])?] & ProjectSqliteBridgeArgs;
-		const database = this.databases.get(handle);
+		const database = this.clients.get(ctx)?.get(handle);
 		if (!database) {
 			throw new ProjectSqliteError(`project.sqlite handle is not open: ${handle}`, undefined);
 		}
@@ -64,9 +70,9 @@ export class ProjectSqliteBridgeChannel implements IServerChannel, IDisposable {
 			case ProjectSqliteBridgeCommand.Get: return await statements.get(sql!, params) as T;
 			case ProjectSqliteBridgeCommand.All: return await statements.all(sql!, params) as T;
 			case ProjectSqliteBridgeCommand.Begin: return await this.begin(handle, database) as T;
-			case ProjectSqliteBridgeCommand.Commit: return await this.end(handle, true) as T;
-			case ProjectSqliteBridgeCommand.Rollback: return await this.end(handle, false) as T;
-			case ProjectSqliteBridgeCommand.Close: return await this.close(handle, database) as T;
+			case ProjectSqliteBridgeCommand.Commit: return await this.end(ctx, handle, true) as T;
+			case ProjectSqliteBridgeCommand.Rollback: return await this.end(ctx, handle, false) as T;
+			case ProjectSqliteBridgeCommand.Close: return await this.close(ctx, handle, database) as T;
 		}
 		throw new Error(`Call not found: ${command}`);
 	}
@@ -102,26 +108,52 @@ export class ProjectSqliteBridgeChannel implements IServerChannel, IDisposable {
 		}
 	}
 
-	private async end(handle: number, commit: boolean): Promise<void> {
+	private async end(ctx: string, handle: number, commit: boolean): Promise<void> {
 		const transaction = this.transactions.get(handle);
 		if (!transaction) {
-			throw new ProjectSqliteError('project.sqlite has no running transaction', this.databases.get(handle)?.resource);
+			throw new ProjectSqliteError('project.sqlite has no running transaction', this.clients.get(ctx)?.get(handle)?.resource);
 		}
 		this.transactions.delete(handle);
 		await transaction.finish(commit);
 	}
 
-	private async close(handle: number, database: IProjectSqliteDatabase): Promise<void> {
-		if (this.transactions.has(handle)) {
-			await this.end(handle, false);
+	private async close(ctx: string, handle: number, database: IProjectSqliteDatabase): Promise<void> {
+		try {
+			if (this.transactions.has(handle)) {
+				await this.end(ctx, handle, false);
+			}
+		} finally {
+			this.clients.get(ctx)?.delete(handle);
+			await database.close();
 		}
-		this.databases.delete(handle);
-		await database.close();
+	}
+
+	/**
+	 * A client disconnected (close / reload / crash): roll back its running transactions and close its
+	 * handles so the project.sqlite lock is released. Other clients are unaffected.
+	 */
+	async onDidDisconnect(ctx: string): Promise<void> {
+		const databases = this.clients.get(ctx);
+		if (!databases) {
+			return;
+		}
+		this.clients.delete(ctx);
+		await Promise.allSettled([...databases].map(async ([handle, database]) => {
+			try {
+				const transaction = this.transactions.get(handle);
+				if (transaction) {
+					this.transactions.delete(handle);
+					await transaction.finish(false);
+				}
+			} finally {
+				await database.close();
+			}
+		}));
 	}
 
 	dispose(): void {
-		for (const [handle, database] of this.databases) {
-			void this.close(handle, database);
+		for (const ctx of [...this.clients.keys()]) {
+			void this.onDidDisconnect(ctx);
 		}
 	}
 }

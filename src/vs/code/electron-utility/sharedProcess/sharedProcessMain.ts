@@ -428,7 +428,9 @@ class SharedProcessMain extends Disposable implements IClientConnectionFilter {
 		services.set(ISharedWebContentExtractorService, new SyncDescriptor(SharedWebContentExtractorService));
 
 		// Primitive App Editor project.sqlite bridge
-		this.server.registerChannel(PROJECT_SQLITE_BRIDGE_CHANNEL, this._register(new ProjectSqliteBridgeChannel()));
+		const projectSqliteBridge = this._register(new ProjectSqliteBridgeChannel());
+		this.server.registerChannel(PROJECT_SQLITE_BRIDGE_CHANNEL, projectSqliteBridge);
+		this._register(this.server.onDidRemoveConnection(connection => projectSqliteBridge.onDidDisconnect(connection.ctx)));
 
 		// Local Git
 		services.set(ILocalGitService, new SyncDescriptor(LocalGitService, undefined, false /* proxied to other processes */));
