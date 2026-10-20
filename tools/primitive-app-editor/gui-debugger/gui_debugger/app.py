@@ -16,7 +16,8 @@ from PySide6.QtWidgets import (QApplication, QHBoxLayout, QLabel, QListWidget, Q
 							   QPushButton, QSplitter, QVBoxLayout, QWidget)
 
 from .driver import PlaywrightDriver
-from .runner import ConnectionLost, CheckpointResult, CheckpointRun
+from .controller import RunController
+from .runner import ConnectionLost
 from .session import Config, Session
 
 
@@ -32,11 +33,15 @@ class Worker(QObject):
 		self.driver = PlaywrightDriver(config.host, config.port)
 		self.session = Session(config, self.driver)
 		self.commands: "queue.Queue[tuple[str, Any]]" = queue.Queue()
-		self.run_obj: CheckpointRun | None = None
+		self.controller = RunController(self.session, on_steps=self.steps.emit, on_detail=self.detail.emit,
+										on_log=self.log.emit, on_status=self.status.emit)
 		self.thread = threading.Thread(target=self._loop, daemon=True)
 		self.thread.start()
 
 	def send(self, name: str, arg: Any = None) -> None:
+		# Pause / Stop must not wait behind a synchronous Run: flag the running Checkpoint from the caller's thread
+		if name in ("pause", "stop") and self.controller.interrupt(name):
+			return
 		self.commands.put((name, arg))
 
 	def _loop(self) -> None:
@@ -64,56 +69,23 @@ class Worker(QObject):
 		self.driver.disconnect()
 		self.status.emit("connection: disconnected")
 
-	def _publish(self, result: CheckpointResult | None = None):
-		run = self.run_obj
-		if run is None:
-			return
-		self.steps.emit([(s.id, s.title, s.state) for s in run.steps])
-		failed = next((s for s in run.steps if s.state == "failed"), None)
-		if failed:
-			rec = next((r for r in run.records if r["step"] == failed.id), None)
-			text = f"[{failed.kind}] {failed.error}\nexpected: {failed.expected}\nactual: {failed.actual}\nmarker: {failed.marker} ({failed.locator})"
-			if rec:
-				text = f"report: {rec['report']}\n" + text
-			shot = str(run.artifacts.root / failed.screenshot) if failed.screenshot else ""
-			self.detail.emit(text, shot)
-		if run.state in ("Finished", "Stopped", "Failed"):
-			self.log.emit(f"{run.map.checkpoint_id}: {run.state} -> {run.result or run.state}")
-			state = self.session.record(run)
-			self.status.emit(f"diagnostics: {state}")
-
 	def do_select(self, checkpoint_id: str):
-		prepared = self.session.prepare(checkpoint_id)
-		if isinstance(prepared, CheckpointResult):
-			self.run_obj = None
-			self.detail.emit(f"not_applicable: {prepared.message}", "")
-			return
-		self.run_obj = prepared
-		self.steps.emit([(s.id, s.title, s.state) for s in prepared.steps])
+		self.controller.select(checkpoint_id)
 
 	def do_run(self, _):
-		if self.run_obj:
-			self.run_obj.run()
-			self._publish()
+		self.controller.run()
 
 	def do_step(self, _):
-		if self.run_obj:
-			self.run_obj.step()
-			self._publish()
+		self.controller.step()
 
 	def do_pause(self, _):
-		if self.run_obj:
-			self.run_obj.pause()
+		self.controller.pause()
 
 	def do_stop(self, _):
-		if self.run_obj:
-			self.run_obj.stop()
-			self._publish()
+		self.controller.stop()
 
 	def do_retry(self, _):
-		if self.run_obj:
-			self.run_obj.retry()
-			self._publish()
+		self.controller.retry()
 
 	def do_regression(self, _):
 		self.session.regression(lambda r: self.log.emit(f"regression {r.checkpoint}: {r.result}"))
