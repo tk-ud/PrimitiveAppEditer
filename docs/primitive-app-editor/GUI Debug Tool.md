@@ -1219,6 +1219,17 @@ Run Artifact
   != Authority
 ```
 
+`result.yaml` は同一Run Artifact内で確定したCheckpoint結果を累積する。
+
+```text
+result.yaml
+  = Run Artifactに含まれる全Checkpointの最終結果
+  単体Checkpoint実行 : 確定ごとに、そのCheckpointの結果のみ追加または置換する
+                       (同一Checkpointの再実行は旧結果を新しい最終結果で置換し、他Checkpointの結果は保持する)
+  Regression Run     : 実行したCheckpointの結果を順に追加する
+  置換された旧結果   : run.jsonl に残す
+```
+
 Screenshotはfailure時に必ず保存し、`screenshot` actionでも保存する。Screenshotは証跡であり、UI Marker解決に使用しない。
 
 ---
