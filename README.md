@@ -375,7 +375,8 @@ completion:
 rules:
   - GUI検証の未実施 / 未作成Checkpoint / not_applicableは、Bundleをpartialに留める理由にしない
   - GUI実機での観測を要する確認がBundleの契約に含まれる場合、同じ契約を自動テスト (単体 / 統合 / 契約テスト) で検証してevidenceへ記録し、GUI上の観測はGUI MapのCheckpointへ委ねる
-  - 既存remainingにGUI実機確認が含まれる場合も前項で扱い、進捗はroadmap.completeで記録する (roadmap.yamlを直接編集しない)
+  - 開発Agentはremainingに含まれるGUI実機確認を前項で扱い、進捗はroadmap.completeで記録する (開発Agentはroadmap.yamlを直接編集しない)
+  - GUI実機確認を完了条件として含む既存remainingの文言修正は、Owner判断の設計変更PR (design_change) でのみ行い、status / evidence / depends_onは変更しない
   - depends_onは実装上の依存関係のみを表し、GUI MapのCheckpoint conditionを依存条件に流用しない
   - GUI Debug Toolはtooling.gui-debugger implemented後に実行でき、Bundle完了を待つ実行条件はCheckpoint condition (GUI Map) のみが定義する
   - GUI検証結果からの修正Bundle追加 / 既存Bundleのreopenは、Owner判断を必須とする。GUI Debug Tool / 開発Agentは自動で追加・reopenしない
