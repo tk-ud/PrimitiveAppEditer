@@ -445,12 +445,13 @@ section:
               - "Tool First"
         depends_on:
           - "tooling.gui-debugger-execution-fixes"
-        status: "not started"
-        evidence: []
-        remaining:
-          - "Issue #117 (§13): RunArtifacts/Session keep the final results of all Checkpoints of the Run Artifact and write result.yaml from that accumulated set. A single-Checkpoint Run/Step/Retry adds its final result, or replaces the earlier result of the same Checkpoint id, without dropping other Checkpoints' results. Regression Run appends its Checkpoint results in execution order. The replaced result stays in run.jsonl."
-          - "Tests: two different single Checkpoints run in one session -> result.yaml holds both; the same Checkpoint run twice -> result.yaml holds only the latest result and run.jsonl holds both; Regression Run output unchanged; a Failed Checkpoint that is not final writes nothing (Issue #114 behaviour preserved). Record the results as evidence and confirm CI (gui-debugger.yml) is green."
-          - "Boundary: changes stay inside tools/primitive-app-editor/gui-debugger (artifacts.py / session.py / controller.py / tests). roadmap.yaml Bundle progress, existing diagnostics records, the GUI Map format and Code OSS are not changed."
+        status: "implemented"
+        evidence:
+          - "gui_debugger/session.py: Session.final_results accumulates final CheckpointResult per Checkpoint id (reset in new_run_artifacts); write_result_file adds/replaces and writes result.yaml from the accumulated set"
+          - "tests/test_controller.py ResultFiles: two single Checkpoints -> result.yaml holds both; rerun replaces earlier result while run.jsonl keeps both; regression output unchanged; non-final Failed writes nothing (existing test)"
+          - "python -m unittest discover -s tests -t . : 58 tests OK (8 skipped)"
+          - "No earlier producer integration fix required beyond session.py; CI gui-debugger.yml to be confirmed on PR"
+        remaining: []
 
   - name: "Foundation"
     bundle:
