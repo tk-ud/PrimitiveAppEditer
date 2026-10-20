@@ -10,12 +10,14 @@ authority:
     - "./App Editer.md §39 Development Tooling (Architecture / Authority / Boundary)"
     - "./Editor UI.md §19 UI Marker Regulation (UI Marker規約)"
     - "../../README.md GUI Debug (開発Policy)"
+    - "../../README.md GUI Verification Cycle (開発ロードマップとGUI検証の責務分離)"
   rules:
     - "本資料はApp Editer.mdのArchitecture / Authority / Boundaryを再定義せず、GUI Debug Toolについて具体化する"
     - "UI Markerの規約はEditor UI.md §19 UI Marker Regulationが定義し、本資料はその解決方法とGUI Mapでの利用を定義する"
     - "roadmap.yamlの進捗Authority (status / evidence / remaining) はroadmap Agent Tool (Agent tool.md) のroadmap.completeのみが更新する"
     - "roadmap.yamlのdiagnostics.gui_debugの書込契約は本資料のみが定義する"
     - "roadmap.yamlは本ToolのBundle / Dependency / Progressを定義し、Tool挙動を再定義しない"
+    - "GUI検証 (Checkpoint実行 / 結果) は開発Bundleのimplemented条件に含めない (README.md GUI Verification Cycle)"
 ```
 
 ---
@@ -153,6 +155,35 @@ write
   = diagnostics.gui_debug.records only
 ```
 
+### Development / GUI Verification Cycle
+
+GUI検証は開発ロードマップの外側の循環として実行する (README.md GUI Verification Cycle)。
+
+```text
+development
+  = roadmap.next / roadmap.complete によるBundle実装
+  = 完了条件: 単体 / 統合 / 契約テスト + CI + evidence
+
+gui_verification
+  = 開発ロードマップ完了後 (roadmap.next = completed) のGUI Debug Tool実行
+  = 単位: Checkpoint (GUI Map)
+  = 記録: diagnostics.gui_debug
+
+owner_triage
+  = 診断の分析と修正方針の確定 (Owner判断)
+  = 確定した修正はdesign_changeでBundleとして追加 (§12 Owner Feedback)
+
+development (追加Bundle) -> gui_verification (再実行)
+```
+
+```text
+Checkpoint結果
+  != Bundle implemented条件
+  != roadmap.next 選択 / 停止条件
+```
+
+GUI Debug Toolはtooling.gui-debugger implemented後に実行でき、開発ロードマップ途中での実行も妨げない。その場合もCheckpoint結果はBundle進捗へ反映しない。
+
 ---
 
 ## 4. Development Process
@@ -186,6 +217,8 @@ process:
 ```
 
 1〜5は開発Agentの開発作業であり、Tool First (README.md) に従う。6はGUI Debug Tool自身の実行時責務であり、AIおよびroadmap Agent Toolを介さない。
+
+1〜5の完了条件は開発Bundle (tooling.gui-debugger) の検証 (§15 Implementation Bundle) で判定する。6の実行結果は開発Bundleのimplemented条件に含めず、gui_verification phase (§3 Development / GUI Verification Cycle) の記録とする。
 
 ```text
 Development Agent
@@ -386,6 +419,17 @@ Checkpoint condition
 ```
 
 Checkpoint conditionをroadmap.nextの選択入力にしない。depends_onをCheckpoint conditionから推定・変更しない。
+
+```text
+Checkpoint condition
+  = Bundle implemented後にGUI検証を実行してよいかの判定
+  != Bundle implementedの前提条件
+  != depends_on
+
+GUI実機での観測を要する確認
+  = Checkpointの責務
+  != 開発Bundleのremaining / 完了条件
+```
 
 ---
 
@@ -1061,6 +1105,47 @@ GUI Debug Tool
 
 診断recordはBundleのreopen / status変更を自動で行わない。診断を受けた修正・reopenの判断は人間 / Ownerが既存のroadmap運用で行う。
 
+### Owner Feedback
+
+GUI検証結果は、Owner判断を経てのみ開発ロードマップへ還元する。
+
+```text
+diagnostics.gui_debug.records (state: open)
+    |
+    v
+不具合分析 (人間 / Auditor / 開発Agentによる調査は可)
+    |
+    v
+Owner判断: 修正方針の確定 / 修正しない判断
+    |
+    v
+design_change (PR)
+  = 修正作業をroadmap.yaml section[].bundle[]へBundleとして追加
+  = depends_onは修正の実装依存のみ (Checkpoint conditionを流用しない)
+  = 追加Bundleは status: "not started" / evidence: [] / remaining: [] で開始する
+    |
+    v
+roadmap.next / roadmap.complete による実装 (README.md Tool First)
+    |
+    v
+GUI検証の再実行 (Regression Run)
+```
+
+```text
+GUI Debug Tool
+  -X-> Bundle追加 / reopen / depends_on変更
+
+開発Agent
+  -X-> Owner判断なしのBundle追加 / reopen
+
+既存recordの扱い
+  = 削除しない (Owner Feedback後も保持)
+  = state変更 / 対応Bundleの記録は人間 / Auditorのdesign_changeで行う (### Write Rule)
+  = 再検証で成功しても、GUI Debug Toolはrecordのstateを変更しない
+```
+
+既存のimplemented Bundleの不具合であっても、Owner判断なしにstatusを戻さない。修正は原則として追加Bundleで行い、既存Bundleのreopenを選ぶ場合もOwner判断のdesign_changeで行う。
+
 GUI Debug Toolはroadmap.yamlをcommit / pushしない。Version管理への反映は人間の判断とする。
 
 ---
@@ -1137,7 +1222,10 @@ verification:
   - "diagnostics追記後もroadmap.nextの選択結果が不変であること"
   - "diagnostics追記後もroadmap.completeが成功し、diagnosticsが保持されること"
   - "§6 Unverified項目の検証結果"
-  - "起動中のPrimitive App Editorに対するCheckpoint実行結果"
+  - "起動中のPrimitive App Editorに対するTool動作検証 (接続 / Marker解決 / Checkpoint実行 / Run Artifact出力 / diagnostics書込が機能すること)"
+verification_excludes:
+  - "Checkpointがpassedであること (Product GUIの不具合はdiagnostics.gui_debugへ記録し、本Bundleの完了条件にしない)"
+  - "§17 Checkpoint Coverageの未作成Checkpoint全件のGUI Map作成"
 audit_input:
   source: "./roadmap.yaml section[GUI Debug Tooling].bundle[tooling.gui-debugger].audit"
   rule: "auditのgap項目を実装時の点検対象とし、confirmed / to_verifyの区別を維持する"
@@ -1152,6 +1240,18 @@ tooling.roadmap-agent
 workbench.integration
   = Primitive App Editor GUIがWorkbenchへ統合され、
     起動中GUIとしてCheckpoint検証が可能になる最初のBundle
+  = 実装依存: Project Open wiringとStatus Bar open state
+    (status.primitiveAppEditor.project) をGUI Map / UI Marker監査の対象とする
+```
+
+```text
+depends_on: workbench.integration
+  = workbench.integrationの実装 (implemented) への依存
+  != workbench.integrationのGUI実機確認への依存
+
+workbench.integration
+  -X-> depends_on: tooling.gui-debugger
+  -X-> implemented条件: GUI Debug ToolによるCheckpoint結果
 ```
 
 ---
@@ -1167,4 +1267,99 @@ workbench.integration
 - 後続UI BundleでのUI Marker付与責務 (後続Bundleのreference追加はOwner判断)
 - diagnostics recordの肥大化時の整理方針
 - roadmap.complete / GUI Debug Tool間のrename直前比較以降の同時書込 (TOCTOU) 対策
+- tooling.gui-debugger以降に実装されるSurface (workbench.views等) のGUI Map / UI Marker作成責務
+  (各UI Bundleへのreference追加 / GUI Map作成専用Bundleの追加 / gui_verification phaseでの作成のいずれとするかはOwner判断)
+- Owner Feedback後のrecord state値 (open以外) の語彙と、対応Bundle idの記録方法
+```
+
+---
+
+## 17. Checkpoint Coverage
+
+開発Bundleの完了条件から分離したGUI実機確認を、GUI MapのCheckpoint責務として整理する。
+
+```text
+coverage
+  = 必要なCheckpointの一覧 (設計上の受け皿)
+  != 作成済みGUI Map
+  != 検証済み
+```
+
+```yaml
+gui_map_directory: "tools/primitive-app-editor/gui-debugger/maps/"
+gui_map_directory_state: "未作成 (tooling.gui-debugger not started)"
+```
+
+現時点で作成済みのGUI Mapは存在しない。下表の全Checkpointは未作成であり、検証済みとして扱わない。
+
+```yaml
+checkpoints:
+  - id: "cp.workbench.project-open"
+    state: "not created"
+    origin: "workbench.integration remaining (desktop Workbenchで Project: Ready に到達することの確認)"
+    bundles: ["workbench.integration", "workbench.project-bridge"]
+    condition_candidate:
+      - { bundle: "workbench.integration", status: ["implemented"] }
+      - { bundle: "workbench.project-bridge", status: ["implemented"] }
+    observation: "検証用Working Directory fixtureを開いたWorkbenchのStatus Barが Ready を表示する"
+    locator_candidate: "status: status.primitiveAppEditor.project (workbench.integration evidence)"
+    to_verify:
+      - "Status Bar表示文字列 / locale (§8 / GD-GAP-09)"
+      - "検証用Working Directory fixtureと開き方 (GD-GAP-10)"
+    created_by: "tooling.gui-debugger (実装時点でrunnableなCheckpointのGUI Map, §15)"
+
+  - id: "cp.workbench.views (仮)"
+    state: "not created"
+    origin: "workbench.views (Activity Bar / Primary Side Bar / Editor Tabs / Bottom Panel のGUI配置)"
+    bundles: ["workbench.views"]
+    locator_candidate: "未定 (GD-GAP-01: view / marker識別子はworkbench.views実装時に確定)"
+    created_by: "未定 (§16 Open Issues)"
+
+  - id: "cp.registry.duplicate-name-table"
+    state: "not created"
+    origin: "§9 GUI Map YAMLの記述例 (未実装UI想定。Marker値は実装時に確定)"
+    bundles: ["workbench.views", "editor.inspector"]
+    created_by: "未定 (§16 Open Issues)"
+
+  - id: "cp.editor.surfaces (仮)"
+    state: "not created"
+    origin: "editor.function-graph / editor.debug-viewer / renderer.runtime のWorkbench Surface"
+    bundles: ["workbench.views", "editor.function-graph", "editor.debug-viewer"]
+    locator_candidate: "未定 (GD-GAP-08: webview / iframe探索)"
+    created_by: "未定 (§16 Open Issues)"
+
+  - id: "cp.build.export-configuration (仮)"
+    state: "not created"
+    origin: "build.deploy / build.deploy-template-registrar のBuild / Export Configuration Surface"
+    bundles: ["build.deploy", "build.deploy-template-registrar"]
+    created_by: "未定 (§16 Open Issues)"
+
+  - id: "cp.completion.authoring-flow (仮)"
+    state: "not created"
+    origin: "completion.end-to-end のうちEditor GUI操作によるAuthoring Flowの観測"
+    bundles: ["completion.end-to-end"]
+    created_by: "未定 (§16 Open Issues)"
+```
+
+`(仮)`のidは責務の受け皿を示す仮名であり、GUI Map作成時に§7 / §9に従って確定する。
+
+### completion.end-to-endとの責務境界
+
+```text
+completion.end-to-end (開発Bundle)
+  = Authoring -> Runtime -> Renderer -> Build -> Application Outputの自動E2E
+  = Deploy Configuration.md §7.2 E2E (生成Applicationの独立環境起動 / API / DB / UI結果)
+  = 実行経路: Service / API / CLI / Test Harness (GUI Debug Toolを使用しない)
+  = 完了条件: 自動テスト + CI + evidence
+
+GUI検証 (gui_verification)
+  = Editor Workbench GUI上の操作 / 表示の検証
+  = cp.completion.authoring-flow 等のCheckpoint
+  = 結果: diagnostics.gui_debug
+```
+
+```text
+completion.end-to-end
+  -X-> implemented条件: GUI Debug ToolのCheckpoint結果
+  -X-> depends_on: tooling.gui-debugger
 ```
