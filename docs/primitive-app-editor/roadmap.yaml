@@ -426,6 +426,32 @@ section:
           - "Out-of-scope finding tracked separately as Issue #117 (result.yaml overwritten across multiple single-Checkpoint Runs in one session); not part of this Bundle."
         remaining: []
 
+      - id: "tooling.gui-debugger-result-accumulation"
+        title: "GUI Debug Tool: accumulate Checkpoint results in result.yaml within one Run Artifact (Issue #117)"
+        reference:
+          - source: "./GUI Debug Tool.md"
+            role: "implementation"
+            sections:
+              - "§11 Execution Result"
+              - "§13 Run Artifacts"
+          - source: "./GUI Debug Tool.md"
+            role: "boundary"
+            sections:
+              - "§2 Authority"
+              - "§14 Boundary"
+          - source: "../../README.md"
+            role: "boundary"
+            sections:
+              - "Tool First"
+        depends_on:
+          - "tooling.gui-debugger-execution-fixes"
+        status: "not started"
+        evidence: []
+        remaining:
+          - "Issue #117 (§13): RunArtifacts/Session keep the final results of all Checkpoints of the Run Artifact and write result.yaml from that accumulated set. A single-Checkpoint Run/Step/Retry adds its final result, or replaces the earlier result of the same Checkpoint id, without dropping other Checkpoints' results. Regression Run appends its Checkpoint results in execution order. The replaced result stays in run.jsonl."
+          - "Tests: two different single Checkpoints run in one session -> result.yaml holds both; the same Checkpoint run twice -> result.yaml holds only the latest result and run.jsonl holds both; Regression Run output unchanged; a Failed Checkpoint that is not final writes nothing (Issue #114 behaviour preserved). Record the results as evidence and confirm CI (gui-debugger.yml) is green."
+          - "Boundary: changes stay inside tools/primitive-app-editor/gui-debugger (artifacts.py / session.py / controller.py / tests). roadmap.yaml Bundle progress, existing diagnostics records, the GUI Map format and Code OSS are not changed."
+
   - name: "Foundation"
     bundle:
       - id: "foundation.authority"
