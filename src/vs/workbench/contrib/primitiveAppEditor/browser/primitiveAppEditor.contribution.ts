@@ -5,13 +5,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable, MutableDisposable } from '../../../../base/common/lifecycle.js';
-import { IFileService } from '../../../../platform/files/common/files.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { IWorkspaceContextService, WorkbenchState } from '../../../../platform/workspace/common/workspace.js';
 import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import { IStatusbarEntry, IStatusbarEntryAccessor, IStatusbarService, StatusbarAlignment } from '../../../services/statusbar/browser/statusbar.js';
-import { editorDdlResources } from '../common/editorDdlResources.js';
-import { createFunctionPrimitiveExecutorCatalog } from '../common/functionPrimitive.js';
+import { IPrimitiveAppEditorService } from '../common/primitiveAppEditorService.js';
 import { IProjectOpenSessionState, ProjectOpenSession, ProjectOpenState } from '../common/projectOpenSession.js';
 import { PROJECT_STATUS_ENTRY_ID, toProjectStatusEntry } from '../common/projectStatusEntry.js';
 import { IProjectSqliteDatabaseFactoryService, UnavailableProjectSqliteDatabaseFactory } from '../common/projectSqliteService.js';
@@ -19,6 +17,9 @@ import { IProjectSqliteDatabaseFactoryService, UnavailableProjectSqliteDatabaseF
 registerSingleton(IProjectSqliteDatabaseFactoryService, UnavailableProjectSqliteDatabaseFactory, InstantiationType.Delayed);
 
 /**
+ * The {@link ProjectOpenSession} is owned by the {@link IPrimitiveAppEditorService} so the Workbench views
+ * read the same Project; this contribution only feeds it the Workbench folder and shows its state.
+ *
  * `Open Folder -> Project Directory Resolve -> App Editor Initialize -> SQLite / Registry /
  * Asset / Function Load`: opens the Workbench folder (`Folder = Project`) and shows the Project
  * Open state in the Status Bar. A workspace that is not a single local folder is not a Project.
@@ -32,14 +33,12 @@ export class ProjectOpenContribution extends Disposable implements IWorkbenchCon
 
 	constructor(
 		@IWorkspaceContextService private readonly contextService: IWorkspaceContextService,
-		@IFileService fileService: IFileService,
 		@IStatusbarService private readonly statusbarService: IStatusbarService,
-		@IProjectSqliteDatabaseFactoryService databaseFactory: IProjectSqliteDatabaseFactoryService,
+		@IPrimitiveAppEditorService appEditor: IPrimitiveAppEditorService,
 	) {
 		super();
-		this.session = new ProjectOpenSession(fileService, databaseFactory, editorDdlResources, createFunctionPrimitiveExecutorCatalog());
+		this.session = appEditor.session;
 		this._register(this.session.onDidChangeState(state => this.updateStatus(state)));
-		this._register({ dispose: () => { void this.session.close(); } });
 		this._register(this.contextService.onDidChangeWorkbenchState(() => this.openWorkspaceFolder()));
 		this._register(this.contextService.onDidChangeWorkspaceFolders(() => this.openWorkspaceFolder()));
 		this.openWorkspaceFolder();

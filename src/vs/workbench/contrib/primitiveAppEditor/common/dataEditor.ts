@@ -89,6 +89,12 @@ export const enum DataEditorTarget {
 	FunctionGraph = 'function_graph',
 	/** Debug Viewer of the Runtime State (editor.debug-viewer). */
 	DebugViewer = 'debug_viewer',
+	/** Registry Editor of one Registry definition (table / enum / function / renderer; workbench.views). */
+	RegistryEditor = 'registry_editor',
+	/** Renderer Editor of one Renderer definition (workbench.views). */
+	RendererEditor = 'renderer_editor',
+	/** Asset Editor of one Asset (workbench.views). */
+	AssetEditor = 'asset_editor',
 }
 
 export interface IDataEditorEntry {
