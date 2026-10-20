@@ -15,7 +15,7 @@ import { EditorExtensions } from '../../../common/editor.js';
 import { Extensions as ViewContainerExtensions, IViewContainersRegistry, IViewDescriptor, IViewsRegistry, ViewContainerLocation, WindowEnablement } from '../../../common/views.js';
 import { IPrimitiveAppEditorService } from '../common/primitiveAppEditorService.js';
 import {
-	ActivityBarItem, activityBarContainerId, activityBarIcon, activityBarItems, activityBarTitle, activityBarViewId,
+	ActivityBarItem, projectReadyContextKey, activityBarContainerId, activityBarIcon, activityBarItems, activityBarTitle, activityBarViewId,
 	bottomPanelContainerId, BottomPanelView, bottomPanelTitle, bottomPanelViewId, bottomPanelViews,
 } from '../common/workbenchViews.js';
 import { PrimitiveAppEditorPane } from './primitiveAppEditorEditor.js';
@@ -72,7 +72,7 @@ const inspectorContainer = viewContainersRegistry.registerViewContainer({
 	order: 100,
 	ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [inspectorContainerId, { mergeViewWithContainerWhenSingleView: true }]),
 	storageId: `${inspectorContainerId}.state`,
-	hideIfEmpty: false,
+	hideIfEmpty: true,
 	windowEnablement: WindowEnablement.Editor,
 }, ViewContainerLocation.AuxiliaryBar);
 
@@ -81,6 +81,7 @@ viewsRegistry.registerViews([{
 	name: { value: inspectorTitle, original: 'Inspector' },
 	containerIcon: inspectorIcon,
 	ctorDescriptor: new SyncDescriptor(PrimitiveAppEditorInspectorView),
+	when: projectReadyContextKey,
 	canToggleVisibility: false,
 	canMoveView: false,
 	windowEnablement: WindowEnablement.Editor,
