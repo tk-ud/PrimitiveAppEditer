@@ -1,0 +1,60 @@
+# Checkpoint: Project Open reaches "Project: Ready" in the Status Bar (workbench.integration remaining).
+# Locator: Code OSS Status Bar item id (Editor UI.md §19 priority 1). The display text is locale-dependent
+# (GD-GAP-09), so the expectation pins the locale and checks the entry through its aria-label contract.
+gui_map:
+  version: 1
+  checkpoint:
+    id: "cp.workbench.project-open"
+    title: "Project Open reaches Ready in the Status Bar"
+    bundles:
+      - "workbench.integration"
+      - "workbench.project-bridge"
+    condition:
+      require:
+        - { bundle: "workbench.integration", status: ["implemented"] }
+        - { bundle: "workbench.project-bridge", status: ["implemented"] }
+    regression: true
+
+  preconditions:
+    window: "workbench.html"
+    locale: "en"
+    workspace: "fixture:project-open (disposable Working Directory; open it in the running editor before the run)"
+    markers:
+      - "status.bar"
+
+  markers:
+    status.bar:
+      kind: "part"
+      value: "workbench.parts.statusbar"
+    status.project:
+      kind: "status"
+      value: "status.primitiveAppEditor.project"
+      within: "status.bar"
+
+  steps:
+    - id: "s01"
+      title: "Status Bar shows the Project Open state entry"
+      action: "wait"
+      timeout_ms: 20000
+      expect:
+        - { assert: "visible", target: "status.project" }
+      report:
+        summary: "Project Open status entry is not shown in the Status Bar"
+        category: "project-open"
+        suspected_bundles: ["workbench.integration"]
+    - id: "s02"
+      title: "Project Open state is Ready"
+      action: "wait"
+      timeout_ms: 20000
+      expect:
+        - { assert: "text_contains", target: "status.project", value: "Project: Ready" }
+      report:
+        summary: "Project Open did not reach Ready"
+        category: "project-open"
+        suspected_bundles: ["workbench.integration", "workbench.project-bridge"]
+
+  report:
+    destination: "roadmap.diagnostics"
+    summary: "Project Open check failed"
+    category: "project-open"
+    suspected_bundles: ["workbench.integration"]
