@@ -7,7 +7,6 @@ import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { basename, joinPath } from '../../../../base/common/resources.js';
 import { localize } from '../../../../nls.js';
-import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
@@ -26,7 +25,7 @@ import { RawDataService } from '../common/rawData.js';
 import { RegistryService } from '../common/registryService.js';
 import { readRendererBindings, RendererBindingService } from '../common/rendererRegistry.js';
 import { IResolverServices } from '../common/resolver.js';
-import { BottomPanelOutput, bottomPanelViewId, BottomPanelView, BottomPanelSeverity, EditorTabKind, ISideBarContext, projectReadyContextKey, ISideBarNode, SideBarOpen, WorkbenchViewsModel } from '../common/workbenchViews.js';
+import { BottomPanelOutput, bottomPanelViewId, BottomPanelView, BottomPanelSeverity, EditorTabKind, ISideBarContext, ISideBarNode, SideBarOpen, WorkbenchViewsModel } from '../common/workbenchViews.js';
 import { PrimitiveAppEditorInput } from './primitiveAppEditorEditorInput.js';
 
 export class PrimitiveAppEditorService extends Disposable implements IPrimitiveAppEditorService {
@@ -41,7 +40,6 @@ export class PrimitiveAppEditorService extends Disposable implements IPrimitiveA
 	private readonly _onDidChangeProject = this._register(new Emitter<void>());
 	readonly onDidChangeProject: Event<void> = this._onDidChangeProject.event;
 
-	private readonly projectReady: IContextKey<boolean>;
 	private functionBindings: readonly IFunctionBindingEntry[] = [];
 	private generation = 0;
 
@@ -50,10 +48,8 @@ export class PrimitiveAppEditorService extends Disposable implements IPrimitiveA
 		@IProjectSqliteDatabaseFactoryService databaseFactory: IProjectSqliteDatabaseFactoryService,
 		@IEditorService private readonly editorService: IEditorService,
 		@IViewsService private readonly viewsService: IViewsService,
-		@IContextKeyService contextKeyService: IContextKeyService,
 	) {
 		super();
-		this.projectReady = projectReadyContextKey.bindTo(contextKeyService);
 		this.session = new ProjectOpenSession(fileService, databaseFactory, editorDdlResources, this.executorCatalog);
 		this._register(this.session.onDidChangeState(state => this.onDidChangeState(state)));
 		this._register({ dispose: () => { void this.session.close(); } });
@@ -61,7 +57,6 @@ export class PrimitiveAppEditorService extends Disposable implements IPrimitiveA
 
 	private onDidChangeState(state: IProjectOpenSessionState): void {
 		const generation = ++this.generation;
-		this.projectReady.set(state.state === ProjectOpenState.Ready);
 		this.output.clear();
 		this.functionBindings = [];
 		switch (state.state) {

@@ -6,7 +6,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from '../../../../nls.js';
-import { RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 import { IAsset } from './assetRegistry.js';
 import {
 	createDataEditorNavigation, DataEditorSection, DataEditorSelection, DataEditorTabs, DataEditorTarget, IDataEditorContext,
@@ -38,12 +37,6 @@ import { compareTableRegistryOrder } from './tableRegistry.js';
  * Inspector resolves) and optionally opens an Editor Area tab (reusing the tab of the same Target); the
  * Side Bar never edits a property. The Bottom Panel only shows output, never a Persistent Authoring Control.
  */
-
-/**
- * True while a Project is Ready. The Registry Driven Inspector (Secondary Side Bar) is shown only then, so a
- * Workbench without a Project keeps an empty Secondary Side Bar.
- */
-export const projectReadyContextKey = new RawContextKey<boolean>('primitiveAppEditor.projectReady', false);
 
 // #region Activity Bar
 

@@ -4,6 +4,7 @@
  *  docs/primitive-app-editor/Editor UI.md (3. Workbench Placement, 9, 10, 14)
  *--------------------------------------------------------------------------------------------*/
 
+import { Disposable } from '../../../../base/common/lifecycle.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { localize } from '../../../../nls.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
@@ -11,11 +12,13 @@ import { InstantiationType, registerSingleton } from '../../../../platform/insta
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { EditorPaneDescriptor, IEditorPaneRegistry } from '../../../browser/editor.js';
 import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContainer.js';
+import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import { EditorExtensions } from '../../../common/editor.js';
+import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { Extensions as ViewContainerExtensions, IViewContainersRegistry, IViewDescriptor, IViewsRegistry, ViewContainerLocation, WindowEnablement } from '../../../common/views.js';
 import { IPrimitiveAppEditorService } from '../common/primitiveAppEditorService.js';
 import {
-	ActivityBarItem, projectReadyContextKey, activityBarContainerId, activityBarIcon, activityBarItems, activityBarTitle, activityBarViewId,
+	ActivityBarItem, activityBarContainerId, activityBarIcon, activityBarItems, activityBarTitle, activityBarViewId,
 	bottomPanelContainerId, BottomPanelView, bottomPanelTitle, bottomPanelViewId, bottomPanelViews,
 } from '../common/workbenchViews.js';
 import { PrimitiveAppEditorPane } from './primitiveAppEditorEditor.js';
@@ -62,30 +65,63 @@ activityBarItems.forEach((item: ActivityBarItem, index) => {
 
 const inspectorContainerId = 'workbench.view.primitiveAppEditor.inspector';
 const inspectorViewId = 'primitiveAppEditor.view.inspector';
-const inspectorIcon = ThemeIcon.fromId('symbol-property');
-const inspectorTitle = localize('primitiveAppEditor.inspector.title', "Inspector");
 
-const inspectorContainer = viewContainersRegistry.registerViewContainer({
-	id: inspectorContainerId,
-	title: { value: inspectorTitle, original: 'Inspector' },
-	icon: inspectorIcon,
-	order: 100,
-	ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [inspectorContainerId, { mergeViewWithContainerWhenSingleView: true }]),
-	storageId: `${inspectorContainerId}.state`,
-	hideIfEmpty: true,
-	windowEnablement: WindowEnablement.Editor,
-}, ViewContainerLocation.AuxiliaryBar);
+/**
+ * The Inspector shows the Shared Selection Context, so its View Container joins the Secondary Side Bar on the
+ * first Selection and not at startup: any registered Secondary Side Bar container counts as a default view
+ * container, which would keep the Secondary Side Bar visible in a Workbench that has nothing to inspect (for
+ * example with AI features disabled).
+ */
+class PrimitiveAppEditorInspectorContribution extends Disposable implements IWorkbenchContribution {
 
-viewsRegistry.registerViews([{
-	id: inspectorViewId,
-	name: { value: inspectorTitle, original: 'Inspector' },
-	containerIcon: inspectorIcon,
-	ctorDescriptor: new SyncDescriptor(PrimitiveAppEditorInspectorView),
-	when: projectReadyContextKey,
-	canToggleVisibility: false,
-	canMoveView: false,
-	windowEnablement: WindowEnablement.Editor,
-}], inspectorContainer);
+	static readonly ID = 'workbench.contrib.primitiveAppEditorInspector';
+
+	private registered = false;
+
+	constructor(
+		@IPrimitiveAppEditorService private readonly appEditor: IPrimitiveAppEditorService,
+		@IViewsService private readonly viewsService: IViewsService,
+	) {
+		super();
+		this._register({
+			dispose: this.appEditor.views.selection.onDidChange(selection => {
+				if (selection) {
+					void this.reveal();
+				}
+			})
+		});
+	}
+
+	private async reveal(): Promise<void> {
+		if (!this.registered) {
+			this.registered = true;
+			const icon = ThemeIcon.fromId('symbol-property');
+			const title = localize('primitiveAppEditor.inspector.title', "Inspector");
+			const container = viewContainersRegistry.registerViewContainer({
+				id: inspectorContainerId,
+				title: { value: title, original: 'Inspector' },
+				icon,
+				order: 100,
+				ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [inspectorContainerId, { mergeViewWithContainerWhenSingleView: true }]),
+				storageId: `${inspectorContainerId}.state`,
+				hideIfEmpty: false,
+				windowEnablement: WindowEnablement.Editor,
+			}, ViewContainerLocation.AuxiliaryBar);
+			viewsRegistry.registerViews([{
+				id: inspectorViewId,
+				name: { value: title, original: 'Inspector' },
+				containerIcon: icon,
+				ctorDescriptor: new SyncDescriptor(PrimitiveAppEditorInspectorView),
+				canToggleVisibility: false,
+				canMoveView: false,
+				windowEnablement: WindowEnablement.Editor,
+			}], container);
+		}
+		await this.viewsService.openViewContainer(inspectorContainerId, false);
+	}
+}
+
+registerWorkbenchContribution2(PrimitiveAppEditorInspectorContribution.ID, PrimitiveAppEditorInspectorContribution, WorkbenchPhase.AfterRestored);
 
 // #endregion
 
