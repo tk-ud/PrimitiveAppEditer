@@ -1583,14 +1583,15 @@ section:
           - "editor.registry-ui"
           - "editor.data-ui"
           - "workbench.project-bridge"
-        status: "implemented"
+        status: "partial"
         evidence:
-          - "test/node/projectOpenBridge.test.ts: ProjectOpenSession opened through ProjectSqliteBridgeDatabaseFactory (IPC-serialized channel) -> ProjectSqliteBridgeChannel -> Node ProjectSqliteDatabaseFactory reaches Ready for Create and then Open"
-          - "test/node/projectOpenBridge.test.ts: Status Bar entry content (id status.primitiveAppEditor.project) is Opening -> Ready after bridge open, and Failed (kind=error) when the bridge cannot open project.sqlite"
-          - "Refactor (no behavior change): Status Bar entry mapping extracted from browser/primitiveAppEditor.contribution.ts into common/projectStatusEntry.ts (toProjectStatusEntry, PROJECT_STATUS_ENTRY_ID) so it is unit-testable under the layering rules"
-          - "Verification: node 24 mocha test/unit/node, 20092 passing 0 failing; eslint --max-warnings 0 clean on changed files; tsc no primitiveAppEditor errors"
-          - "Required integration fixes: none needed in earlier producer bundles. GUI observation of the running Workbench is delegated to GUI Map checkpoint cp.workbench.project-open"
-        remaining: []
+          - "common/projectOpenSession.ts: ProjectOpenSession wires ProjectSqliteStorage (Create/Open), EditorDdlMigrator (Editor DDL Scan / Schema Version Resolve / Migration Apply), Registry Load (table/enum/relation/function/renderer registries + renderer bindings with cross-validation), createFunctionScanStep and createAssetScanStep into one openProjectDirectory run; exposes ProjectOpenState None/Opening/Ready/Incomplete/Failed. open/close are serialized with generation tokens: opens of the same root share the in-flight open, a superseded open closes its own project.sqlite and never overwrites state (AUDIT NG Blocking 1)."
+          - "browser/primitiveAppEditor.contribution.ts: workbench contribution opens the single workspace folder (Folder = Project) and shows the open state in Status Bar entry id status.primitiveAppEditor.project; registered in workbench.common.main.ts; common/projectSqliteService.ts adds IProjectSqliteDatabaseFactoryService with an Unavailable default so a Workbench without an adapter ends in a visible Failed state."
+          - "build/lib/i18n.resources.json: added vs/workbench/contrib/primitiveAppEditor."
+          - "Tests: test/node/projectOpenSession.test.ts (Create, Open, Asset Scan, failing step, concurrent same-root open shares one storage, A then B ends in B, close during open). Verification: all primitiveAppEditor tests 276 passing (node 24), eslint --max-warnings 0 clean, tsc no primitiveAppEditor errors, layersChecker clean."
+          - "Required integration fixes: none needed in earlier producer bundles."
+        remaining:
+          - "Verification only (no new code in this bundle): with the Node-side adapter for IProjectSqliteDatabaseFactoryService registered by workbench.project-bridge, verify by automated tests (unit / integration / contract) that Project Open through that adapter reaches the Ready state and that the Status Bar open state reflects it, record the results as evidence, then record this bundle implemented with roadmap.complete. GUI observation of the running desktop Workbench is not part of this bundle; it is delegated to the GUI Map checkpoint cp.workbench.project-open (./GUI Debug Tool.md §17 Checkpoint Coverage, not created) under ../../README.md GUI Verification Cycle. Scope boundary (Issue #84): this bundle owns only Project Open wiring and the Status Bar open state; Activity Bar / Side Bar / Inspector / Bottom Panel / Editor Area registrations belong to workbench.views, and the Electron renderer-to-Node project.sqlite bridge belongs to workbench.project-bridge."
 
       - id: "workbench.project-bridge"
         title: "Electron project.sqlite bridge: sandboxed renderer to Node-side ProjectSqlite adapter (main / shared process)"
