@@ -104,11 +104,24 @@ class CheckpointRun:
 
 	# ---- control ----
 	def pause(self) -> None:
+		self.request_pause()
+
+	def request_pause(self) -> None:
+		"""Flag only; safe to call from another thread while run() is executing."""
 		self._pause_requested = True
+
+	def request_stop(self) -> None:
+		"""Flag only; safe to call from another thread while run() is executing."""
+		self._stop_requested = True
 
 	def stop(self) -> None:
 		self._stop_requested = True
 		if self.state in (PAUSED, FAILED, IDLE):
+			self._finish_stopped()
+
+	def _apply_late_stop(self) -> None:
+		"""A Stop requested during a step that ended Paused / Failed takes effect now (failure stays observed)."""
+		if self._stop_requested and self.state in (PAUSED, FAILED):
 			self._finish_stopped()
 
 	def _finish_stopped(self) -> None:
@@ -132,6 +145,7 @@ class CheckpointRun:
 				self.state = PAUSED
 		if self.state == RUNNING:
 			self.state = FINISHED
+		self._apply_late_stop()
 		return self.finish()
 
 	def step(self) -> CheckpointResult | None:
@@ -144,7 +158,8 @@ class CheckpointRun:
 		self._execute_current()
 		if self.state == RUNNING:
 			self.state = FINISHED if self.index >= len(self.steps) else PAUSED
-		return self.finish() if self.state == FINISHED else None
+		self._apply_late_stop()
+		return self.finish() if self.state in (FINISHED, STOPPED) else None
 
 	def retry(self) -> CheckpointResult:
 		"""Re-run the failed step from Marker re-resolution; the failure goes to Run Artifact history only."""
