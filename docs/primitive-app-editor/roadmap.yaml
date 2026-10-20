@@ -47,9 +47,9 @@ roadmap:
       - "A destructive or authority-violating change would be required."
       - "Required dependency cannot be implemented within the current repository scope."
     gui_verification:
-      - "GUI verification runs after this loop completes (roadmap.next = completed) and is not a stop condition or a completion condition of any bundle (../../README.md GUI Verification Cycle)."
+      - "The UI Map (GUI Map) is designed before the corresponding roadmap bundles are created; GUI verification runs after this loop completes (roadmap.next = completed) and is not a stop condition or a completion condition of any bundle (../../README.md GUI Verification Cycle)."
       - "GUI verification results are recorded only in diagnostics.gui_debug by the GUI Debug Tool (./GUI Debug Tool.md §12 Roadmap Diagnostics)."
-      - "A fix derived from GUI verification results is added to this roadmap as a bundle only by an Owner decision through design_change; it then re-enters this loop and GUI verification is re-run after it is implemented."
+      - "A fix derived from GUI verification or human quality test results is added to this roadmap as a bundle only by an Owner decision through design_change; it then re-enters this loop and GUI verification / human quality test are repeated as needed."
       - "depends_on expresses implementation dependency only; GUI Map Checkpoint conditions are never used as depends_on."
 
   invariants:
@@ -253,7 +253,7 @@ section:
               expected: "A Project Open checkpoint can wait for a GUI-observable Ready / Incomplete state with a stable identifier (Editor UI.md §3 Workbench Placement: Status Bar = Project / Runtime / Build Status)."
               current: "workbench.integration wires the open into the workbench (ProjectOpenSession) and shows the open state in Status Bar entry id status.primitiveAppEditor.project; the GUI Map for cp.workbench.project-open is not created yet."
               missing: "The GUI Map Checkpoint waiting on the Status Bar identifier (fixture: GD-GAP-10)."
-              follow_up: "Create the GUI Map in the gui_verification phase (GUI Debug Tool.md §16)."
+              follow_up: "The GUI Map is designed in the UI Map design step before the corresponding roadmap (README.md GUI Verification Cycle); it is not created in the gui_verification phase."
               confirmed:
                 - "ProjectOpenStatus Ready / Incomplete and getRequiredOpenPhases exist in projectDirectory.ts (foundation.project-directory evidence)."
               to_verify:

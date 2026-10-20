@@ -158,23 +158,18 @@ write
 
 ### Development / GUI Verification Cycle
 
-GUI検証は開発ロードマップの外側の循環として実行する (README.md GUI Verification Cycle)。
+GUI検証は開発ロードマップの外側の循環として実行する (README.md GUI Verification Cycle, Owner確定の7段階)。
 
 ```text
-development
-  = roadmap.next / roadmap.complete によるBundle実装
-  = 完了条件: 単体 / 統合 / 契約テスト + CI + evidence
+1. ui_map_design        : UI Map (GUI Map) を設計で作る。roadmap作成より前
+2. roadmap_design       : UI Mapに対応した開発ロードマップを作る
+3. development          : roadmap.next / roadmap.completeによるBundle実装 (単体 / 統合 / 契約テスト + CI + evidence)
+4. gui_verification     : 実装後、UI MapをGUI Debug Toolで自動検証。記録: diagnostics.gui_debug
+5. owner_triage         : GUIデバッグ不具合を分析、Owner判断のdesign_changeで修正Bundle追記
+6. human_quality_test   : 人間がUX・実利用の品質をテスト
+7. owner_triage         : 品質テスト不具合を分析、Owner判断のdesign_changeで修正Bundle追記
 
-gui_verification
-  = 開発ロードマップ完了後 (roadmap.next = completed) のGUI Debug Tool実行
-  = 単位: Checkpoint (GUI Map)
-  = 記録: diagnostics.gui_debug
-
-owner_triage
-  = 診断の分析と修正方針の確定 (Owner判断)
-  = 確定した修正はdesign_changeでBundleとして追加 (§12 Owner Feedback)
-
-development (追加Bundle) -> gui_verification (再実行)
+5 / 7で修正Bundleを追加した場合は3へ戻り、4 / 6を必要に応じ繰り返す
 ```
 
 ```text
@@ -198,11 +193,11 @@ process:
   - step: 2
     name: "Checkpoint設計"
     owner: "Development Agent (GPT / Claude)"
-    action: "CheckpointごとのUI操作・期待結果・実行条件を設計する"
+    action: "CheckpointごとのUI操作・期待結果・実行条件・UI識別契約を設計する (UI Map設計。対象Surfaceのroadmap作成より前に行う)"
   - step: 3
     name: "UI Marker監査"
     owner: "Development Agent (GPT / Claude)"
-    action: "既存UI Markerを監査し、不足をEditor UI.md §19に従って追加する"
+    action: "実装済みSurfaceの既存UI MarkerをUI Mapの識別契約に照らして監査し、不足をEditor UI.md §19に従って追加する (Markerの実装時付与はSurfaceを実装するBundleの責務)"
   - step: 4
     name: "GUI Map作成"
     owner: "Development Agent (GPT / Claude)"
@@ -1270,33 +1265,28 @@ workbench.integration
 - roadmap.complete / GUI Debug Tool間のrename直前比較以降の同時書込 (TOCTOU) 対策
 ```
 
-### 解決済み: Surface別のGUI Map / UI Marker作成責務 (設計変更, Issue #101)
+### 解決済み: UI Map設計とUI Markerの工程順序 (設計変更, Issue #101 / Owner決定)
 
 ```text
-UI Marker (data-pae-marker / data-pae-item)
-  = 作成者: 当該Surfaceを実装するUI Bundle (PAE-owned UI code内, Editor UI.md §19)
-  = 当該Bundleの契約テスト (marker/identifier解決) で検証し、evidenceへ記録する
-  != GUI Map作成 / GUI Debug Tool実行
+UI Map (GUI Map)
+  = 設計工程で、対応する開発ロードマップ作成より前に作る (README.md GUI Verification Cycle step 1 -> 2)
+  = Checkpoint / 操作 / 期待結果 / UI識別契約 (検証仕様)
+  != 実装完了後に初めて設計するもの
+  != Bundleのimplemented条件
 
-GUI Map (Checkpoint定義)
-  = 作成者: 開発Agent (GPT / Claude)。gui_verification phaseで作成する (README.md GUI Verification Cycle step 2)
-  = 各UI Bundleのreference追加は行わない (Bundle完了条件にGUI Mapを含めない)
-  = 作成が必要な場合の追加作業はOwner判断のdesign_changeで修正Bundleとして追加する
-  = 作成済みでないCheckpointは未作成として扱う (§17)
+UI Marker (data-pae-marker / data-pae-item)
+  = 実装時に当該Surfaceを実装するBundleがPAE-owned UI codeへ付与する (Editor UI.md §19)
+  = UI Mapの識別契約を満たす。Bundleの契約テストで検証しevidenceへ記録する
+
+GUI Debug Tool実行
+  = 実装後 (step 4)。結果はdiagnostics.gui_debugのみ。Bundleの追加 / reopenを自動で行わない
 ```
 
-### 解決済み: diagnostics record stateと対応Bundleの記録 (設計変更, Issue #101)
+### 未確定 (Issue #101で切り分け)
 
 ```text
-state語彙 (Owner Feedback後)
-  open     : GUI Debug Toolが記録した未対応record (GUI Debug Toolのみが設定)
-  planned  : Owner判断で修正Bundleを追加済み (design_changeで設定)
-  wontfix  : Owner判断で修正しない (design_changeで設定)
-  resolved : 修正Bundleimplemented後の再検証で成功を確認済み (design_changeで設定)
-
-対応Bundle id
-  = recordの拡張key resolution.bundle_ids (list) へ設定する
-  = 設定者は人間 / Auditorのdesign_changeのみ。GUI Debug Toolはstate変更 / resolution設定を行わない
+- diagnostics recordのstate語彙 (open以外) と、対応Bundle idの記録方法
+  (Owner未確定。本資料では既決扱いにしない)
 ```
 
 ---
@@ -1340,32 +1330,32 @@ checkpoints:
     origin: "workbench.views (Activity Bar / Primary Side Bar / Editor Tabs / Bottom Panel のGUI配置)"
     bundles: ["workbench.views"]
     locator_candidate: "未定 (GD-GAP-01: view / marker識別子はworkbench.views実装時に確定)"
-    created_by: "開発Agent (gui_verification phase, §16 解決済み)"
+    created_by: "UI Map設計工程 (README.md GUI Verification Cycle step 1。未作成)"
 
   - id: "cp.registry.duplicate-name-table"
     state: "not created"
     origin: "§9 GUI Map YAMLの記述例 (未実装UI想定。Marker値は実装時に確定)"
     bundles: ["workbench.views", "editor.inspector"]
-    created_by: "開発Agent (gui_verification phase, §16 解決済み)"
+    created_by: "UI Map設計工程 (README.md GUI Verification Cycle step 1。未作成)"
 
   - id: "cp.editor.surfaces (仮)"
     state: "not created"
     origin: "editor.function-graph / editor.debug-viewer / renderer.runtime のWorkbench Surface"
     bundles: ["workbench.views", "editor.function-graph", "editor.debug-viewer"]
     locator_candidate: "未定 (GD-GAP-08: webview / iframe探索)"
-    created_by: "開発Agent (gui_verification phase, §16 解決済み)"
+    created_by: "UI Map設計工程 (README.md GUI Verification Cycle step 1。未作成)"
 
   - id: "cp.build.export-configuration (仮)"
     state: "not created"
     origin: "build.deploy / build.deploy-template-registrar のBuild / Export Configuration Surface"
     bundles: ["build.deploy", "build.deploy-template-registrar"]
-    created_by: "開発Agent (gui_verification phase, §16 解決済み)"
+    created_by: "UI Map設計工程 (README.md GUI Verification Cycle step 1。未作成)"
 
   - id: "cp.completion.authoring-flow (仮)"
     state: "not created"
     origin: "completion.end-to-end のうちEditor GUI操作によるAuthoring Flowの観測"
     bundles: ["completion.end-to-end"]
-    created_by: "開発Agent (gui_verification phase, §16 解決済み)"
+    created_by: "UI Map設計工程 (README.md GUI Verification Cycle step 1。未作成)"
 ```
 
 `(仮)`のidは責務の受け皿を示す仮名であり、GUI Map作成時に§7 / §9に従って確定する。
