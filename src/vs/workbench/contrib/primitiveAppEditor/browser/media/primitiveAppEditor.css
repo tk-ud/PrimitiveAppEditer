@@ -1,0 +1,31 @@
+/*---------------------------------------------------------------------------------------------
+ *  Primitive App Editor - workbench views styles (workbench.views)
+ *--------------------------------------------------------------------------------------------*/
+
+.pae-tree, .pae-output, .pae-inspector { padding: 4px 0; }
+.pae-tree ul, .pae-output ul { list-style: none; margin: 0; padding: 0; }
+.pae-tree .pae-node { display: flex; align-items: center; gap: 6px; width: 100%; padding: 2px 8px; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.pae-tree .pae-node:hover { background: var(--vscode-list-hoverBackground); }
+.pae-tree .pae-node.selected { background: var(--vscode-list-inactiveSelectionBackground); color: var(--vscode-list-inactiveSelectionForeground); }
+.pae-tree .pae-node:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: -1px; }
+.pae-tree .pae-group > .pae-node { font-weight: 600; cursor: default; }
+.pae-tree .pae-children { padding-left: 14px; }
+.pae-tree .pae-description, .pae-inspector .pae-description { opacity: 0.7; font-size: 0.9em; }
+.pae-empty { padding: 8px 12px; opacity: 0.7; }
+.pae-output li { padding: 1px 12px; white-space: pre-wrap; font-family: var(--monaco-monospace-font); }
+.pae-output li.warning { color: var(--vscode-editorWarning-foreground); }
+.pae-output li.error { color: var(--vscode-editorError-foreground); }
+.pae-inspector { padding: 4px 12px; }
+.pae-inspector h3 { margin: 4px 0; font-size: 1em; }
+.pae-inspector dl { display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; margin: 4px 0 8px; }
+.pae-inspector dd { margin: 0; overflow-wrap: anywhere; }
+.pae-inspector button { margin: 2px 4px 2px 0; }
+.pae-editor { height: 100%; overflow: auto; padding: 8px 16px; box-sizing: border-box; }
+.pae-editor h2 { margin: 0 0 8px; font-size: 1.2em; font-weight: 600; }
+.pae-editor h3 { margin: 12px 0 4px; font-size: 1em; font-weight: 600; }
+.pae-editor table { border-collapse: collapse; }
+.pae-editor th, .pae-editor td { border: 1px solid var(--vscode-editorWidget-border, var(--vscode-contrastBorder, #888)); padding: 2px 8px; text-align: left; }
+.pae-editor tr.selected td { background: var(--vscode-list-inactiveSelectionBackground); }
+.pae-editor tbody tr { cursor: pointer; }
+.pae-editor ul { margin: 0; padding-left: 20px; }
+.pae-editor .pae-error { color: var(--vscode-errorForeground); }
