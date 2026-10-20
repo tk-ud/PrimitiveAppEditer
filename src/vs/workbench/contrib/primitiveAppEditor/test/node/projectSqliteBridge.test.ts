@@ -6,21 +6,21 @@
 import assert from 'assert';
 import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
-import { Event } from '../../../../../base/common/event.js';
+import { Emitter, Event } from '../../../../../base/common/event.js';
 import { join } from '../../../../../base/common/path.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
-import { IChannel } from '../../../../../base/parts/ipc/common/ipc.js';
+import { IChannel, IServerChannel } from '../../../../../base/parts/ipc/common/ipc.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { IProjectSqliteDatabase, IProjectSqliteDatabaseFactory, ProjectSqliteOpenMode } from '../../common/projectSqlite.js';
-import { ProjectSqliteBridgeDatabaseFactory } from '../../common/projectSqliteBridge.js';
-import { ProjectSqliteBridgeChannel } from '../../node/projectSqliteBridgeChannel.js';
+import { PROJECT_SQLITE_BRIDGE_CHANNEL, ProjectSqliteBridgeDatabaseFactory } from '../../common/projectSqliteBridge.js';
+import { ProjectSqliteBridgeChannel, registerProjectSqliteBridge } from '../../node/projectSqliteBridgeChannel.js';
 import { ProjectSqliteDatabaseFactory } from '../../node/projectSqliteDatabase.js';
 
 /** Serializes arguments like the IPC does, so only JSON-safe values cross the bridge. */
-function bridgeFactory(server: ProjectSqliteBridgeChannel, ctx = 'window'): ProjectSqliteBridgeDatabaseFactory {
+function bridgeFactory(server: ProjectSqliteBridgeChannel, connection = server.connect()): ProjectSqliteBridgeDatabaseFactory {
 	const channel: IChannel = {
-		call: <T>(command: string, arg?: unknown) => server.call<T>(ctx, command, arg === undefined ? undefined : JSON.parse(JSON.stringify(arg))).then(result => result === undefined ? result : JSON.parse(JSON.stringify(result))),
+		call: <T>(command: string, arg?: unknown) => connection.call<T>('window', command, arg === undefined ? undefined : JSON.parse(JSON.stringify(arg))).then(result => result === undefined ? result : JSON.parse(JSON.stringify(result))),
 		listen: <T>() => Event.None as Event<T>,
 	};
 	return new ProjectSqliteBridgeDatabaseFactory(channel);
@@ -162,8 +162,9 @@ suite('Primitive App Editor - project.sqlite bridge', () => {
 		}
 	});
 	test('disconnect rolls back the transaction and releases the handle and lock for other clients', async () => {
-		const a = bridgeFactory(server, 'window:1');
-		const b = bridgeFactory(server, 'window:2');
+		const connectionA = server.connect();
+		const a = bridgeFactory(server, connectionA);
+		const b = bridgeFactory(server);
 		const databaseA = await a.open(resource, ProjectSqliteOpenMode.Create);
 		await databaseA.exec('CREATE TABLE t (id TEXT PRIMARY KEY)');
 
@@ -177,39 +178,127 @@ suite('Primitive App Editor - project.sqlite bridge', () => {
 		});
 		running.catch(() => { });
 		await left;
-		await server.onDidDisconnect('window:1');
+		connectionA.dispose();
 
 		const databaseB = await b.open(resource, ProjectSqliteOpenMode.Open);
 		assert.deepStrictEqual(await databaseB.all('SELECT id FROM t'), []);
 		await databaseB.transaction(async statements => { await statements.run('INSERT INTO t (id) VALUES (?)', ['b']); });
 		assert.deepStrictEqual(await databaseB.all('SELECT id FROM t'), [{ id: 'b' }]);
 		await databaseB.close();
-		// The disconnected client's handle is gone on the Node side (its own renderer-side chain is not used: the client is gone).
-		await assert.rejects(() => server.call('window:1', 'exec', [1, 'SELECT 1']), /not open/);
+		// The disconnected client's handle is gone on the Node side.
+		await assert.rejects(() => connectionA.call('window', 'exec', [1, 'SELECT 1']), /not open/);
 	});
 
 	test('disconnect of one client leaves the handles of another client usable', async () => {
-		const a = bridgeFactory(server, 'window:1');
-		const b = bridgeFactory(server, 'window:2');
+		const connectionA = server.connect();
+		const a = bridgeFactory(server, connectionA);
+		const b = bridgeFactory(server);
 		const databaseA = await a.open(resource, ProjectSqliteOpenMode.Create);
 		await databaseA.exec('CREATE TABLE t (id TEXT PRIMARY KEY)');
-		const otherResource = URI.file(join(tempRoot, 'other.sqlite'));
-		const databaseB = await b.open(otherResource, ProjectSqliteOpenMode.Create);
+		const databaseB = await b.open(URI.file(join(tempRoot, 'other.sqlite')), ProjectSqliteOpenMode.Create);
 		await databaseB.exec('CREATE TABLE t (id TEXT PRIMARY KEY)');
 
-		await server.onDidDisconnect('window:1');
+		connectionA.dispose();
 		await databaseB.run('INSERT INTO t (id) VALUES (?)', ['b']);
 		assert.deepStrictEqual(await databaseB.all('SELECT id FROM t'), [{ id: 'b' }]);
 		await databaseB.close();
 	});
 
-	test('a client cannot use a handle opened by another client', async () => {
-		const a = bridgeFactory(server, 'window:1');
-		const databaseA = await a.open(resource, ProjectSqliteOpenMode.Create);
-		const handle = (databaseA as unknown as { handle: number }).handle;
-		await assert.rejects(() => server.call('window:2', 'exec', [handle, 'SELECT 1']), /not open/);
-		await assert.rejects(() => server.call('window:2', 'close', [handle]), /not open/);
-		await databaseA.exec('SELECT 1');
-		await databaseA.close();
+	test('a client cannot use a handle opened by another client, even with the same ctx', async () => {
+		const connectionA = server.connect();
+		const connectionB = server.connect();
+		const handle = await connectionA.call<number>('window:1', 'open', [resource.toString(), ProjectSqliteOpenMode.Create]);
+		await assert.rejects(() => connectionB.call('window:1', 'exec', [handle, 'SELECT 1']), /not open/);
+		await assert.rejects(() => connectionB.call('window:1', 'close', [handle]), /not open/);
+		await connectionA.call('window:1', 'exec', [handle, 'SELECT 1']);
+		await connectionA.call('window:1', 'close', [handle]);
+	});
+
+	test('a late disconnect of the old connection does not reclaim the handles of the reloaded window (same ctx)', async () => {
+		const oldConnection = server.connect();
+		const oldDatabase = await bridgeFactory(server, oldConnection).open(resource, ProjectSqliteOpenMode.Create);
+		await oldDatabase.exec('CREATE TABLE t (id TEXT PRIMARY KEY)');
+		await oldDatabase.run('INSERT INTO t (id) VALUES (?)', ['old']);
+
+		const newConnection = server.connect();
+		const newDatabase = await bridgeFactory(server, newConnection).open(resource, ProjectSqliteOpenMode.Open);
+		let leave!: () => void;
+		const left = new Promise<void>(resolve => leave = resolve);
+		const running = newDatabase.transaction(async statements => {
+			await statements.run('INSERT INTO t (id) VALUES (?)', ['new']);
+			leave();
+			await new Promise(resolve => setTimeout(resolve, 50));
+		});
+		await left;
+
+		// The removal of the old connection arrives after the new connection opened and began a transaction.
+		oldConnection.dispose();
+		await running;
+		assert.deepStrictEqual(await newDatabase.all('SELECT id FROM t ORDER BY id'), [{ id: 'new' }, { id: 'old' }]);
+		await newDatabase.close();
+	});
+
+	test('a disconnect while open is in flight does not leak the handle or the lock', async () => {
+		const real = new ProjectSqliteDatabaseFactory();
+		let releaseOpen!: () => void;
+		const gate = new Promise<void>(resolve => releaseOpen = resolve);
+		let opened: IProjectSqliteDatabase | undefined;
+		const delayed: IProjectSqliteDatabaseFactory = {
+			open: async (res, mode) => {
+				const database = await real.open(res, mode);
+				opened = database;
+				await gate;
+				return database;
+			}
+		};
+		const delayedServer = new ProjectSqliteBridgeChannel(delayed);
+		try {
+			const connection = delayedServer.connect();
+			const opening = connection.call<number>('window', 'open', [resource.toString(), ProjectSqliteOpenMode.Create]);
+			opening.catch(() => { });
+			while (!opened) {
+				await new Promise(resolve => setTimeout(resolve, 5));
+			}
+			connection.dispose();
+			releaseOpen();
+			await assert.rejects(() => opening, /disconnected/);
+			// The database was closed by the bridge, not left registered for a gone client.
+			await assert.rejects(() => opened!.exec('SELECT 1'), /closed/);
+			await assert.rejects(() => connection.call('window', 'open', [resource.toString(), ProjectSqliteOpenMode.Open]), /disconnected/);
+		} finally {
+			delayedServer.dispose();
+		}
+	});
+
+	test('registerProjectSqliteBridge owns handles per connection and reclaims them when the connection is removed', async () => {
+		interface IFakeConnection { readonly ctx: string; readonly channelServer: { registerChannel(name: string, channel: IServerChannel<string>): void } }
+		const added = new Emitter<IFakeConnection>();
+		const removed = new Emitter<IFakeConnection>();
+		const registrations = new Map<IFakeConnection, IServerChannel<string>>();
+		const makeConnection = (): IFakeConnection => {
+			const connection: IFakeConnection = { ctx: 'window:1', channelServer: { registerChannel: (name, channel) => { assert.strictEqual(name, PROJECT_SQLITE_BRIDGE_CHANNEL); registrations.set(connection, channel); } } };
+			added.fire(connection);
+			return connection;
+		};
+		const registration = registerProjectSqliteBridge({ onDidAddConnection: added.event, onDidRemoveConnection: removed.event }, server);
+		try {
+			const oldConnection = makeConnection();
+			const oldHandle = await registrations.get(oldConnection)!.call<number>(oldConnection.ctx, 'open', [resource.toString(), ProjectSqliteOpenMode.Create]);
+			const reloaded = makeConnection();
+			const newHandle = await registrations.get(reloaded)!.call<number>(reloaded.ctx, 'open', [resource.toString(), ProjectSqliteOpenMode.Open]);
+
+			removed.fire(oldConnection);
+			await new Promise(resolve => setTimeout(resolve, 20));
+			await assert.rejects(() => registrations.get(oldConnection)!.call(oldConnection.ctx, 'exec', [oldHandle, 'SELECT 1']), /not open/);
+			await registrations.get(reloaded)!.call(reloaded.ctx, 'exec', [newHandle, 'SELECT 1']);
+
+			removed.fire(reloaded);
+			await new Promise(resolve => setTimeout(resolve, 20));
+			await assert.rejects(() => registrations.get(reloaded)!.call(reloaded.ctx, 'exec', [newHandle, 'SELECT 1']), /not open/);
+		} finally {
+			registration.dispose();
+			added.dispose();
+			removed.dispose();
+		}
 	});
 });

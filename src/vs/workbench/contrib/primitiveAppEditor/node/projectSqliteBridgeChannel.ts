@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Event } from '../../../../base/common/event.js';
-import { IDisposable } from '../../../../base/common/lifecycle.js';
+import { combinedDisposable, IDisposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { IServerChannel } from '../../../../base/parts/ipc/common/ipc.js';
 import {
@@ -15,7 +15,7 @@ import {
 	ProjectSqliteOpenMode,
 	ProjectSqliteValue,
 } from '../common/projectSqlite.js';
-import { ProjectSqliteBridgeArgs, ProjectSqliteBridgeCommand } from '../common/projectSqliteBridge.js';
+import { PROJECT_SQLITE_BRIDGE_CHANNEL, ProjectSqliteBridgeArgs, ProjectSqliteBridgeCommand } from '../common/projectSqliteBridge.js';
 import { ProjectSqliteDatabaseFactory } from './projectSqliteDatabase.js';
 
 interface IOpenTransaction {
@@ -29,35 +29,53 @@ interface IOpenTransaction {
  * returned from `open`; a renderer transaction maps to one transaction of the adapter, so the
  * adapter's serialization (no interleaving outside the transaction) is preserved across the bridge.
  */
-export class ProjectSqliteBridgeChannel implements IServerChannel, IDisposable {
+export class ProjectSqliteBridgeChannel implements IDisposable {
 
 	private nextHandle = 1;
-	/** Handle table per client (ctx): a client can only operate on the handles it opened. */
-	private readonly clients = new Map<string, Map<number, IProjectSqliteDatabase>>();
+	/**
+	 * Handle table per client connection: a client can only operate on the handles it opened.
+	 * The call ctx (`window:<id>`) is not unique per connection (a reloaded window reuses it), so a client is
+	 * identified by its connection (see `connect`).
+	 */
+	private readonly clients = new Map<IBridgeClient, Map<number, IProjectSqliteDatabase>>();
 	private readonly transactions = new Map<number, IOpenTransaction>();
 
 	constructor(private readonly factory: IProjectSqliteDatabaseFactory = new ProjectSqliteDatabaseFactory()) { }
 
-	listen<T>(_ctx: string, event: string): Event<T> {
-		throw new Error(`Event not found: ${event}`);
+	/** Channel for one client connection. Disposing it (connection closed / reloaded / crashed) reclaims that connection's handles. */
+	connect(): IServerChannel<string> & IDisposable {
+		const client: IBridgeClient = { disconnected: false };
+		return {
+			listen: <T>(_ctx: string, event: string): Event<T> => { throw new Error(`Event not found: ${event}`); },
+			call: <T>(_ctx: string, command: string, arg?: unknown) => this.call<T>(client, command, arg),
+			dispose: () => { void this.onDidDisconnect(client); },
+		};
 	}
 
-	async call<T>(ctx: string, command: string, arg?: unknown): Promise<T> {
+	private async call<T>(client: IBridgeClient, command: string, arg?: unknown): Promise<T> {
 		if (command === ProjectSqliteBridgeCommand.Open) {
 			const [resource, mode] = arg as readonly [string, ProjectSqliteOpenMode];
+			if (client.disconnected) {
+				throw new ProjectSqliteError('project.sqlite bridge client is disconnected', undefined);
+			}
 			const database = await this.factory.open(URI.parse(resource), mode);
+			if (client.disconnected) {
+				// Disconnected while opening: nobody owns the handle, release the lock now.
+				await database.close();
+				throw new ProjectSqliteError('project.sqlite bridge client is disconnected', undefined);
+			}
 			const handle = this.nextHandle++;
-			let databases = this.clients.get(ctx);
+			let databases = this.clients.get(client);
 			if (!databases) {
 				databases = new Map();
-				this.clients.set(ctx, databases);
+				this.clients.set(client, databases);
 			}
 			databases.set(handle, database);
 			return handle as T;
 		}
 
 		const [handle, sql, params] = arg as readonly [number, string?, (readonly ProjectSqliteValue[])?] & ProjectSqliteBridgeArgs;
-		const database = this.clients.get(ctx)?.get(handle);
+		const database = this.clients.get(client)?.get(handle);
 		if (!database) {
 			throw new ProjectSqliteError(`project.sqlite handle is not open: ${handle}`, undefined);
 		}
@@ -70,9 +88,9 @@ export class ProjectSqliteBridgeChannel implements IServerChannel, IDisposable {
 			case ProjectSqliteBridgeCommand.Get: return await statements.get(sql!, params) as T;
 			case ProjectSqliteBridgeCommand.All: return await statements.all(sql!, params) as T;
 			case ProjectSqliteBridgeCommand.Begin: return await this.begin(handle, database) as T;
-			case ProjectSqliteBridgeCommand.Commit: return await this.end(ctx, handle, true) as T;
-			case ProjectSqliteBridgeCommand.Rollback: return await this.end(ctx, handle, false) as T;
-			case ProjectSqliteBridgeCommand.Close: return await this.close(ctx, handle, database) as T;
+			case ProjectSqliteBridgeCommand.Commit: return await this.end(client, handle, true) as T;
+			case ProjectSqliteBridgeCommand.Rollback: return await this.end(client, handle, false) as T;
+			case ProjectSqliteBridgeCommand.Close: return await this.close(client, handle, database) as T;
 		}
 		throw new Error(`Call not found: ${command}`);
 	}
@@ -108,22 +126,22 @@ export class ProjectSqliteBridgeChannel implements IServerChannel, IDisposable {
 		}
 	}
 
-	private async end(ctx: string, handle: number, commit: boolean): Promise<void> {
+	private async end(client: IBridgeClient, handle: number, commit: boolean): Promise<void> {
 		const transaction = this.transactions.get(handle);
 		if (!transaction) {
-			throw new ProjectSqliteError('project.sqlite has no running transaction', this.clients.get(ctx)?.get(handle)?.resource);
+			throw new ProjectSqliteError('project.sqlite has no running transaction', this.clients.get(client)?.get(handle)?.resource);
 		}
 		this.transactions.delete(handle);
 		await transaction.finish(commit);
 	}
 
-	private async close(ctx: string, handle: number, database: IProjectSqliteDatabase): Promise<void> {
+	private async close(client: IBridgeClient, handle: number, database: IProjectSqliteDatabase): Promise<void> {
 		try {
 			if (this.transactions.has(handle)) {
-				await this.end(ctx, handle, false);
+				await this.end(client, handle, false);
 			}
 		} finally {
-			this.clients.get(ctx)?.delete(handle);
+			this.clients.get(client)?.delete(handle);
 			await database.close();
 		}
 	}
@@ -132,12 +150,13 @@ export class ProjectSqliteBridgeChannel implements IServerChannel, IDisposable {
 	 * A client disconnected (close / reload / crash): roll back its running transactions and close its
 	 * handles so the project.sqlite lock is released. Other clients are unaffected.
 	 */
-	async onDidDisconnect(ctx: string): Promise<void> {
-		const databases = this.clients.get(ctx);
+	private async onDidDisconnect(client: IBridgeClient): Promise<void> {
+		client.disconnected = true;
+		const databases = this.clients.get(client);
 		if (!databases) {
 			return;
 		}
-		this.clients.delete(ctx);
+		this.clients.delete(client);
 		await Promise.allSettled([...databases].map(async ([handle, database]) => {
 			try {
 				const transaction = this.transactions.get(handle);
@@ -152,10 +171,39 @@ export class ProjectSqliteBridgeChannel implements IServerChannel, IDisposable {
 	}
 
 	dispose(): void {
-		for (const ctx of [...this.clients.keys()]) {
-			void this.onDidDisconnect(ctx);
+		for (const client of [...this.clients.keys()]) {
+			void this.onDidDisconnect(client);
 		}
 	}
 }
 
 class RolledBack extends Error { }
+
+interface IBridgeClient {
+	disconnected: boolean;
+}
+
+/** The part of the IPC server the bridge needs: connections come and go, each with its own channel server. */
+export interface IProjectSqliteBridgeServer {
+	readonly onDidAddConnection: Event<{ readonly channelServer: { registerChannel(channelName: string, channel: IServerChannel<string>): void } }>;
+	readonly onDidRemoveConnection: Event<unknown>;
+}
+
+/**
+ * Registers the bridge per connection (not server-wide) so handles and transactions are owned by the
+ * connection that opened them, and reclaimed when that connection is removed.
+ */
+export function registerProjectSqliteBridge(server: IProjectSqliteBridgeServer, bridge: ProjectSqliteBridgeChannel): IDisposable {
+	const channels = new Map<unknown, IDisposable>();
+	return combinedDisposable(
+		server.onDidAddConnection(connection => {
+			const channel = bridge.connect();
+			channels.set(connection, channel);
+			connection.channelServer.registerChannel(PROJECT_SQLITE_BRIDGE_CHANNEL, channel);
+		}),
+		server.onDidRemoveConnection(connection => {
+			channels.get(connection)?.dispose();
+			channels.delete(connection);
+		}),
+	);
+}

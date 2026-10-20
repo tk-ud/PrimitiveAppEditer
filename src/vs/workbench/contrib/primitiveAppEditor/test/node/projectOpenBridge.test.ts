@@ -26,9 +26,9 @@ import { ProjectSqliteBridgeDatabaseFactory } from '../../common/projectSqliteBr
 import { ProjectSqliteBridgeChannel } from '../../node/projectSqliteBridgeChannel.js';
 
 /** Serializes arguments like the IPC does, so only JSON-safe values cross the bridge. */
-function bridgeFactory(server: ProjectSqliteBridgeChannel): ProjectSqliteBridgeDatabaseFactory {
+function bridgeFactory(server: ProjectSqliteBridgeChannel, connection = server.connect()): ProjectSqliteBridgeDatabaseFactory {
 	const channel: IChannel = {
-		call: <T>(command: string, arg?: unknown) => server.call<T>('window', command, arg === undefined ? undefined : JSON.parse(JSON.stringify(arg))).then(result => result === undefined ? result : JSON.parse(JSON.stringify(result))),
+		call: <T>(command: string, arg?: unknown) => connection.call<T>('window', command, arg === undefined ? undefined : JSON.parse(JSON.stringify(arg))).then(result => result === undefined ? result : JSON.parse(JSON.stringify(result))),
 		listen: <T>() => Event.None as Event<T>,
 	};
 	return new ProjectSqliteBridgeDatabaseFactory(channel);
