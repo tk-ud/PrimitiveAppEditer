@@ -146,6 +146,32 @@ class StandInWorkbench(unittest.TestCase):
 		self.assertIn(result.result, ("connection_error", "precondition_failed"))
 		self.assertEqual(result.records, [])
 
+	def test_reload_keeps_attach_and_rerun_passes(self):
+		shipped = Path(__file__).resolve().parent.parent / "maps" / "cp.workbench.project-open.yaml"
+		(self.maps / shipped.name).write_text(shipped.read_text(encoding="utf-8"))
+		s = self.session()
+		s.reload()
+		self.assertEqual(s.prepare("cp.workbench.project-open").run().result, "passed")
+		s.driver.page.reload()  # Window reload: the attached page object stays valid, markers re-resolve
+		s.driver.page.wait_for_load_state()
+		self.assertEqual(s.prepare("cp.workbench.project-open").run().result, "passed")
+
+	def test_multiple_windows_require_explicit_selection(self):
+		s = self.session()
+		s.driver.page.context.new_page().goto(Path(self.tmp.name, "workbench.html").as_uri() + "?second")
+		self.assertIn("2 Workbench windows", s.driver.check_window("workbench.html"))
+		self.assertIsNone(s.driver.check_window("?second"))
+		self.assertTrue(s.driver.page.url.endswith("?second"))
+		self.assertIn("no Workbench window", s.driver.check_window("no-such-window"))
+
+	def test_reconnect_after_disconnect(self):
+		s = self.session()
+		s.driver.disconnect()
+		with self.assertRaises(ConnectionLost):
+			s.driver.check_window(None)
+		s.driver.connect("workbench.html")
+		self.assertIsNone(s.driver.check_window("workbench.html"))
+
 	def test_non_local_cdp_host_rejected(self):
 		from gui_debugger.driver import PlaywrightDriver
 		with self.assertRaises(ValueError):
