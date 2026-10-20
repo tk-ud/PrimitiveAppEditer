@@ -49,6 +49,7 @@ class Session:
 		self.entries: list[MapEntry] = []
 		self.statuses: dict[str, str] = {}
 		self.artifacts: RunArtifacts | None = None
+		self.final_results: dict[str, CheckpointResult] = {}  # final result per Checkpoint id within the current Run Artifact
 		self.diagnostics_state = "idle"
 		self.commit = repository_commit(Path(config.roadmap).resolve().parent)
 
@@ -73,6 +74,7 @@ class Session:
 
 	def new_run_artifacts(self) -> RunArtifacts:
 		self.artifacts = RunArtifacts(self.config.artifacts_dir)
+		self.final_results = {}
 		return self.artifacts
 
 	def prepare(self, checkpoint_id: str) -> CheckpointRun | CheckpointResult:
@@ -119,8 +121,12 @@ class Session:
 		return results
 
 	def write_result_file(self, results: list[CheckpointResult]) -> None:
+		"""Add or replace the given final results in the Run Artifact's accumulated set, then write result.yaml (§13)."""
 		if self.artifacts is None:
 			return
+		for r in results:
+			self.final_results[r.checkpoint] = r
+		results = list(self.final_results.values())
 		self.artifacts.write_result([
 			{"checkpoint": r.checkpoint, "result": r.result, "message": r.message,
 			 "steps": [{"id": s.id, "state": s.state, "kind": s.kind, "expected": s.expected, "actual": s.actual, "error": s.error, "screenshot": s.screenshot, "failed_attempts": s.history} for s in r.steps]}

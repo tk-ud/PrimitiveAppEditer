@@ -148,6 +148,41 @@ class ResultFiles(ControllerBase):
 		res = self.result_file()
 		self.assertEqual((res[0]["checkpoint"], res[0]["result"]), ("cp.test.sample", "passed"))
 
+	def add_second_map(self, cid="cp.test.other"):
+		data = fresh_map()
+		data["gui_map"]["checkpoint"]["id"] = cid
+		data["gui_map"]["steps"] = [click("s01")]
+		data["gui_map"]["preconditions"]["markers"] = []
+		(self.root / "maps" / "cp.test.other.yaml").write_text(yaml.safe_dump(data))
+		self.session.reload()
+
+	def run_single(self, cid):
+		ctl = RunController(self.session)
+		ctl.select(cid)
+		ctl.run()
+		return ctl
+
+	def test_different_single_checkpoints_accumulate_in_one_result_yaml(self):
+		self.make(FakeDriver({"status.x": [el()]}), [click("s01")])
+		self.add_second_map()
+		self.session.new_run_artifacts()
+		self.run_single("cp.test.sample")
+		self.run_single("cp.test.other")
+		self.assertEqual([r["checkpoint"] for r in self.result_file()], ["cp.test.sample", "cp.test.other"])
+
+	def test_rerun_replaces_result_and_run_jsonl_keeps_both(self):
+		self.make(FakeDriver({"status.x": [el()]}), [click("s01")])
+		self.add_second_map()
+		self.session.new_run_artifacts()
+		self.run_single("cp.test.sample")
+		self.run_single("cp.test.other")
+		self.session.driver.world["status.x"] = []
+		self.run_single("cp.test.sample").stop()
+		res = {r["checkpoint"]: r["result"] for r in self.result_file()}
+		self.assertEqual(res, {"cp.test.sample": "failed", "cp.test.other": "passed"})
+		log = (self.session.artifacts.root / "run.jsonl").read_text()
+		self.assertGreaterEqual(log.count("cp.test.sample"), 2)
+
 	def test_regression_run_output_unchanged(self):
 		d = FakeDriver({"status.x": []})
 		self.make(d, [click("s01")])
