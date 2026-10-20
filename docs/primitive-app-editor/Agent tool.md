@@ -37,7 +37,7 @@ tool:
     - "Progress mutation means recording an implementation result into status / evidence / remaining and is performed only by roadmap.complete"
     - "Owner-approved design_change PR is a design definition change, not a progress mutation: it may rewrite the contract / verification wording of an existing bundle remaining and add new bundles (status: not started / evidence: [] / remaining: []), and must not change status / evidence / depends_on of existing bundles (README.md GUI Verification Cycle)"
     - "Agent must not use the design_change exception to record implementation results or to alter progress; the exception requires an Owner decision (or an Issue resolution under the same Tool First design-change flow) and is scoped to the PR that states 設計変更"
-    - "roadmap.yaml diagnostics is written only by GUI Debug Tool (./GUI Debug Tool.md) and is neither selection nor validation input of roadmap.next / roadmap.complete"
+    - "roadmap.yaml diagnostics records are generated and their observation fields (last_seen / occurrences / artifacts of an open record) updated only by GUI Debug Tool; an existing record's state / resolution.bundle_ids are changed only by an Owner-approved design_change PR (./GUI Debug Tool.md §12 State); neither is selection nor validation input of roadmap.next / roadmap.complete"
     - "roadmap.complete must preserve roadmap.yaml content outside the target bundle status / evidence / remaining, including diagnostics and bundle extension keys"
     - "depends_on is defined only by roadmap.yaml"
     - "implemented bundles must never be selected again"

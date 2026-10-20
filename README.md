@@ -294,7 +294,7 @@ development:
 
 separation:
   progress_update: roadmap.complete (status / evidence / remaining)
-  diagnostics_append: GUI Debug Tool (diagnostics.gui_debug)
+  diagnostics_append: GUI Debug Tool (diagnostics.gui_debug。state / resolution更新は GUI Debug Tool.md §12 State)
 
 authority:
   tool_specification: docs/primitive-app-editor/GUI Debug Tool.md
@@ -320,7 +320,7 @@ cycle:
     action: ロードマップの実装を完了させる (Tool First。roadmap.next / roadmap.complete、単体・統合・契約テスト / CI / evidence)
   - step: 4
     phase: gui_verification
-    action: UI Mapを用いたGUI Debug Toolで自動検証する (Regression Run)。結果はroadmap.yaml diagnostics.gui_debugへ記録する (GUI Debug Toolのみが書込)
+    action: UI Mapを用いたGUI Debug Toolで自動検証する (Regression Run)。結果はroadmap.yaml diagnostics.gui_debugへ記録する (recordの生成はGUI Debug Tool。state変更は詳細仕様 GUI Debug Tool.md §12 State に従う)
   - step: 5
     phase: owner_triage
     action: GUIデバッグで検出された不具合を分析し、Owner判断のdesign_changeで修正Bundleをroadmapに追記する
