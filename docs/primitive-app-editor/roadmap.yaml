@@ -1644,12 +1644,14 @@ section:
               - "§39 Boundary"
         depends_on:
           - "workbench.project-bridge"
-        status: "not started"
-        evidence: []
-        remaining:
-          - "node/projectSqliteBridgeChannel.ts: key the handle table by call ctx (client identity); reject use of a handle by a client that did not open it."
-          - "On client disconnect (renderer close / reload / crash), rollback the running transaction and close every handle owned by that client; other clients are unaffected. Wire the disconnect signal in sharedProcessMain.ts."
-          - "Tests: a client's disconnect releases its handle and BEGIN IMMEDIATE lock so another client can open and write; disconnect of client A leaves client B's handles usable; cross-client handle use is rejected. No change to the bridge command contract or project.sqlite Authority / Schema / SQL."
+        status: "implemented"
+        evidence:
+          - "node/projectSqliteBridgeChannel.ts: handle table keyed by call ctx; cross-client handle use rejected ('handle is not open'); onDidDisconnect(ctx) rolls back running transaction then closes every handle of that client; dispose reuses it"
+          - "code/electron-utility/sharedProcess/sharedProcessMain.ts: server.onDidRemoveConnection wired to bridge onDidDisconnect(connection.ctx)"
+          - "test/node/projectSqliteBridge.test.ts: 3 new tests (disconnect releases handle + BEGIN IMMEDIATE lock so another client opens and writes; disconnect of A leaves B usable; cross-client handle use rejected)"
+          - "Verified: tsc-transpiled mocha run of projectSqliteBridge.test.ts (9 passing) and projectOpenBridge.test.ts (3 passing) against @vscode/sqlite3; full repo test runner unavailable in sandbox (native deps fail to build)"
+          - "No bridge command contract / project.sqlite Authority/Schema/SQL change; no producer integration fix needed"
+        remaining: []
 
       - id: "workbench.views"
         title: "Activity Bar, Side Bar, Editor Tabs and Bottom Panel"
