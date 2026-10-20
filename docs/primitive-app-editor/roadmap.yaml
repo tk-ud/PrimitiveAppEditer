@@ -353,7 +353,7 @@ section:
               expected: "Markers inside Function Graph / Debug Viewer / Renderer surfaces are resolvable by the GUI Debug Tool."
               current: "The surfaces and their rendering technology do not exist yet."
               missing: "Frame traversal design if those surfaces use webviews."
-              follow_up: "Audit when those bundles are implemented; add GUI Maps then."
+              follow_up: "The Webview / iframe frame traversal method is defined as an identification contract in the UI Map design step (README.md GUI Verification Cycle). After the bundles are implemented, audit their Marker assignment against the UI Map identification contract."
               confirmed:
                 - "Related bundles are 'not started'."
               to_verify:
