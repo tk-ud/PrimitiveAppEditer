@@ -1644,12 +1644,14 @@ section:
               - "§39 Boundary"
         depends_on:
           - "workbench.project-bridge"
-        status: "not started"
-        evidence: []
-        remaining:
-          - "node/projectSqliteBridgeChannel.ts: key the handle table by call ctx (client identity); reject use of a handle by a client that did not open it."
-          - "On client disconnect (renderer close / reload / crash), rollback the running transaction and close every handle owned by that client; other clients are unaffected. Wire the disconnect signal in sharedProcessMain.ts."
-          - "Tests: a client's disconnect releases its handle and BEGIN IMMEDIATE lock so another client can open and write; disconnect of client A leaves client B's handles usable; cross-client handle use is rejected. No change to the bridge command contract or project.sqlite Authority / Schema / SQL."
+        status: "implemented"
+        evidence:
+          - "node/projectSqliteBridgeChannel.ts: handles owned per connection (connect() returns a per-connection channel; ctx window:<id> is not used for identity since it is reused on reload); cross-client handle use rejected; disposing a connection rolls back its running transaction then closes its handles; open in flight at disconnect closes the database and rejects instead of registering it"
+          - "node/projectSqliteBridgeChannel.ts: registerProjectSqliteBridge(server, bridge) registers the bridge on each connection's channelServer at onDidAddConnection and disposes it at onDidRemoveConnection; sharedProcessMain.ts uses it"
+          - "test/node/projectSqliteBridge.test.ts: 6 new tests (disconnect frees handle + BEGIN IMMEDIATE lock for another client; A's disconnect leaves B usable; cross-connection handle use rejected with same ctx; late disconnect of old connection after reloaded same-ctx connection opened/began a transaction leaves the new one intact; disconnect during in-flight open does not leak; registerProjectSqliteBridge wiring via fake add/remove connection events)"
+          - "Verified: transpiled mocha run of projectSqliteBridge.test.ts + projectOpenBridge.test.ts against @vscode/sqlite3: 15 passing; repo test runner unavailable in local sandbox (native deps), CI on PR #112 is the authoritative run"
+          - "No bridge command contract / project.sqlite Authority/Schema/SQL change; no producer integration fix needed"
+        remaining: []
 
       - id: "workbench.views"
         title: "Activity Bar, Side Bar, Editor Tabs and Bottom Panel"
