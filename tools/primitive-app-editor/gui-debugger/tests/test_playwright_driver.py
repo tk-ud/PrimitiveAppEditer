@@ -1,6 +1,7 @@
 """End-to-end check of the CDP attach driver against a stand-in Workbench page (NOT the real Code OSS Workbench)."""
 
 import os
+import signal
 import socket
 import subprocess
 import tempfile
@@ -46,15 +47,15 @@ def free_port():
 @unittest.skipUnless(HAVE_PLAYWRIGHT and CHROMIUM, "Python Playwright and a Chromium binary are required")
 class StandInWorkbench(unittest.TestCase):
 	def setUp(self):
-		self.tmp = tempfile.TemporaryDirectory()
+		self.tmp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
 		self.addCleanup(self.tmp.cleanup)
 		tmp = Path(self.tmp.name)
 		(tmp / "workbench.html").write_text(PAGE, encoding="utf-8")
 		self.port = free_port()
 		self.proc = subprocess.Popen([str(CHROMIUM), "--headless=new", "--no-sandbox", f"--remote-debugging-port={self.port}",
 									  f"--user-data-dir={tmp / 'profile'}", (tmp / "workbench.html").as_uri()],
-									 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-		self.addCleanup(self.proc.kill)
+									 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+		self.addCleanup(self.stop_browser)
 		deadline = time.time() + 20
 		while time.time() < deadline:
 			try:
@@ -66,6 +67,15 @@ class StandInWorkbench(unittest.TestCase):
 		maps = tmp / "maps"
 		maps.mkdir()
 		self.maps = maps
+
+	def stop_browser(self):
+		# Chromium helper processes keep writing the profile; stop the whole group before the temp dir is removed.
+		try:
+			os.killpg(self.proc.pid, signal.SIGKILL)
+		except ProcessLookupError:
+			pass
+		self.proc.wait()
+		time.sleep(0.3)
 
 	def session(self):
 		from gui_debugger.driver import PlaywrightDriver
@@ -139,8 +149,7 @@ class StandInWorkbench(unittest.TestCase):
 		(self.maps / shipped.name).write_text(shipped.read_text(encoding="utf-8"))
 		s = self.session()
 		s.reload()
-		self.proc.kill()
-		self.proc.wait()
+		self.stop_browser()
 		run = s.prepare("cp.workbench.project-open")
 		result = run.run()
 		self.assertIn(result.result, ("connection_error", "precondition_failed"))
