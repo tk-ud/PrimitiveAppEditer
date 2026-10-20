@@ -88,7 +88,8 @@ roadmap.yaml / section[].bundle[]
 
 roadmap.yaml / diagnostics.gui_debug
   = GUI Debug診断記録
-  = 更新者: GUI Debug Toolのみ (§12 Roadmap Diagnostics)
+  = 生成・観測情報更新: GUI Debug Tool
+  = state / resolution.bundle_ids更新: Owner承認のdesign_change PR (§12 State)
 
 GUI Map YAML
   = Checkpoint定義 / GUI操作手順 / 期待結果 / 報告定義
@@ -1033,6 +1034,22 @@ GUI Mapの報告定義と実測Errorをfield名前空間を分けてMergeする�
 ```
 
 ```text
+state
+  = GUI Debug Toolが生成するrecordは常に "open" (上記の例は生成時の初期record)
+  = 語彙は open / planned / wontfix / resolved (### State)
+  = open以外への変更はOwner承認のdesign_change PRのみ
+```
+
+Owner判断後にdesign_change PRが付与する任意field (GUI Debug Toolは生成しない。open recordは持たない):
+
+```yaml
+  state: "planned | wontfix | resolved"
+  resolution:
+    bundle_ids:                   # 対応する修正Bundle id (wontfixは空または省略)
+      - "<bundle id>"
+```
+
+```text
 report
   = 設計時の報告定義 (GUI Map)
 
@@ -1064,10 +1081,48 @@ GUI Debug Tool must not write
 同一fingerprintのopen recordが存在
   -> last_seen / occurrences / artifactsのみ更新
 
-record削除 / state変更 (open以外)
+record削除 / state変更 / resolution.bundle_ids設定
   -> GUI Debug Toolは行わない
-  -> 人間 / Auditorのdesign_changeで行う
+  -> Owner承認のdesign_change PRで行う (### State)
 ```
+
+### State
+
+状態管理は既存の`diagnostics.gui_debug.records`で行う。新しい状態管理機構・Bundleは追加しない。
+
+```text
+open      = GUI Debug Toolが不具合を検出・記録した
+planned   = Ownerが修正を決定し、対応する修正Bundleを登録した
+wontfix   = Ownerが修正不要と判断した
+resolved  = 修正後の再検証によって解消を確認した
+```
+
+```text
+遷移 (すべてOwner承認のdesign_change PRで更新)
+  open -> planned   : 修正Bundleをroadmapへ追加し、resolution.bundle_idsへ記録
+  open -> wontfix   : 修正不要の判断
+  planned -> resolved : 修正Bundle実装 (roadmap.complete) 後の再検証で解消を確認
+  上記以外の遷移は定義しない
+```
+
+```text
+resolution.bundle_ids
+  = 対応する修正Bundle idを記録する (roadmap.yaml section[].bundle[].idを参照)
+  = planned / resolvedで必須。wontfixは空または省略可
+  = 記録はBundleのstatus / evidence / remaining / depends_onを変更しない
+```
+
+```text
+更新Authority
+  GUI Debug Tool          : record生成 / 既存open recordのlast_seen / occurrences / artifacts更新のみ
+  design_change PR (Owner承認) : 既存recordのstate / resolution.bundle_ids更新
+  roadmap.complete        : Bundle実装進捗 (status / evidence / remaining) のみ。diagnosticsは保持する
+
+再検証成功のみでは、既存recordを自動でresolvedへ変更しない
+state遷移は、GUI Map YAMLの定義およびBundle statusを変更しない
+```
+
+再検証後に同一fingerprintが再発した場合、既存recordがopen以外であればrecordを末尾へ追加する (### Write Rule)。
 
 ### Write Protocol
 
@@ -1136,7 +1191,7 @@ GUI Debug Tool
 
 既存recordの扱い
   = 削除しない (Owner Feedback後も保持)
-  = state変更 / 対応Bundleの記録は人間 / Auditorのdesign_changeで行う (### Write Rule)
+  = state変更 / 対応Bundleの記録はOwner承認のdesign_changeで行う (### State)
   = 再検証で成功しても、GUI Debug Toolはrecordのstateを変更しない
 ```
 
@@ -1282,11 +1337,12 @@ GUI Debug Tool実行
   = 実装後 (step 4)。結果はdiagnostics.gui_debugのみ。Bundleの追加 / reopenを自動で行わない
 ```
 
-### 未確定 (Issue #101で切り分け)
+### 解決済み: diagnostics recordのstate語彙と対応Bundle参照 (設計変更, Issue #101 / Owner決定)
 
 ```text
-- diagnostics recordのstate語彙 (open以外) と、対応Bundle idの記録方法
-  (Owner未確定。本資料では既決扱いにしない)
+state語彙            = open / planned / wontfix / resolved (§12 State)
+対応Bundle id        = resolution.bundle_ids (§12 Record / State)
+state・resolution更新 = Owner承認のdesign_change PRのみ。GUI Debug Toolは生成と観測情報更新のみ
 ```
 
 ---

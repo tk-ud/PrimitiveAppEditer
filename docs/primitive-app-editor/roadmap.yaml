@@ -48,7 +48,7 @@ roadmap:
       - "Required dependency cannot be implemented within the current repository scope."
     gui_verification:
       - "The UI Map (GUI Map) is designed before the corresponding roadmap bundles are created; GUI verification runs after this loop completes (roadmap.next = completed) and is not a stop condition or a completion condition of any bundle (../../README.md GUI Verification Cycle)."
-      - "GUI verification results are recorded only in diagnostics.gui_debug by the GUI Debug Tool (./GUI Debug Tool.md §12 Roadmap Diagnostics)."
+      - "GUI verification results are generated as records in diagnostics.gui_debug by the GUI Debug Tool; record state / resolution.bundle_ids change only by an Owner-approved design_change (./GUI Debug Tool.md §12 Roadmap Diagnostics / State)."
       - "A fix derived from GUI verification or human quality test results is added to this roadmap as a bundle only by an Owner decision through design_change; it then re-enters this loop and GUI verification / human quality test are repeated as needed."
       - "depends_on expresses implementation dependency only; GUI Map Checkpoint conditions are never used as depends_on."
 
