@@ -1951,9 +1951,14 @@ section:
         depends_on:
           - "workbench.ai-development"
           - "build.deploy"
-        status: "not started"
-        evidence: []
-        remaining: []
+        status: "partial"
+        evidence:
+          - "tools/primitive-app-editor/e2e/{fixture.ts,run.mjs,README.md}: E2E harness (commit 8a790bf3)"
+          - "Executed on Linux with Docker 29.9.1 + Compose v5.6.0: steps 1-3 PASS (Build Validation -> Application Output with 21 files; deterministic scaffold with compose-001.yml sequencing on existing files; `docker compose -f compose.yml config` succeeds; no secret embedded)"
+          - "Host `dotnet publish` of the generated API project succeeds (net8.0), so the generated C# compiles"
+          - "postgres:16.4 and node:20.15-alpine obtained via public mirrors after Docker Hub 429"
+        remaining:
+          - "Steps 4-9 of Deploy Configuration.md 7.2 not verified: `docker compose build` fails in this sandbox because build containers cannot reach api.nuget.org / npm registry (egress proxy + CA unavailable inside containers, NU1301). Run `node tools/primitive-app-editor/e2e/run.mjs` on a host with direct registry access to verify build/up, DDL+Seed, API health/CRUD/validation, UI, standalone run and restart persistence."
 
   - name: "Deploy Extensions"
     bundle:
