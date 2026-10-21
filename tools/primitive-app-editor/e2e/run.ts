@@ -39,7 +39,7 @@ function ensureImage(image: string) {
 	if (run('docker', ['pull', image]).status === 0) { return; }
 	for (const prefix of ['mirror.gcr.io/library', 'public.ecr.aws/docker/library']) {
 		const mirror = `${prefix}/${image}`;
-	if (run('docker', ['pull', mirror]).status === 0) { run('docker', ['tag', mirror, image]); return; }
+		if (run('docker', ['pull', mirror]).status === 0) { run('docker', ['tag', mirror, image]); return; }
 	}
 }
 
@@ -64,8 +64,11 @@ let composeFile = '';
 try {
 	// 1. Build Validation -> Application Output; 2. Dockerfile / Compose scaffold (never overwrites).
 	const tsc = run(join(root, 'node_modules/.bin/tsc'), ['--outDir', jsOut, '--rootDir', root, '--module', 'esnext', '--target', 'es2022', '--moduleResolution', 'bundler', '--skipLibCheck', '--noEmitOnError', 'false', '--experimentalDecorators', '--types', 'node', join(root, 'tools/primitive-app-editor/e2e/fixture.ts')]);
+	const fixtureJs = join(jsOut, 'tools/primitive-app-editor/e2e/fixture.js');
+	// tsc reports type errors of unrelated Code OSS sources (non-zero status); only a missing emit is a harness failure.
+	step('Fixture compiles (tsc emit)', existsSync(fixtureJs), existsSync(fixtureJs) ? '' : `${tsc.status}: ${(tsc.stdout ?? '')}${(tsc.stderr ?? '')}`.slice(-800));
 	writeFileSync(join(jsOut, 'package.json'), '{"type":"module"}');
-	const { buildDeployFiles } : any = await import(pathToFileURL(join(jsOut, 'tools/primitive-app-editor/e2e/fixture.js')).href);
+	const { buildDeployFiles } : any = await import(pathToFileURL(fixtureJs).href);
 	const first = buildDeployFiles();
 	step('Build Validation succeeds and Application Output + Scaffold are generated', Object.keys(first.files).length > 10 && first.files['001_init_postgresql.sql'] !== undefined, `${Object.keys(first.files).length} files`);
 	const second = buildDeployFiles(Object.keys(first.files));
@@ -100,7 +103,7 @@ try {
 	step('CRUD: read returns the created row', fetched.status === 200 && JSON.stringify(fetched.body).includes('e2e-created'));
 	const updated = await api(`/api/tables/items/player/${uuid}`, json('PUT', { fatigue: 9 }));
 	const afterUpdate = await api(`/api/tables/items/player/${uuid}`);
-	step('CRUD: update persists', updated.status < 300 && JSON.stringify(afterUpdate.body).includes('9'));
+	step('CRUD: update persists', updated.status < 300 && afterUpdate.body.fatigue === 9, `fatigue=${afterUpdate.body.fatigue}`);
 	const invalid = await api('/api/tables/items/player', json('POST', { fatigue: 'not-a-number' }));
 	step('Validation: invalid input is 400 problem+json, not 500', invalid.status === 400 && invalid.type.includes('application/problem+json') && invalid.body.errors !== undefined);
 	const keep = await api('/api/tables/items/player', json('POST', { label: 'persist-me' }));
@@ -109,7 +112,7 @@ try {
 
 	// 7. Next.js UI renders API results.
 	const html = await waitFor('UI', async () => { const r = await fetch('http://localhost:3000/'); return r.status === 200 ? await r.text() : undefined; });
-	step('Next.js UI is served and renders API data', html.length > 0 && /seed-player|persist-me|gauge|player/i.test(html));
+	step('Next.js UI is served and renders API data', html.length > 0 && /seed-player|4242\.5/.test(html));
 
 	// 8. Application keeps running with no Editor process: the harness holds no Editor module state after this point.
 	step('Application is standalone (compose services run without the Editor)', compose(composeFile, 'ps', '--status', 'running', '-q').stdout.trim().split('\n').length >= 3);
@@ -120,7 +123,6 @@ try {
 	const persisted = await waitFor('persisted rows after restart', async () => { const r = await api('/api/tables/items/player'); return r.status === 200 && r.body.length > 0 ? r.body : undefined; });
 	step('Persisted data survives stop / restart', JSON.stringify(persisted).includes('persist-me') && keep.status === 201);
 	console.log(`\nE2E OK: ${results.length} checks passed`);
-	void tsc; void existsSync;
 } catch (error: any) {
 	console.error(String(error?.stack ?? error));
 	process.exitCode = 1;

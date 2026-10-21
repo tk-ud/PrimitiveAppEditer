@@ -40,7 +40,7 @@ function authoring(): IBuildAuthoringData {
 		renderers: [createRendererRegistryEntry({ uuid: RENDERER, index: 0, name: 'gauge', executor: 'Gauge', inputs: [{ name: 'value', kind: 'double' }] }, undefined, now)],
 		rendererBindings: [createRendererBindingEntry({ uuid: RBIND, renderer: { uuid: RENDERER }, bindings: { value: { address } } }, undefined, now)],
 		assets: [],
-		rawData: [{ table_uuid: PLAYER, rows: [{ uuid: ROW1, values: { [FATIGUE]: 1, [NAME]: 'seed-player' } }] }],
+		rawData: [{ table_uuid: PLAYER, rows: [{ uuid: ROW1, values: { [FATIGUE]: 4242.5, [NAME]: 'seed-player' } }] }],
 		workingDirectoryPaths: ['functions/linear.ts'],
 		executorCatalog: createFunctionPrimitiveExecutorCatalog(),
 		resolveExecutorProgram: executor => executor === 'Linear' ? 'functions/linear.ts' : undefined,
