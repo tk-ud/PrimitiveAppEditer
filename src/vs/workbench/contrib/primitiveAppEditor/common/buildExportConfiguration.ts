@@ -8,6 +8,7 @@ import { BuildValidationError, IBuildAuthoringData, POSTGRESQL_WEB_APPLICATION_O
 import {
 	DeployHost, DeployTemplateOrigin, DeployValidationError, DEPLOY_COMPOSE_FILE, IDeployScaffoldFile, IDeployTemplate, IDeployTemplateRegistry, projectDeployScaffold,
 } from './deployProjection.js';
+import { localize } from '../../../../nls.js';
 import { getRegistryDisplayText } from './registryIdentity.js';
 
 /**
@@ -66,6 +67,40 @@ export function listDeployTemplates(registry: IDeployTemplateRegistry): readonly
 		label: entry.template?.label ?? entry.id,
 		diagnostic: entry.diagnostic,
 	})));
+}
+
+/** The supplementary information of a Deploy Template as the Inspector (Secondary Side Bar) shows it. Read-only. */
+export interface IDeployTemplateInspectorView {
+	readonly header: string;
+	readonly origin: DeployTemplateOrigin;
+	readonly valid: boolean;
+	/** Label / value pairs of the Template's declared values; empty for an Invalid Template. */
+	readonly rows: readonly (readonly [string, string])[];
+	/** An Invalid Template's diagnostic. */
+	readonly diagnostic?: string;
+}
+
+/** Supplementary information of the selected Deploy Template; `undefined` when the id is not in the Registry. */
+export function createDeployTemplateInspectorView(registry: IDeployTemplateRegistry, templateId: string): IDeployTemplateInspectorView | undefined {
+	const entry = registry.resolve(templateId);
+	if (!entry) {
+		return undefined;
+	}
+	const template = entry.valid ? entry.template : undefined;
+	if (!template) {
+		return Object.freeze({ header: entry.id, origin: entry.origin, valid: false, rows: Object.freeze([]), diagnostic: entry.diagnostic });
+	}
+	const rows: (readonly [string, string])[] = [
+		[localize('primitiveAppEditor.inspector.template.id', "Template ID"), template.id],
+		[localize('primitiveAppEditor.inspector.template.description', "Description"), template.description],
+		[localize('primitiveAppEditor.inspector.template.provider', "Provider"), template.provider],
+		[localize('primitiveAppEditor.inspector.template.hosts', "Supported hosts"), template.supported_hosts.join(', ')],
+		[localize('primitiveAppEditor.inspector.template.targets', "Compatible build targets"), template.compatible_build_targets.join(', ')],
+		[localize('primitiveAppEditor.inspector.template.api', "API port"), `${template.services.api.host_port} → ${template.services.api.internal_port}`],
+		[localize('primitiveAppEditor.inspector.template.ui', "UI port"), `${template.services.ui.host_port} → ${template.services.ui.internal_port}`],
+		[localize('primitiveAppEditor.inspector.template.database', "Database"), `${template.services.database.image} · ${template.services.database.data_volume}`],
+	];
+	return Object.freeze({ header: template.label, origin: entry.origin, valid: true, rows: Object.freeze(rows.map(row => Object.freeze(row))) });
 }
 
 export interface IBuildValidationReport {

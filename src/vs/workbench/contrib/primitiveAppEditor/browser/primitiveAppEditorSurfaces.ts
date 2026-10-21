@@ -222,7 +222,7 @@ async function renderBuildExport(parent: HTMLElement, appEditor: IPrimitiveAppEd
 			const option = append(select, $('option', { value: choice.id }, `${choice.label} · ${choice.origin}`)) as HTMLOptionElement;
 			option.selected = choice.selected;
 		}
-		select.addEventListener('change', () => { model.selectTemplate(select.value || undefined); render(); });
+		select.addEventListener('change', () => { model.selectTemplate(select.value || undefined); appEditor.views.selectDeployTemplate(select.value || undefined); render(); });
 		const template = model.selectedTemplate();
 		if (template) {
 			definition(root, template.label, [

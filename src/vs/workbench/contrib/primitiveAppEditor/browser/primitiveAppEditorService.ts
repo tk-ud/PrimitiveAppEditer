@@ -14,6 +14,7 @@ import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IAsset } from '../common/assetRegistry.js';
 import { createExecutorProgramResolver, IBuildExportPlanFile, listDeployTemplates } from '../common/buildExportConfiguration.js';
+import { writeBuildExport } from '../common/buildExportWriter.js';
 import { IBuildAuthoringData, IBuildRawDataTable, normalizeWorkingDirectoryPath } from '../common/buildValidation.js';
 import { createDeployTemplateRegistry, IDeployTemplateRegistry } from '../common/deployProjection.js';
 import { IDynamicResolveContext } from '../common/dynamicResolve.js';
@@ -190,29 +191,10 @@ export class PrimitiveAppEditorService extends Disposable implements IPrimitiveA
 		if (!root) {
 			throw new Error(localize('primitiveAppEditor.noProject', "No project is open."));
 		}
-		const log = (text: string, severity?: BottomPanelSeverity) => this.output.append(BottomPanelView.BuildLog, text, severity);
-		const targets = plan.map(file => ({ file, path: normalizeWorkingDirectoryPath(file.path) }));
-		for (const { file, path } of targets) {
-			if (path === undefined || !path.startsWith('build/')) {
-				const message = localize('primitiveAppEditor.build.outsideBuild', "Refused to write outside the build directory: {0}", file.path);
-				log(message, BottomPanelSeverity.Error);
-				throw new Error(message);
-			}
-		}
-		// Scaffold files are never overwritten: check every one before writing anything.
-		for (const { file, path } of targets) {
-			if (file.scaffold && await this.fileService.exists(joinPath(root, path!))) {
-				const message = localize('primitiveAppEditor.build.scaffoldExists', "Scaffold file already exists and is not overwritten: {0}", file.path);
-				log(message, BottomPanelSeverity.Error);
-				throw new Error(message);
-			}
-		}
-		log(localize('primitiveAppEditor.build.start', "Build / Export: writing {0} files", plan.length));
-		for (const { file, path } of targets) {
-			await this.fileService.writeFile(joinPath(root, path!), VSBuffer.fromString(file.content));
-			log(file.scaffold ? localize('primitiveAppEditor.build.scaffolded', "Scaffold: {0}", file.path) : localize('primitiveAppEditor.build.wrote', "Output: {0}", file.path));
-		}
-		log(localize('primitiveAppEditor.build.done', "Build / Export finished. The Editor does not run the generated files."));
+		await writeBuildExport(plan, {
+			exists: path => this.fileService.exists(joinPath(root, path)),
+			write: async (path, content) => { await this.fileService.writeFile(joinPath(root, path), VSBuffer.fromString(content)); },
+		}, (text, severity) => this.output.append(BottomPanelView.BuildLog, text, severity));
 	}
 
 	getResolverServices(): IResolverServices | undefined {

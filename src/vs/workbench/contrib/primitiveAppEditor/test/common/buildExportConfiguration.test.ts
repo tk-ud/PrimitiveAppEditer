@@ -12,7 +12,9 @@ import { createFunctionRegistryEntry } from '../../common/functionRegistry.js';
 import { LogicalNamespace } from '../../common/projectSqlite.js';
 import { createRendererBindingEntry, createRendererRegistryEntry } from '../../common/rendererRegistry.js';
 import { createTableRegistryEntry, TableColumnKind } from '../../common/tableRegistry.js';
-import { BuildExportConfigurationModel, BuildItemState, createExecutorProgramResolver, listDeployTemplates } from '../../common/buildExportConfiguration.js';
+import { BuildExportConfigurationModel, BuildItemState, createDeployTemplateInspectorView, createExecutorProgramResolver, IBuildExportPlanFile, listDeployTemplates } from '../../common/buildExportConfiguration.js';
+import { BottomPanelOutput, BottomPanelSeverity, BottomPanelView, WorkbenchViewsModel } from '../../common/workbenchViews.js';
+import { writeBuildExport, IBuildExportFileSystem } from '../../common/buildExportWriter.js';
 import { BUILTIN_DEPLOY_TEMPLATE_DOCUMENT, BUILTIN_DEPLOY_TEMPLATE_ID, createDeployTemplateRegistry, DeployHost, DeployTemplateOrigin } from '../../common/deployProjection.js';
 
 const PLAYER = '00000000-0000-4000-8000-0000000000a1';
@@ -139,5 +141,92 @@ suite('Primitive App Editor - Build / Export Configuration surface model', () =>
 		assert.strictEqual(resolve('Enemy'), 'functions/ai/enemy.cs');
 		assert.strictEqual(resolve('README'), 'functions/README');
 		assert.strictEqual(resolve('Missing'), undefined);
+	});
+
+	test('Inspector supplementary information of the selected Template; Invalid shows the diagnostic; unknown id has none', () => {
+		const registry = createDeployTemplateRegistry([{ source: 'broken.yaml', text: 'deploy_template: 1' }]);
+		const view = createDeployTemplateInspectorView(registry, BUILTIN_DEPLOY_TEMPLATE_ID)!;
+		assert.strictEqual(view.header, 'Docker Compose (default)');
+		assert.strictEqual(view.valid, true);
+		assert.deepStrictEqual(view.rows.map(row => row[0]), ['Template ID', 'Description', 'Provider', 'Supported hosts', 'Compatible build targets', 'API port', 'UI port', 'Database']);
+		assert.ok(view.rows.some(row => row[0] === 'Database' && row[1].startsWith('postgres:16.4')));
+		const invalid = createDeployTemplateInspectorView(registry, 'broken.yaml')!;
+		assert.strictEqual(invalid.valid, false);
+		assert.ok(invalid.diagnostic);
+		assert.strictEqual(invalid.rows.length, 0);
+		assert.strictEqual(createDeployTemplateInspectorView(registry, 'nope'), undefined);
+	});
+
+	test('Template selection and Registry Selection are exclusive in the Shared Selection Context', () => {
+		const views = new WorkbenchViewsModel();
+		const registry = createDeployTemplateRegistry();
+		const [template] = listDeployTemplates(registry);
+		views.activate({ id: `build-template:${template.id}`, label: template.label, deployTemplateId: template.id, children: [] });
+		assert.strictEqual(views.deployTemplateSelection.selection, BUILTIN_DEPLOY_TEMPLATE_ID);
+		assert.strictEqual(views.selection.selection, undefined);
+		views.selection.select({ uuid: PLAYER });
+		assert.strictEqual(views.deployTemplateSelection.selection, undefined, 'a Registry Selection from any surface replaces the Template');
+		views.selectDeployTemplate(BUILTIN_DEPLOY_TEMPLATE_ID);
+		assert.strictEqual(views.selection.selection, undefined);
+		views.selectDeployTemplate(undefined);
+		assert.strictEqual(views.deployTemplateSelection.selection, undefined);
+	});
+});
+
+class FakeFileSystem implements IBuildExportFileSystem {
+	readonly files = new Map<string, string>();
+	readonly writes: string[] = [];
+	constructor(existing: Record<string, string> = {}) {
+		for (const [path, content] of Object.entries(existing)) {
+			this.files.set(path, content);
+		}
+	}
+	async exists(path: string): Promise<boolean> { return this.files.has(path); }
+	async write(path: string, content: string): Promise<void> { this.files.set(path, content); this.writes.push(path); }
+}
+
+suite('Primitive App Editor - Build / Export writer', () => {
+	ensureNoDisposablesAreLeakedInTestSuite();
+
+	function plan(): IBuildExportPlanFile[] {
+		const surface = model();
+		surface.selectTemplate(BUILTIN_DEPLOY_TEMPLATE_ID);
+		return [...surface.preview().plan];
+	}
+
+	test('writes the whole plan under build/ and logs to the Build Log; no execution capability is used', async () => {
+		const fileSystem = new FakeFileSystem();
+		const output = new BottomPanelOutput();
+		const files = plan();
+		await writeBuildExport(files, fileSystem, (text, severity) => output.append(BottomPanelView.BuildLog, text, severity));
+		assert.deepStrictEqual(fileSystem.writes, files.map(file => file.path));
+		assert.ok(fileSystem.writes.every(path => path.startsWith('build/')));
+		const log = output.get(BottomPanelView.BuildLog).map(entry => entry.text);
+		assert.strictEqual(log.length, files.length + 2);
+		assert.ok(log.some(text => text.includes('compose.yml')));
+		assert.ok(log[log.length - 1].includes('does not run'));
+		assert.deepStrictEqual(Object.keys(fileSystem).sort(), ['files', 'writes'], 'the file system seam offers exists / write only');
+	});
+
+	test('a path outside build/ rejects the plan and writes nothing', async () => {
+		const fileSystem = new FakeFileSystem();
+		const output = new BottomPanelOutput();
+		const files = [...plan(), { path: 'functions/evil.ts', content: 'x', scaffold: false }, { path: 'build/../escape.txt', content: 'x', scaffold: false }];
+		await assert.rejects(() => writeBuildExport(files, fileSystem, (text, severity) => output.append(BottomPanelView.BuildLog, text, severity)), /outside the build directory/);
+		assert.strictEqual(fileSystem.writes.length, 0);
+		assert.strictEqual(output.get(BottomPanelView.BuildLog)[0].severity, BottomPanelSeverity.Error);
+	});
+
+	test('an existing Scaffold file rejects the plan before any write; Derived Output files are regenerated', async () => {
+		const files = plan();
+		const scaffold = files.find(file => file.scaffold)!;
+		const derived = files.find(file => !file.scaffold)!;
+		const rejected = new FakeFileSystem({ [scaffold.path]: 'user edited' });
+		await assert.rejects(() => writeBuildExport(files, rejected, () => { }), /already exists/);
+		assert.strictEqual(rejected.writes.length, 0);
+		assert.strictEqual(rejected.files.get(scaffold.path), 'user edited');
+		const regenerated = new FakeFileSystem({ [derived.path]: 'old' });
+		await writeBuildExport(files, regenerated, () => { });
+		assert.strictEqual(regenerated.files.get(derived.path), derived.content);
 	});
 });
