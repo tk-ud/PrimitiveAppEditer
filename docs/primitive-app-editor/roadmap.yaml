@@ -1838,8 +1838,12 @@ section:
               - "GUI Verification Cycle"
         depends_on:
           - "workbench.views"
-        status: "not started"
-        evidence: []
+        status: "implemented"
+        evidence:
+          - "common/workbenchViews.ts: GenerationGuard (begin/isCurrent); WorkbenchViewsModel.resetForProject() and applyProjectState(ready, project) reset Shared Selection Context, Deploy Template selection and Editor tabs on Project switch / Close (not on a repeated Ready of the same Project); common/dataEditor.ts DataEditorTabs.clear()"
+          - "browser/primitiveAppEditorViews.ts: Inspector render guarded by GenerationGuard so a late result of an older Selection (or error) is discarded; browser/primitiveAppEditorService.ts: onDidChangeState applies applyProjectState and closes open PrimitiveAppEditorInput tabs in all editor groups (no stale Project content kept)"
+          - "test/common/workbenchViews.test.ts: generation guard discards late result; Project switch/Close reset incl. same-Project Ready no-op; 14/14 pass locally via tsc transpile + test shim; changed browser files typecheck with tsc (only the CSS side-effect import unresolved in this environment)"
+          - "No Bottom Panel producers added (Views side has none); no integration fix to earlier producer bundles beyond workbench.views model additions; GUI observation delegated to UI Map Checkpoints"
         remaining: []
 
       - id: "workbench.ai-development"
