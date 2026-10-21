@@ -12,7 +12,7 @@ import { createFunctionRegistryEntry } from '../../common/functionRegistry.js';
 import { LogicalNamespace } from '../../common/projectSqlite.js';
 import { createRendererBindingEntry, createRendererRegistryEntry } from '../../common/rendererRegistry.js';
 import { createTableRegistryEntry, TableColumnKind } from '../../common/tableRegistry.js';
-import { BuildExportConfigurationModel, BuildItemState, createDeployTemplateInspectorView, createExecutorProgramResolver, IBuildExportPlanFile, listDeployTemplates } from '../../common/buildExportConfiguration.js';
+import { BuildExportConfigurationModel, BuildItemState, checklistSurfaceNodes, IBuildSurfaceNode, targetSurfaceNodes, createDeployTemplateInspectorView, createExecutorProgramResolver, IBuildExportPlanFile, listDeployTemplates } from '../../common/buildExportConfiguration.js';
 import { BottomPanelOutput, BottomPanelSeverity, BottomPanelView, WorkbenchViewsModel } from '../../common/workbenchViews.js';
 import { writeBuildExport, IBuildExportFileSystem } from '../../common/buildExportWriter.js';
 import { BUILTIN_DEPLOY_TEMPLATE_DOCUMENT, BUILTIN_DEPLOY_TEMPLATE_ID, createDeployTemplateRegistry, DeployHost, DeployTemplateOrigin } from '../../common/deployProjection.js';
@@ -264,5 +264,64 @@ suite('Primitive App Editor - Build / Export writer', () => {
 		assert.strictEqual(multi.configuration().runtime_storage_target, 'other runtime');
 		assert.throws(() => multi.selectBuildTarget('Unknown'));
 		assert.throws(() => multi.selectRuntimeStorageTarget(POSTGRESQL_WEB_APPLICATION_RUNTIME_STORAGE));
+	});
+
+	function walk(nodes: readonly IBuildSurfaceNode[], visit: (node: IBuildSurfaceNode) => void): void {
+		for (const node of nodes) {
+			visit(node);
+			walk(node.children ?? [], visit);
+		}
+	}
+
+	function surfaceNodes(surface: BuildExportConfigurationModel): IBuildSurfaceNode[] {
+		return [
+			...targetSurfaceNodes('build.export.build-target', 'Build Target', surface.buildTargetDisplay()),
+			...targetSurfaceNodes('build.export.runtime-storage-target', 'Runtime / Storage Target', surface.runtimeStorageTargetDisplay()),
+			...surface.checklistSections().flatMap(section => checklistSurfaceNodes(section)),
+		];
+	}
+
+	test('the structure the Surface mounts has unique container Markers, table uuid as data-pae-item, and no UUID in Markers or text', () => {
+		const second = '00000000-0000-4000-8000-0000000000a2';
+		const base = authoring();
+		const copy = { ...base, tables: [...base.tables, createTableRegistryEntry({ uuid: second, index: 1, schema: LogicalNamespace.Items, name: 'enemy', columns: [], created_at: NOW })], rawData: [...base.rawData, { table_uuid: second, rows: [{ uuid: '00000000-0000-4000-8000-0000000000b2', values: {} }] }] };
+		const nodes = surfaceNodes(new BuildExportConfigurationModel(copy, createDeployTemplateRegistry([])));
+		const containers: string[] = [];
+		const items: string[] = [];
+		let rowGroups: string[] = [];
+		walk(nodes, node => {
+			const marker = node.attrs?.['data-pae-marker'] as string | undefined;
+			if (marker !== undefined) {
+				assert.ok(!/[0-9a-f]{8}-[0-9a-f]{4}-/.test(marker), 'Marker without UUID');
+				(marker.endsWith('.item') ? items : containers).push(marker);
+			}
+			if (node.text !== undefined) {
+				assert.ok(!/[0-9a-f]{8}-[0-9a-f]{4}-/.test(node.text) || node.tag === 'span', 'UUID is not shown as heading / text');
+			}
+		});
+		assert.strictEqual(new Set(containers).size, containers.length, 'no container Marker repeats in the Surface');
+		assert.strictEqual(containers.filter(marker => marker === 'build.export.rows').length, 1, 'one rows Marker for several tables');
+		const rows = nodes.flatMap(node => [node, ...(node.children ?? [])]).find(node => node.attrs?.['data-pae-marker'] === 'build.export.rows')!;
+		rowGroups = rows.children!.map(group => group.attrs!['data-pae-item'] as string);
+		assert.deepStrictEqual(rowGroups, [PLAYER, second], 'each table is identified by data-pae-item, not by a Marker');
+		assert.ok(rows.children!.every(group => group.attrs!['data-pae-marker'] === undefined));
+		assert.ok(items.every(marker => marker.startsWith('build.export.') && marker.endsWith('.item')));
+	});
+
+	test('the Target node is a read-only value for one Target and a select with the candidates for two or more, whose action updates the configuration', () => {
+		const single = surfaceNodes(model());
+		const readOnly = single.find(node => node.attrs?.['data-pae-marker'] === 'build.export.build-target')!;
+		assert.deepStrictEqual([readOnly.tag, readOnly.text, readOnly.action], ['p', POSTGRESQL_WEB_APPLICATION_OUTPUT, undefined]);
+		assert.ok(!single.some(node => node.tag === 'select'));
+
+		const targets = new Map<string, readonly string[]>([[POSTGRESQL_WEB_APPLICATION_OUTPUT, [POSTGRESQL_WEB_APPLICATION_RUNTIME_STORAGE, 'alt runtime']]]);
+		const multi = new BuildExportConfigurationModel(authoring(), createDeployTemplateRegistry([]), targets);
+		const select = surfaceNodes(multi).find(node => node.tag === 'select')!;
+		assert.deepStrictEqual(select.action, { kind: 'select-target', marker: 'build.export.runtime-storage-target' });
+		assert.deepStrictEqual(select.children!.map(option => [option.attrs!.value, option.attrs!.selected]), [[POSTGRESQL_WEB_APPLICATION_RUNTIME_STORAGE, true], ['alt runtime', false]]);
+		multi.selectRuntimeStorageTarget('alt runtime');
+		assert.strictEqual(multi.configuration().runtime_storage_target, 'alt runtime');
+		const after = surfaceNodes(multi).find(node => node.tag === 'select')!;
+		assert.deepStrictEqual(after.children!.map(option => option.attrs!.selected), [false, true]);
 	});
 });

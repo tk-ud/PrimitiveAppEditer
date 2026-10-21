@@ -57,6 +57,68 @@ export interface IBuildTargetDisplay {
 	readonly selectable: boolean;
 }
 
+/**
+ * The DOM structure of the checklists / Target controls as data, so the Marker / Item Identity regulation
+ * (Editor UI 19) is verifiable without a DOM. The browser layer mounts it one to one and only attaches the
+ * listeners named by `action`.
+ */
+export interface IBuildSurfaceNode {
+	readonly tag: string;
+	readonly attrs?: Readonly<Record<string, string | boolean>>;
+	readonly text?: string;
+	readonly children?: readonly IBuildSurfaceNode[];
+	/** `toggle`: a checklist checkbox of `id` in `marker`'s checklist; `select-target`: a Target select of `marker`. */
+	readonly action?: { readonly kind: 'toggle'; readonly marker: string; readonly id: string } | { readonly kind: 'select-target'; readonly marker: string };
+}
+
+const EXCLUDED_HINT = localize('primitiveAppEditor.build.excludedHint', "Not exported to the Production Application. Select it to include it.");
+
+function itemNodes(itemMarker: string, sectionMarker: string, items: readonly IBuildChecklistItem[]): IBuildSurfaceNode {
+	return {
+		tag: 'ul',
+		children: items.map(item => ({
+			tag: 'li',
+			attrs: { 'data-pae-marker': itemMarker, 'data-pae-item': item.id },
+			children: [{
+				tag: 'label',
+				children: [
+					{ tag: 'input', attrs: { type: 'checkbox', checked: item.state === BuildItemState.Included }, action: { kind: 'toggle', marker: sectionMarker, id: item.id } },
+					{ tag: 'span', text: ` ${item.label} ` },
+					{ tag: 'span', attrs: { class: 'pae-badge', 'data-pae-state': item.state, title: item.state === BuildItemState.Excluded ? EXCLUDED_HINT : '' }, text: item.state },
+				],
+			}],
+		})),
+	};
+}
+
+/** One kind-fixed Marker per checklist; item / table identity is `data-pae-item`, never a Marker. */
+export function checklistSurfaceNodes(section: IBuildChecklistSection): readonly IBuildSurfaceNode[] {
+	const title: IBuildSurfaceNode = { tag: 'h3', text: section.title };
+	const groups = section.groups;
+	if (groups ? groups.length === 0 : section.items.length === 0) {
+		return [title, { tag: 'div', attrs: { class: 'pae-empty' }, text: localize('primitiveAppEditor.build.none', "None") }];
+	}
+	const itemMarker = `${section.marker}.item`;
+	const children = groups
+		? groups.map((group): IBuildSurfaceNode => ({ tag: 'div', attrs: { 'data-pae-item': group.id }, children: [{ tag: 'h4', text: group.title }, itemNodes(itemMarker, section.marker, group.items)] }))
+		: [itemNodes(itemMarker, section.marker, section.items)];
+	return [title, { tag: 'div', attrs: { 'data-pae-marker': section.marker }, children }];
+}
+
+/** Build Target / Runtime-Storage Target: read-only identifier for one resolvable Target, a select for two or more. */
+export function targetSurfaceNodes(marker: string, title: string, display: IBuildTargetDisplay): readonly IBuildSurfaceNode[] {
+	const heading: IBuildSurfaceNode = { tag: 'h3', text: title };
+	if (!display.selectable) {
+		return [heading, { tag: 'p', attrs: { 'data-pae-marker': marker }, text: display.value }];
+	}
+	return [heading, {
+		tag: 'select',
+		attrs: { 'data-pae-marker': marker },
+		action: { kind: 'select-target', marker },
+		children: display.choices.map(choice => ({ tag: 'option', attrs: { value: choice, selected: choice === display.value }, text: choice })),
+	}];
+}
+
 export interface IBuildSeedTable extends IBuildChecklistItem {
 	readonly rows: readonly IBuildChecklistItem[];
 }
