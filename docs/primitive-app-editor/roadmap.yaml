@@ -1633,17 +1633,9 @@ section:
           - "build.web-program-input-validation"
           - "build.deploy-projection"
           - "workbench.views"
-        status: "partial"
-        evidence:
-          - "Implementation commit 2e1394a4: common/buildExportConfiguration.ts (BuildExportConfigurationModel: explicit inclusion/exclusion Controls with Included/Excluded state for Seed tables/rows, assets, functions, scripts, config, output path; compatible Valid Deploy Template choices by Build Target and host; preview() = Build Validation + Deploy Validation + Scaffold with adopted no-overwrite names, plan under output_path and the non-executed start command `docker compose -f <adopted compose> up -d`; createExecutorProgramResolver; listDeployTemplates incl. Invalid entries)."
-          - "workbench.views integration fix: DataEditorTarget.BuildExport / EditorTabKind.BuildExport (one reused tab, fixed tab uuid), Build view lists Build / Export Configuration, Deploy Templates (builtin/user/Invalid) and Build Log (common/workbenchViews.ts, ISideBarContext.deployTemplates)."
-          - "browser layer: primitiveAppEditorSurfaces.ts renderBuildExport (checkbox/select Controls, read-only Template values, Validation, Build / Export / Scaffold action, data-pae-marker build.export.*), primitiveAppEditorService.ts loadBuildAuthoringData / getDeployTemplateRegistry / listOutputFiles / exportBuild (writes only under build/, refuses to overwrite Scaffold files, logs to Bottom Panel Build Log; never executes generated files), editor input title/icon."
-          - "Tests: test/common/buildExportConfiguration.test.ts (7 tests) and updated test/common/workbenchViews.test.ts; all 218 primitiveAppEditor test/common tests pass locally (mocha tdd on transpiled sources); tsc type check of the new/changed browser, common and test files reports no primitiveAppEditor errors. test/node suites and CI were not run locally."
-          - "No earlier producer bundle required an integration fix beyond the workbench.views extension above."
-        remaining:
-          - "Secondary Side Bar Inspector supplementary information for the selected Deploy Template is not implemented."
-          - "Browser-layer rendering (renderBuildExport, exportBuild) has no automated test beyond type check; verify through CI and the GUI Debug Tool UI Map."
-          - "CI result for this PR is pending."
+        status: "not started"
+        evidence: []
+        remaining: []
 
   - name: "Workbench"
     bundle:
