@@ -95,6 +95,8 @@ export const enum DataEditorTarget {
 	RendererEditor = 'renderer_editor',
 	/** Asset Editor of one Asset (workbench.views). */
 	AssetEditor = 'asset_editor',
+	/** Build / Export Configuration of the project (build.deploy). */
+	BuildExport = 'build_export',
 }
 
 export interface IDataEditorEntry {

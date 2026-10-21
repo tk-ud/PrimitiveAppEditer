@@ -19,6 +19,7 @@ import { IViewPaneOptions, ViewPane } from '../../../browser/parts/views/viewPan
 import { IViewDescriptorService } from '../../../common/views.js';
 import { IPrimitiveAppEditorService } from '../common/primitiveAppEditorService.js';
 import { ProjectOpenState } from '../common/projectOpenSession.js';
+import { createDeployTemplateInspectorView } from '../common/buildExportConfiguration.js';
 import { RegistryDrivenInspector, isInspectorEmpty } from '../common/inspector.js';
 import { DataEditorSelection } from '../common/dataEditor.js';
 import { ActivityBarItem, BottomPanelView, createSideBarTree, ISideBarNode } from '../common/workbenchViews.js';
@@ -228,6 +229,7 @@ export class PrimitiveAppEditorInspectorView extends PrimitiveAppEditorViewPane 
 		this.refresh();
 		this._register(this.appEditor.onDidChangeProject(() => this.refresh()));
 		this._register({ dispose: this.appEditor.views.selection.onDidChange(() => this.refresh()) });
+		this._register({ dispose: this.appEditor.views.deployTemplateSelection.onDidChange(() => this.refresh()) });
 	}
 
 	private refresh(): void {
@@ -244,6 +246,21 @@ export class PrimitiveAppEditorInspectorView extends PrimitiveAppEditorViewPane 
 
 	private async renderInspector(): Promise<void> {
 		const container = this.container;
+		const templateId = this.appEditor.views.deployTemplateSelection.selection;
+		const templateView = templateId !== undefined ? createDeployTemplateInspectorView(this.appEditor.getDeployTemplateRegistry(), templateId) : undefined;
+		if (container && templateView) {
+			clearNode(container);
+			append(container, $('h3', { 'data-pae-marker': 'inspector.header' }, templateView.header));
+			if (templateView.diagnostic) {
+				append(container, $('.pae-error', undefined, templateView.diagnostic));
+			}
+			const list = append(container, $('dl', { 'data-pae-marker': 'inspector.deploy-template' }));
+			for (const [label, value] of templateView.rows) {
+				append(list, $('dt', undefined, label));
+				append(list, $('dd', undefined, value));
+			}
+			return;
+		}
 		const selection = this.appEditor.views.selection.selection;
 		const services = this.appEditor.getResolverServices();
 		if (!container) {

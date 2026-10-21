@@ -1633,8 +1633,15 @@ section:
           - "build.web-program-input-validation"
           - "build.deploy-projection"
           - "workbench.views"
-        status: "not started"
-        evidence: []
+        status: "implemented"
+        evidence:
+          - "Implementation commits 2e1394a4 and f645007b (PR #128)."
+          - "common/buildExportConfiguration.ts: BuildExportConfigurationModel (explicit inclusion/exclusion Controls with Included/Excluded state; compatible Valid Deploy Template choices by Build Target and host; preview() = Build Validation + Deploy Validation + Scaffold with adopted no-overwrite names, plan under output_path and the non-executed start command), createExecutorProgramResolver, listDeployTemplates (builtin/user/Invalid), createDeployTemplateInspectorView (Inspector supplementary Template information)."
+          - "common/buildExportWriter.ts: writeBuildExport over an exists/write-only file system seam: rejects any path outside build/ and any existing Scaffold file for the whole plan before the first write, writes the plan, logs to the Build Log, never executes generated files. browser/primitiveAppEditorService.ts exportBuild delegates to it."
+          - "Required integration fix in workbench.views: DataEditorTarget.BuildExport / EditorTabKind.BuildExport (one reused tab), Build view lists Build / Export Configuration, Deploy Templates and Build Log; ISideBarContext.deployTemplates; ISideBarNode.deployTemplateId and WorkbenchViewsModel.deployTemplateSelection (exclusive with the Registry Selection) so the existing Inspector view (Secondary Side Bar) shows the selected Template's supplementary information; no fixed form added."
+          - "browser surfaces: primitiveAppEditorSurfaces.ts renderBuildExport (checkbox/select Controls, read-only Template values, Validation, Build / Export / Scaffold action, data-pae-marker build.export.*), primitiveAppEditorViews.ts Inspector Template section."
+          - "Tests: test/common/buildExportConfiguration.test.ts (model, Template choices, Scaffold no-overwrite naming, Validation stages, executor resolver, Inspector view, selection exclusivity, writer: build/ confinement writes nothing, existing Scaffold rejects before any write, full plan written and logged, exists/write-only seam) and updated test/common/workbenchViews.test.ts. 223 primitiveAppEditor test/common tests pass locally; tsc over the changed browser/common/test files reports no primitiveAppEditor errors. CI on the previous head 175b548b was all success."
+          - "GUI observation of the surfaces is delegated to the UI Map Checkpoints per README GUI Verification Cycle (not a Bundle condition)."
         remaining: []
 
   - name: "Workbench"

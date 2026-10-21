@@ -12,7 +12,9 @@ import {
 	IDataEditorEntry, IDataEditorTab,
 } from './dataEditor.js';
 import { DynamicSurface, IDynamicSelection } from './dynamicResolve.js';
+import { buildExportTabUuid, IDeployTemplateListing } from './buildExportConfiguration.js';
 import { debugViewerTabUuid } from './debugViewer.js';
+import { DeployTemplateOrigin } from './deployProjection.js';
 import { functionGraphTabUuid } from './functionGraph.js';
 import { getRegistryDisplayText } from './registryIdentity.js';
 import { IFunctionBindingEntry } from './functionBinding.js';
@@ -106,11 +108,12 @@ export const enum EditorTabKind {
 	RendererEditor = 'renderer_editor',
 	AssetEditor = 'asset_editor',
 	DebugViewer = 'debug_viewer',
+	BuildExport = 'build_export',
 }
 
 export const editorTabKinds: readonly EditorTabKind[] = Object.freeze([
 	EditorTabKind.CodeEditor, EditorTabKind.RegistryEditor, EditorTabKind.DataEditor, EditorTabKind.FunctionGraph,
-	EditorTabKind.RendererEditor, EditorTabKind.AssetEditor, EditorTabKind.DebugViewer,
+	EditorTabKind.RendererEditor, EditorTabKind.AssetEditor, EditorTabKind.DebugViewer, EditorTabKind.BuildExport,
 ]);
 
 /**
@@ -129,6 +132,7 @@ export function editorTabKindOf(target: DataEditorTarget): EditorTabKind {
 		case DataEditorTarget.DebugViewer: return EditorTabKind.DebugViewer;
 		case DataEditorTarget.RendererEditor: return EditorTabKind.RendererEditor;
 		case DataEditorTarget.AssetEditor: return EditorTabKind.AssetEditor;
+		case DataEditorTarget.BuildExport: return EditorTabKind.BuildExport;
 	}
 }
 
@@ -256,6 +260,8 @@ export interface ISideBarNode {
 	readonly uuid?: string;
 	/** Selecting the node writes this to the Shared Selection Context. Absent: not selectable (group). */
 	readonly selection?: IDynamicSelection;
+	/** Selecting the node writes this Deploy Template id to the Deploy Template selection the Inspector shows. */
+	readonly deployTemplateId?: string;
 	readonly open?: SideBarOpen;
 	readonly children: readonly ISideBarNode[];
 }
@@ -268,6 +274,8 @@ export interface ISideBarContext {
 	readonly programs: readonly IFunctionProgram[];
 	/** Name of the Working Directory (the opened folder). */
 	readonly rootName: string;
+	/** The Editor-wide Deploy Template Registry as listed in the Build view (builtin / user / Invalid). */
+	readonly deployTemplates?: readonly IDeployTemplateListing[];
 }
 
 function node(id: string, label: string, extra: Partial<Omit<ISideBarNode, 'id' | 'label' | 'children'>> = {}, children: readonly ISideBarNode[] = []): ISideBarNode {
@@ -410,8 +418,20 @@ export function createSideBarTree(item: ActivityBarItem, context: ISideBarContex
 		case ActivityBarItem.Debug:
 			return Object.freeze([node('debug:viewer', localize('primitiveAppEditor.sideBar.debugViewer', "Debug Viewer"), { open: tab(DataEditorTarget.DebugViewer, debugViewerTabUuid) })]);
 		case ActivityBarItem.Build:
-			return Object.freeze([node('build:log', localize('primitiveAppEditor.sideBar.buildLog', "Build Log"), { open: Object.freeze({ kind: 'panel', view: BottomPanelView.BuildLog }) })]);
+			return Object.freeze([
+				node('build:configuration', localize('primitiveAppEditor.sideBar.buildExport', "Build / Export Configuration"), { open: tab(DataEditorTarget.BuildExport, buildExportTabUuid) }),
+				group('build:templates', localize('primitiveAppEditor.sideBar.deployTemplates', "Deploy Templates"), (context.deployTemplates ?? []).map(entry => node(`build-template:${entry.origin}:${entry.id}`, entry.label, {
+					description: entry.valid ? deployTemplateOriginLabel(entry.origin) : localize('primitiveAppEditor.sideBar.deployTemplateInvalid', "Invalid"),
+					deployTemplateId: entry.id,
+					open: tab(DataEditorTarget.BuildExport, buildExportTabUuid),
+				}))),
+				node('build:log', localize('primitiveAppEditor.sideBar.buildLog', "Build Log"), { open: Object.freeze({ kind: 'panel', view: BottomPanelView.BuildLog }) }),
+			]);
 	}
+}
+
+function deployTemplateOriginLabel(origin: DeployTemplateOrigin): string {
+	return origin === DeployTemplateOrigin.Builtin ? localize('primitiveAppEditor.sideBar.deployTemplateBuiltin', "Built-in") : localize('primitiveAppEditor.sideBar.deployTemplateUser', "User");
 }
 
 function dataEntryChildren(data: IDataEditorContext, section: DataEditorSection): ISideBarNode[] {
@@ -429,6 +449,29 @@ export type SideBarActivation =
 	| { readonly kind: 'file'; readonly path: string }
 	| { readonly kind: 'panel'; readonly view: BottomPanelView };
 
+/** The selected Deploy Template id. */
+export class DeployTemplateSelection {
+
+	private current: string | undefined;
+	private readonly listeners = new Set<(templateId: string | undefined) => void>();
+
+	get selection(): string | undefined {
+		return this.current;
+	}
+
+	select(templateId: string | undefined): void {
+		this.current = templateId;
+		for (const listener of [...this.listeners]) {
+			listener(templateId);
+		}
+	}
+
+	onDidChange(listener: (templateId: string | undefined) => void): () => void {
+		this.listeners.add(listener);
+		return () => { this.listeners.delete(listener); };
+	}
+}
+
 /**
  * The Shared Selection Context and Editor Area tabs of the Workbench. Side Bar Selection, Editor Area
  * Selection and Debug Viewer Selection all write {@link selection}, which the single Registry Driven
@@ -437,11 +480,36 @@ export type SideBarActivation =
 export class WorkbenchViewsModel {
 
 	readonly selection = new DataEditorSelection();
+	/**
+	 * The selected Deploy Template id (Editor-wide Template Registry, not an Application Registry item). It is
+	 * exclusive with {@link selection}: the Inspector shows whichever was selected last.
+	 */
+	readonly deployTemplateSelection = new DeployTemplateSelection();
 	readonly tabs = new DataEditorTabs();
+
+	constructor() {
+		// Any Registry Selection (Side Bar, Editor Area, Debug Viewer) replaces the Template selection in the Inspector.
+		this.selection.onDidChange(selected => {
+			if (selected !== undefined) {
+				this.deployTemplateSelection.select(undefined);
+			}
+		});
+	}
+
+	/** Selects a Deploy Template (clears the Registry Selection) or clears the Template selection. */
+	selectDeployTemplate(templateId: string | undefined): void {
+		if (templateId !== undefined) {
+			this.selection.select(undefined);
+		}
+		this.deployTemplateSelection.select(templateId);
+	}
 
 	/** Tree / List Select -> Registry Driven Inspector Update + Optional Editor Area Open. */
 	activate(target: ISideBarNode): SideBarActivation {
-		if (target.selection) {
+		if (target.deployTemplateId !== undefined) {
+			this.selectDeployTemplate(target.deployTemplateId);
+		} else if (target.selection) {
+			this.deployTemplateSelection.select(undefined);
 			this.selection.select(target.selection);
 		}
 		return target.open ? this.open(target.open) : { kind: 'none' };
