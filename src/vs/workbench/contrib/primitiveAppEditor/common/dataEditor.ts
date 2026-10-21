@@ -255,6 +255,11 @@ export class DataEditorTabs {
 		this.tabs.delete(`${tab.target}:${tab.uuid}`);
 	}
 
+	/** Forgets every tab (Project switch / Close: no tab of the previous Project is reused). */
+	clear(): void {
+		this.tabs.clear();
+	}
+
 	get openTabs(): readonly IDataEditorTab[] {
 		return [...this.tabs.values()];
 	}

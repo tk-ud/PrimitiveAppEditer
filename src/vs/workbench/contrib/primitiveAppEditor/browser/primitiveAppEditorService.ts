@@ -12,6 +12,7 @@ import { localize } from '../../../../nls.js';
 import { FileOperationResult, IFileService, toFileOperationResult } from '../../../../platform/files/common/files.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
 import { IAsset } from '../common/assetRegistry.js';
 import { createExecutorProgramResolver, IBuildExportPlanFile, listDeployTemplates } from '../common/buildExportConfiguration.js';
 import { writeBuildExport } from '../common/buildExportWriter.js';
@@ -55,6 +56,7 @@ export class PrimitiveAppEditorService extends Disposable implements IPrimitiveA
 		@IProjectSqliteDatabaseFactoryService databaseFactory: IProjectSqliteDatabaseFactoryService,
 		@IEditorService private readonly editorService: IEditorService,
 		@IViewsService private readonly viewsService: IViewsService,
+		@IEditorGroupsService private readonly editorGroupsService: IEditorGroupsService,
 	) {
 		super();
 		this.session = new ProjectOpenSession(fileService, databaseFactory, editorDdlResources, this.executorCatalog);
@@ -64,6 +66,10 @@ export class PrimitiveAppEditorService extends Disposable implements IPrimitiveA
 
 	private onDidChangeState(state: IProjectOpenSessionState): void {
 		const generation = ++this.generation;
+		// Project switch / Close: drop the previous Project's Selection and Editor Area tabs (no stale state is shown).
+		if (this.views.applyProjectState(state.state === ProjectOpenState.Ready, state.root?.toString())) {
+			this.closeProjectEditors();
+		}
 		this.output.clear();
 		this.functionBindings = [];
 		switch (state.state) {
@@ -82,6 +88,16 @@ export class PrimitiveAppEditorService extends Disposable implements IPrimitiveA
 				break;
 		}
 		this._onDidChangeProject.fire();
+	}
+
+	/** Closes every open Editor Area tab of the App Editor; they hold the previous Project's content. */
+	private closeProjectEditors(): void {
+		for (const group of this.editorGroupsService.groups) {
+			const editors = group.editors.filter(editor => editor instanceof PrimitiveAppEditorInput);
+			if (editors.length > 0) {
+				void group.closeEditors(editors, { preserveFocus: true });
+			}
+		}
 	}
 
 	private async loadFunctionBindings(generation: number): Promise<void> {

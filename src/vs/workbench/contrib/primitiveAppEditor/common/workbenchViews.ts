@@ -473,6 +473,23 @@ export class DeployTemplateSelection {
 }
 
 /**
+ * Generation guard for asynchronous renders that depend on the Selection (Inspector etc.). `begin()` starts a
+ * render; a result that arrives after a later `begin()` is no longer `isCurrent` and must be discarded.
+ */
+export class GenerationGuard {
+
+	private generation = 0;
+
+	begin(): number {
+		return ++this.generation;
+	}
+
+	isCurrent(generation: number): boolean {
+		return generation === this.generation;
+	}
+}
+
+/**
  * The Shared Selection Context and Editor Area tabs of the Workbench. Side Bar Selection, Editor Area
  * Selection and Debug Viewer Selection all write {@link selection}, which the single Registry Driven
  * Inspector (Secondary Side Bar) resolves; the Editor tab of a Target is reused, never duplicated.
@@ -487,6 +504,8 @@ export class WorkbenchViewsModel {
 	readonly deployTemplateSelection = new DeployTemplateSelection();
 	readonly tabs = new DataEditorTabs();
 
+	private readyProject: string | undefined;
+
 	constructor() {
 		// Any Registry Selection (Side Bar, Editor Area, Debug Viewer) replaces the Template selection in the Inspector.
 		this.selection.onDidChange(selected => {
@@ -494,6 +513,31 @@ export class WorkbenchViewsModel {
 				this.deployTemplateSelection.select(undefined);
 			}
 		});
+	}
+
+	/**
+	 * Discards the Shared Selection Context, the Deploy Template selection and the Editor Area tab state, so a
+	 * uuid Selection or tab of the previous Project is never carried into the next one.
+	 */
+	resetForProject(): void {
+		this.selection.select(undefined);
+		this.deployTemplateSelection.select(undefined);
+		this.tabs.clear();
+	}
+
+	/**
+	 * Applies a Project Open state change. Anything but Ready (Opening / Incomplete / Failed / None = switch or
+	 * Close) and a Ready for a different Project than the last Ready one reset the views state. Returns whether
+	 * it was reset (the Workbench then closes / re-resolves the open Editor Area tabs).
+	 */
+	applyProjectState(ready: boolean, project: string | undefined): boolean {
+		const previous = this.readyProject;
+		this.readyProject = ready ? project : undefined;
+		if (ready && previous === project) {
+			return false;
+		}
+		this.resetForProject();
+		return true;
 	}
 
 	/** Selects a Deploy Template (clears the Registry Selection) or clears the Template selection. */

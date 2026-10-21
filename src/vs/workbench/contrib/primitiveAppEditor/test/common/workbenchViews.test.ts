@@ -21,7 +21,7 @@ import { createTableRegistryEntry, TableColumnKind } from '../../common/tableReg
 import { LogicalNamespace } from '../../common/projectSqlite.js';
 import {
 	activityBarContainerId, ActivityBarItem, activityBarItems, activityBarViewId, bottomPanelViews, BottomPanelOutput, BottomPanelSeverity,
-	BottomPanelView, createSideBarTree, editorTabKindOf, editorTabKinds, EditorTabKind, ISideBarContext, ISideBarNode, WorkbenchViewsModel,
+	BottomPanelView, createSideBarTree, editorTabKindOf, editorTabKinds, EditorTabKind, GenerationGuard, ISideBarContext, ISideBarNode, WorkbenchViewsModel,
 } from '../../common/workbenchViews.js';
 
 const ENEMY = '00000000-0000-4000-8000-0000000000a1';
@@ -227,5 +227,49 @@ suite('Primitive App Editor - workbench views', () => {
 		assert.ok(bottomPanelViews.every(view => output.get(view).length === 0));
 		assert.ok(changed.includes(BottomPanelView.Console));
 		dispose();
+	});
+
+	test('generation guard discards a late result of an older Selection', async () => {
+		const guard = new GenerationGuard();
+		const shown: string[] = [];
+		const render = async (selection: string, delay: number) => {
+			const generation = guard.begin();
+			await new Promise(resolve => setTimeout(resolve, delay));
+			if (guard.isCurrent(generation)) {
+				shown.push(selection);
+			}
+		};
+		await Promise.all([render('old', 20), render('new', 0)]);
+		assert.deepStrictEqual(shown, ['new']);
+	});
+
+	test('Project switch / Close resets Selection, Template selection and Editor tabs', () => {
+		const model = new WorkbenchViewsModel();
+		const seen: unknown[] = [];
+		model.selection.onDidChange(selected => seen.push(selected));
+		assert.strictEqual(model.applyProjectState(true, 'file:///a'), true);
+		model.selection.select({ uuid: ENEMY });
+		model.tabs.open(DataEditorTarget.RegistryEditor, ENEMY);
+		// Same Project Ready again: nothing is dropped.
+		assert.strictEqual(model.applyProjectState(true, 'file:///a'), false);
+		assert.deepStrictEqual(model.selection.selection, { uuid: ENEMY });
+		assert.strictEqual(model.tabs.openTabs.length, 1);
+		// Switch: Opening resets, and the tab of the old Project is not reused.
+		assert.strictEqual(model.applyProjectState(false, 'file:///b'), true);
+		assert.strictEqual(model.selection.selection, undefined);
+		assert.strictEqual(model.tabs.openTabs.length, 0);
+		assert.strictEqual(model.tabs.open(DataEditorTarget.RegistryEditor, ENEMY).reused, false);
+		// Ready for a different Project than the last Ready one also resets.
+		model.applyProjectState(true, 'file:///b');
+		model.selection.select({ uuid: PLAYER });
+		model.selectDeployTemplate('t');
+		assert.strictEqual(model.applyProjectState(true, 'file:///c'), true);
+		assert.strictEqual(model.selection.selection, undefined);
+		assert.strictEqual(model.deployTemplateSelection.selection, undefined);
+		// Close
+		model.selection.select({ uuid: PLAYER });
+		assert.strictEqual(model.applyProjectState(false, undefined), true);
+		assert.strictEqual(model.selection.selection, undefined);
+		assert.ok(seen.includes(undefined));
 	});
 });
