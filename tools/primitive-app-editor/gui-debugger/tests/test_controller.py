@@ -182,6 +182,48 @@ class ResultFiles(ControllerBase):
 		self.assertEqual(res, {"cp.test.sample": "failed", "cp.test.other": "passed"})
 		log = (self.session.artifacts.root / "run.jsonl").read_text()
 		self.assertGreaterEqual(log.count("cp.test.sample"), 2)
+		import json
+		replaced = [json.loads(l) for l in log.splitlines() if '"checkpoint_result_replaced"' in l]
+		self.assertEqual(len(replaced), 1)
+		self.assertEqual((replaced[0]["checkpoint"], replaced[0]["result"]), ("cp.test.sample", "passed"))
+		self.assertEqual(replaced[0]["steps"][0]["id"], "s01")
+		self.assertIn("message", replaced[0])
+
+	def assert_replaced_then_latest_only(self, old_result, old_steps, first_driver_setup):
+		import json
+		d = FakeDriver({"status.x": [el()]})
+		self.make(d, [click("s01")])
+		self.add_second_map()
+		self.session.new_run_artifacts()
+		self.run_single("cp.test.other")
+		first_driver_setup(d)
+		self.run_single("cp.test.sample").stop()
+		d.window_problem = None
+		d.world["status.x"] = [el()]
+		self.run_single("cp.test.sample")
+		res = {r["checkpoint"]: r["result"] for r in self.result_file()}
+		self.assertEqual(res, {"cp.test.other": "passed", "cp.test.sample": "passed"})
+		log = (self.session.artifacts.root / "run.jsonl").read_text()
+		replaced = [json.loads(l) for l in log.splitlines() if '"checkpoint_result_replaced"' in l]
+		self.assertEqual(len(replaced), 1)
+		self.assertEqual((replaced[0]["checkpoint"], replaced[0]["result"]), ("cp.test.sample", old_result))
+		self.assertIn("message", replaced[0])
+		self.assertEqual([s["id"] for s in replaced[0]["steps"]], old_steps)
+		return replaced[0]
+
+	def test_rerun_precondition_failed_to_passed_logs_old_result(self):
+		def setup(d):
+			d.window_problem = "no window"
+		old = self.assert_replaced_then_latest_only("precondition_failed", ["s01"], setup)
+		self.assertIn("no window", old["message"])
+		self.assertEqual(old["steps"][0]["state"], "pending")
+
+	def test_rerun_failed_to_passed_logs_old_result(self):
+		def setup(d):
+			d.world["status.x"] = []
+		old = self.assert_replaced_then_latest_only("failed", ["s01"], setup)
+		self.assertEqual(old["steps"][0]["state"], "failed")
+		self.assertEqual(old["steps"][0]["kind"], "marker_not_found")
 
 	def test_regression_run_output_unchanged(self):
 		d = FakeDriver({"status.x": []})

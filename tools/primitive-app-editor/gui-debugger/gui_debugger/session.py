@@ -120,14 +120,21 @@ class Session:
 		self.write_result_file(results)
 		return results
 
+	@staticmethod
+	def _result_entry(r: CheckpointResult) -> dict:
+		return {"checkpoint": r.checkpoint, "result": r.result, "message": r.message,
+				"steps": [{"id": s.id, "state": s.state, "kind": s.kind, "expected": s.expected, "actual": s.actual, "error": s.error, "screenshot": s.screenshot, "failed_attempts": s.history} for s in r.steps]}
+
 	def write_result_file(self, results: list[CheckpointResult]) -> None:
-		"""Add or replace the given final results in the Run Artifact's accumulated set, then write result.yaml (§13)."""
+		"""Add or replace the given final results in the Run Artifact's accumulated set, then write result.yaml (§13).
+
+		A replaced older result is first logged to run.jsonl so it stays restorable."""
 		if self.artifacts is None:
 			return
 		for r in results:
+			old = self.final_results.get(r.checkpoint)
+			if old is not None:
+				self.artifacts.log("checkpoint_result_replaced", checkpoint=old.checkpoint, result=old.result, message=old.message,
+								   steps=self._result_entry(old)["steps"])
 			self.final_results[r.checkpoint] = r
-		results = list(self.final_results.values())
-		self.artifacts.write_result([
-			{"checkpoint": r.checkpoint, "result": r.result, "message": r.message,
-			 "steps": [{"id": s.id, "state": s.state, "kind": s.kind, "expected": s.expected, "actual": s.actual, "error": s.error, "screenshot": s.screenshot, "failed_attempts": s.history} for s in r.steps]}
-			for r in results])
+		self.artifacts.write_result([self._result_entry(r) for r in self.final_results.values()])
