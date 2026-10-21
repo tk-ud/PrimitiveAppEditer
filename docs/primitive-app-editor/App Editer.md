@@ -2834,6 +2834,15 @@ Debug Viewer
 
 Code EditorとDebug Viewerは別Tabとして扱う。
 
+#### Views State Consistency
+
+Workbench Viewsは、Projectの切替・Close・Selectionの連続変更に対して、古い状態を表示し続けない。
+
+- Selectionに依存する非同期描画(Inspector等)は世代(generation)を持ち、後着した古い結果は破棄して現在のSelectionと一致する結果のみ表示する。
+- Project切替・Close時にShared Selection ContextとEditor Tab状態を破棄または再解決する。前Projectのuuid Selectionを新Projectへ持ち越さない。
+- 開いているEditor Area Tabは、Project切替時に新Projectの内容で再描画するか閉じる。古いProjectの内容を残さない。
+- Bottom Panelのうち、Build Log / Runtime State / Event Log / Function Outputのproducerは、それぞれ対応するBundle(build / runtime / function)側で接続する。Views側はproducerを持たない。
+
 ```text
 Code Edit
     |

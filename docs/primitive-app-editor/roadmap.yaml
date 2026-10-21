@@ -1753,6 +1753,34 @@ section:
           - "GUI observation deferred to UI Map / GUI Debug Tool per README GUI Verification Cycle"
         remaining: []
 
+      - id: "workbench.views-state-consistency"
+        title: "Views state consistency: Inspector generation guard, Selection / Tab reset on Project switch, Editor Tab re-render (Issue #121)"
+        reference:
+          - source: "./App Editer.md"
+            role: "implementation"
+            sections:
+              - "§39 Editor Tabs"
+              - "§39 Side Bar"
+          - source: "./Editor UI.md"
+            role: "implementation"
+            sections:
+              - "§9 Primary Side Bar Regulation"
+              - "§10 Editor Area Regulation"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
+              - "§39 Bottom Panel"
+              - "§39 Boundary"
+          - source: "../../README.md"
+            role: "boundary"
+            sections:
+              - "GUI Verification Cycle"
+        depends_on:
+          - "workbench.views"
+        status: "not started"
+        evidence: []
+        remaining: []
+
       - id: "workbench.ai-development"
         title: "AI coding extension compatible development workflow"
         reference:
@@ -1776,6 +1804,7 @@ section:
               - "GUI Verification Cycle"
         depends_on:
           - "workbench.views"
+          - "workbench.views-state-consistency"
           - "build.application-output"
         status: "not started"
         evidence: []
