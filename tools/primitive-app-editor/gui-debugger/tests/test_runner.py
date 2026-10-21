@@ -252,6 +252,36 @@ class Failures(RunnerBase):
 		res = run.step()
 		self.assertEqual((run.state, res.result), (runner.STOPPED, "stopped"))
 
+	def two_steps(self):
+		def m(g):
+			g["steps"] = [{"id": "s01", "action": "click", "target": "entry", "timeout_ms": 100},
+						  {"id": "s02", "action": "click", "target": "entry", "timeout_ms": 100}]
+			g["preconditions"]["markers"] = []
+		return m
+
+	def test_stop_during_last_of_multiple_steps_wins_over_finished_in_run(self):
+		d = FakeDriver(self.world())
+		run = self.make(d, self.two_steps())
+		d.on_perform = lambda drv: run.request_stop() if len(drv.actions) == 2 else None
+		res = run.run()
+		self.assertEqual((run.state, res.result, res.records), (runner.STOPPED, "stopped", []))
+		self.assertEqual([s.state for s in res.steps], ["passed", "passed"])
+
+	def test_stop_during_last_of_multiple_steps_wins_over_finished_in_step(self):
+		d = FakeDriver(self.world())
+		run = self.make(d, self.two_steps())
+		d.on_perform = lambda drv: run.request_stop() if len(drv.actions) == 2 else None
+		run.step()
+		self.assertEqual(run.state, runner.PAUSED)
+		res = run.step()
+		self.assertEqual((run.state, res.result), (runner.STOPPED, "stopped"))
+		self.assertEqual([s.state for s in res.steps], ["passed", "passed"])
+
+	def test_normal_completion_of_multiple_steps_is_finished(self):
+		run = self.make(FakeDriver(self.world()), self.two_steps())
+		res = run.run()
+		self.assertEqual((run.state, res.result), (runner.FINISHED, "passed"))
+
 	def test_continue_on_error_only_when_allowed(self):
 		steps = [
 			{"id": "s01", "action": "click", "target": "entry", "timeout_ms": 50, "continue_on_error": True},
