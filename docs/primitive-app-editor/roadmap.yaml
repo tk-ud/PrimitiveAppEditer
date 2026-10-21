@@ -1690,13 +1690,13 @@ section:
               - "§4 UI / Registrar Integration"
         depends_on:
           - "build.deploy-ui-conformance"
-        status: "not started"
-        evidence: []
+        status: "partial"
+        evidence:
+          - "common/buildExportConfiguration.ts: seed() Row label を `Row ${index+1}` に変更、id: row.uuid は不変"
+          - "test/common/buildExportConfiguration.test.ts: Row label にUUIDを含まず table内で区別可能・id保持・除外toggle動作を検証するテストを追加"
+          - "PR #135"
         remaining:
-          - "BuildExportConfigurationModel.seed(): Raw Data Row display label must not depend on row.uuid; use a table-local ordinal name (Row 1, Row 2, ...) distinguishable within the table. Keep id: row.uuid unchanged (Machine Identity)."
-          - "Keep data-pae-item, setRowExcluded, Selection / exclusion Identity and behavior unchanged; Row / Table / Seed-wide Included-Excluded toggles must not regress."
-          - "Tests: seed().tables[].rows[].label contains no UUID and is distinguishable per table; each row id equals the original uuid; UI data-pae-item and check operation preserve Identity; existing toggle tests pass."
-          - "Scope: no change to Editor UI.md / App Editer.md design, Registry / Raw Data Authority, Build / Export Boundary or other checklists; no Code OSS core change. Return to Owner if a design decision is required."
+          - "node_modules が無くユニットテストをローカル実行できていない。PR #135 のCI成功で検証を確認し implemented へ更新する"
 
   - name: "Workbench"
     bundle:
