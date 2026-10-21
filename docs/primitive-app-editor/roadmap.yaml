@@ -1662,13 +1662,12 @@ section:
               - "§4 UI / Registrar Integration"
         depends_on:
           - "build.deploy"
-        status: "implemented"
-        evidence:
-          - "common/buildExportConfiguration.ts: checklistSections() gives one kind-fixed Marker per checklist; Raw Data rows are a single build.export.rows section grouped by table uuid (data-pae-item); buildTargetDisplay()/runtimeStorageTargetDisplay()/selectBuildTarget()/selectRuntimeStorageTarget() resolve Targets from buildTargetRuntimeStorageTargets (read-only for 1, select for 2+)"
-          - "browser/primitiveAppEditorSurfaces.ts: renderBuildExport uses checklistSections and targetControl (build.export.build-target / build.export.runtime-storage-target); no per-table duplicate markers"
-          - "test/common/buildExportConfiguration.test.ts: added marker uniqueness test and single/multiple Target test; 14/14 pass (tsc transpile + test shim run; scripts/test.sh unavailable: native deps fail to build)"
-          - "browser file typechecks cleanly with tsc; no Code OSS core change; no integration fix to earlier producer bundles required"
-        remaining: []
+        status: "not started"
+        evidence: []
+        remaining:
+          - "renderBuildExport: Raw Data table checklists use one kind-fixed data-pae-marker (build.export.rows) per Surface; table identity moves to data-pae-item (table uuid). No duplicate marker within the Surface."
+          - "Build Target / Runtime-Storage Target: show the resolved Target identifier read-only when exactly one is resolvable; provide a select Control bound to Build Configuration when two or more are resolvable (resolved from Build Target and Registry, not hardcoded)."
+          - "Tests for marker uniqueness within renderBuildExport output and for single/multiple Target display; no Code OSS core change; no new fixed UI Schema."
 
   - name: "Workbench"
     bundle:
