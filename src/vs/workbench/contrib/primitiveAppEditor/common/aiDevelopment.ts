@@ -14,10 +14,10 @@ import { getProjectEntry, PROJECT_SQLITE_FILE_NAME } from './projectDirectory.js
  *
  * ```text
  * Workbench
- * ├─ App Editor
- * ├─ Code Editor
- * ├─ Git
- * └─ AI Coding Extension
+ * +-- App Editor
+ * +-- Code Editor
+ * +-- Git
+ * +-- AI Coding Extension
  *
  * AI -> Repository / Working Directory -> Debug Viewer -> Human Review
  * ```
@@ -107,7 +107,7 @@ export const aiDevelopmentFlow: readonly AiDevelopmentStage[] = Object.freeze([
 	AiDevelopmentStage.HumanReview,
 ]);
 
-/** `AI専用のGame Authoring Protocolは必須としない`: the AI needs no operation channel beyond the Working Directory. */
+/** The AI needs no authoring protocol or operation channel beyond the Working Directory. */
 export const requiresAiSpecificAuthoringProtocol = false;
 
 export function isAiDevelopmentTransitionAllowed(from: AiDevelopmentStage, to: AiDevelopmentStage): boolean {
