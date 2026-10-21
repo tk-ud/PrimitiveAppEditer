@@ -182,6 +182,12 @@ class ResultFiles(ControllerBase):
 		self.assertEqual(res, {"cp.test.sample": "failed", "cp.test.other": "passed"})
 		log = (self.session.artifacts.root / "run.jsonl").read_text()
 		self.assertGreaterEqual(log.count("cp.test.sample"), 2)
+		import json
+		replaced = [json.loads(l) for l in log.splitlines() if '"checkpoint_result_replaced"' in l]
+		self.assertEqual(len(replaced), 1)
+		self.assertEqual((replaced[0]["checkpoint"], replaced[0]["result"]), ("cp.test.sample", "passed"))
+		self.assertEqual(replaced[0]["steps"][0]["id"], "s01")
+		self.assertIn("message", replaced[0])
 
 	def test_regression_run_output_unchanged(self):
 		d = FakeDriver({"status.x": []})

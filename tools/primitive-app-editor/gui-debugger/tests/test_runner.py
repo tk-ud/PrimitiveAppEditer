@@ -238,6 +238,20 @@ class Failures(RunnerBase):
 		res = run.finish()
 		self.assertEqual((res.result, res.records), ("stopped", []))
 
+	def test_stop_during_last_step_wins_over_finished_in_run(self):
+		d = FakeDriver(self.world())
+		run = self.make(d, self.simple({"id": "s01", "action": "click", "target": "entry", "timeout_ms": 100}))
+		d.on_perform = lambda _: run.request_stop()
+		res = run.run()
+		self.assertEqual((run.state, res.result, res.records), (runner.STOPPED, "stopped", []))
+
+	def test_stop_during_last_step_wins_over_finished_in_step(self):
+		d = FakeDriver(self.world())
+		run = self.make(d, self.simple({"id": "s01", "action": "click", "target": "entry", "timeout_ms": 100}))
+		d.on_perform = lambda _: run.request_stop()
+		res = run.step()
+		self.assertEqual((run.state, res.result), (runner.STOPPED, "stopped"))
+
 	def test_continue_on_error_only_when_allowed(self):
 		steps = [
 			{"id": "s01", "action": "click", "target": "entry", "timeout_ms": 50, "continue_on_error": True},

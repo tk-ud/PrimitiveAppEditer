@@ -144,7 +144,11 @@ class CheckpointRun:
 			if self._pause_requested and self.state == RUNNING and self.index < len(self.steps):
 				self.state = PAUSED
 		if self.state == RUNNING:
-			self.state = FINISHED
+			# Stop accepted while the last step ran wins over Finished
+			if self._stop_requested:
+				self._finish_stopped()
+			else:
+				self.state = FINISHED
 		self._apply_late_stop()
 		return self.finish()
 
@@ -157,7 +161,10 @@ class CheckpointRun:
 		self.state = RUNNING
 		self._execute_current()
 		if self.state == RUNNING:
-			self.state = FINISHED if self.index >= len(self.steps) else PAUSED
+			if self._stop_requested:
+				self._finish_stopped()
+			else:
+				self.state = FINISHED if self.index >= len(self.steps) else PAUSED
 		self._apply_late_stop()
 		return self.finish() if self.state in (FINISHED, STOPPED) else None
 
