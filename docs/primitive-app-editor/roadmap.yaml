@@ -1899,9 +1899,13 @@ section:
           - "workbench.views"
           - "workbench.views-state-consistency"
           - "build.application-output"
-        status: "not started"
-        evidence: []
-        remaining: []
+        status: "partial"
+        evidence:
+          - "common/aiDevelopment.ts: Workbench composition (App Editor / Code Editor / Git / AI Coding Extension), AI operation targets (Code / Registry / Binding / Assets Reference / Build Definition) inside the Working Directory layout, flow AI -> Working Directory -> Debug Viewer -> Human Review, requiresAiSpecificAuthoringProtocol = false; no new command/API/channel for AI"
+          - "test/common/aiDevelopment.test.ts: 4 tests pass locally via tsc transpile + shim; repo runner unavailable locally (no node_modules)"
+          - "No producer integration fix needed; GUI observation delegated to UI Map Checkpoints"
+        remaining:
+          - "CI on the PR head must pass before recording implemented"
 
   - name: "Completion"
     bundle:
