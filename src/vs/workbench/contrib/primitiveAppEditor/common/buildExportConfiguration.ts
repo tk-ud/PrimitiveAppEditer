@@ -398,9 +398,9 @@ export class BuildExportConfigurationModel {
 				id: data.table_uuid,
 				label: entry ? getRegistryDisplayText(entry) : data.table_uuid,
 				state: state(selected),
-				rows: Object.freeze(data.rows.map(row => Object.freeze({
+				rows: Object.freeze(data.rows.map((row, index) => Object.freeze({
 					id: row.uuid,
-					label: row.uuid,
+					label: `Row ${index + 1}`,
 					state: state(selected && !this.excludedRows.has(row.uuid)),
 				}))),
 			});

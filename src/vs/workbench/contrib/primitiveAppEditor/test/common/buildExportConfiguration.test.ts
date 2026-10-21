@@ -75,6 +75,18 @@ suite('Primitive App Editor - Build / Export Configuration surface model', () =>
 		assert.strictEqual(surface.seed().tables[0].state, BuildItemState.Excluded);
 	});
 
+	test('Raw Data Row labels are table-local ordinals without UUID while ids keep the Row uuid', () => {
+		const ROW2 = '00000000-0000-4000-8000-0000000000b2';
+		const data = authoring();
+		const surface = new BuildExportConfigurationModel({ ...data, rawData: [{ table_uuid: PLAYER, rows: [{ uuid: ROW1, values: {} }, { uuid: ROW2, values: {} }] }] }, createDeployTemplateRegistry([]));
+		const rows = surface.seed().tables[0].rows;
+		assert.deepStrictEqual(rows.map(row => row.label), ['Row 1', 'Row 2']);
+		assert.deepStrictEqual(rows.map(row => row.id), [ROW1, ROW2]);
+		assert.ok(rows.every(row => !/[0-9a-f]{8}-[0-9a-f]{4}/i.test(row.label)));
+		surface.setRowExcluded(ROW2, true);
+		assert.deepStrictEqual(surface.seed().tables[0].rows.map(row => row.state), [BuildItemState.Included, BuildItemState.Excluded]);
+	});
+
 	test('the Surface lists only Valid compatible Templates and Registry listing marks Invalid entries', () => {
 		const surface = model([{ source: 'broken.yaml', text: 'deploy_template: 1' }, { source: 'mac.yaml', text: DOC.replace('id: docker-compose-default', 'id: linux-only').replace('[linux, windows_wsl2, macos]', '[linux]') }]);
 		assert.deepStrictEqual(surface.templateChoices().map(choice => [choice.id, choice.origin, choice.selected]), [
