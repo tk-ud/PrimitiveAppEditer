@@ -1744,8 +1744,13 @@ section:
           - "workbench.project-bridge"
           - "editor.function-graph"
           - "editor.debug-viewer"
-        status: "not started"
-        evidence: []
+        status: "implemented"
+        evidence:
+          - "PR #120 merged to main, merge commit 32911bd29e47fc643f773200c9e4023d588e5b5d (head 4af0e76739e4aa19b47e38ddae26aef9f76bb7da)"
+          - "common/workbenchViews.ts + test/common/workbenchViews.test.ts (12 tests), test/node/workbenchViews.test.ts (2 tests)"
+          - "primitiveAppEditor node suite 321 passing; tsc --noEmit and eslint clean"
+          - "CI all 13 checks success on head 4af0e767 (Linux / Remote, Electron-Smoke, Electron-Unit, Browser, Compile & Hygiene, CodeQL, etc.)"
+          - "GUI observation deferred to UI Map / GUI Debug Tool per README GUI Verification Cycle"
         remaining: []
 
       - id: "workbench.ai-development"
