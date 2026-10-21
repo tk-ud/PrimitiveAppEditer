@@ -924,6 +924,12 @@ Failed
 ```
 
 ```text
+Stop要求
+  = step処理中に受け付けたStopは、最終step実行中であってもFinished確定より優先してStoppedにする
+    (run() / step() とも。観測済みfailureは保持する)
+```
+
+```text
 Regression Run
   = Checkpoint単位で実行し、Failedでも次Checkpointへ進む
 ```
@@ -1228,6 +1234,7 @@ result.yaml
                        (同一Checkpointの再実行は旧結果を新しい最終結果で置換し、他Checkpointの結果は保持する)
   Regression Run     : 実行したCheckpointの結果を順に追加する
   置換された旧結果   : run.jsonl に残す
+                       (置換前に、Checkpoint確定結果 (結果区分・message・step結果) をイベントとして記録し、復元可能にする)
 ```
 
 Screenshotはfailure時に必ず保存し、`screenshot` actionでも保存する。Screenshotは証跡であり、UI Marker解決に使用しない。
