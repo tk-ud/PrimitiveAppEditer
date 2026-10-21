@@ -474,12 +474,8 @@ section:
               - "Tool First"
         depends_on:
           - "tooling.gui-debugger-result-accumulation"
-        status: "implemented"
-        evidence:
-          - "tools/primitive-app-editor/gui-debugger/gui_debugger/runner.py: run()/step() resolve a Stop accepted during the last step to Stopped instead of Finished (observed failures still yield 'failed')"
-          - "tools/primitive-app-editor/gui-debugger/gui_debugger/session.py: write_result_file logs 'checkpoint_result_replaced' (result, message, steps) to run.jsonl before replacing an older Checkpoint result"
-          - "tests: test_runner (stop during last step in run/step), test_controller (replaced result event in run.jsonl); python3 -m unittest discover: 60 tests OK (8 skipped)"
-          - "No earlier producer required an integration fix beyond these changes in tooling.gui-debugger-result-accumulation code"
+        status: "not started"
+        evidence: []
         remaining: []
 
   - name: "Foundation"
