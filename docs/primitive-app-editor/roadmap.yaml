@@ -1899,8 +1899,12 @@ section:
           - "workbench.views"
           - "workbench.views-state-consistency"
           - "build.application-output"
-        status: "not started"
-        evidence: []
+        status: "implemented"
+        evidence:
+          - "common/aiDevelopment.ts: Workbench composition (App Editor / Code Editor / Git / AI Coding Extension), AI operation targets (Code / Registry / Binding / Assets Reference / Build Definition) inside the Working Directory layout, flow AI -> Working Directory -> Debug Viewer -> Human Review, requiresAiSpecificAuthoringProtocol = false; no new command/API/channel for AI"
+          - "test/common/aiDevelopment.test.ts: 4 tests; all CI checks green on PR #136 head df7a5012 (Compile & Hygiene, Linux Electron-Unit/Browser/Remote/Electron/Electron-Smoke, GUI-independent tests, Playwright, CodeQL)"
+          - "Hygiene fix df7a5012: non-ASCII characters removed from aiDevelopment.ts (AUDIT NG resolved)"
+          - "No producer integration fix needed; GUI observation delegated to UI Map Checkpoints"
         remaining: []
 
   - name: "Completion"
