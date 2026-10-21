@@ -454,6 +454,30 @@ section:
           - "No earlier producer integration fix was required"
         remaining: []
 
+      - id: "tooling.gui-debugger-stop-and-replaced-results"
+        title: "GUI Debug Tool: Stop during the last step wins over Finished; replaced Checkpoint results are kept in run.jsonl (Issues #124, #125)"
+        reference:
+          - source: "./GUI Debug Tool.md"
+            role: "implementation"
+            sections:
+              - "§10 GUI Debug Tool Application"
+              - "§11 Execution Result"
+              - "§13 Run Artifacts"
+          - source: "./GUI Debug Tool.md"
+            role: "boundary"
+            sections:
+              - "§2 Authority"
+              - "§14 Boundary"
+          - source: "../../README.md"
+            role: "boundary"
+            sections:
+              - "Tool First"
+        depends_on:
+          - "tooling.gui-debugger-result-accumulation"
+        status: "not started"
+        evidence: []
+        remaining: []
+
   - name: "Foundation"
     bundle:
       - id: "foundation.authority"
