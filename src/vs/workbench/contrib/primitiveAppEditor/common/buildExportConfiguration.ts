@@ -76,7 +76,7 @@ const EXCLUDED_HINT = localize('primitiveAppEditor.build.excludedHint', "Not exp
 function itemNodes(itemMarker: string, sectionMarker: string, items: readonly IBuildChecklistItem[]): IBuildSurfaceNode {
 	return {
 		tag: 'ul',
-		children: items.map(item => ({
+		children: items.map((item): IBuildSurfaceNode => ({
 			tag: 'li',
 			attrs: { 'data-pae-marker': itemMarker, 'data-pae-item': item.id },
 			children: [{
