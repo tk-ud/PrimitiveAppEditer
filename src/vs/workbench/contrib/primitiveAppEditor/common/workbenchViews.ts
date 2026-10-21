@@ -12,7 +12,9 @@ import {
 	IDataEditorEntry, IDataEditorTab,
 } from './dataEditor.js';
 import { DynamicSurface, IDynamicSelection } from './dynamicResolve.js';
+import { buildExportTabUuid, IDeployTemplateListing } from './buildExportConfiguration.js';
 import { debugViewerTabUuid } from './debugViewer.js';
+import { DeployTemplateOrigin } from './deployProjection.js';
 import { functionGraphTabUuid } from './functionGraph.js';
 import { getRegistryDisplayText } from './registryIdentity.js';
 import { IFunctionBindingEntry } from './functionBinding.js';
@@ -106,11 +108,12 @@ export const enum EditorTabKind {
 	RendererEditor = 'renderer_editor',
 	AssetEditor = 'asset_editor',
 	DebugViewer = 'debug_viewer',
+	BuildExport = 'build_export',
 }
 
 export const editorTabKinds: readonly EditorTabKind[] = Object.freeze([
 	EditorTabKind.CodeEditor, EditorTabKind.RegistryEditor, EditorTabKind.DataEditor, EditorTabKind.FunctionGraph,
-	EditorTabKind.RendererEditor, EditorTabKind.AssetEditor, EditorTabKind.DebugViewer,
+	EditorTabKind.RendererEditor, EditorTabKind.AssetEditor, EditorTabKind.DebugViewer, EditorTabKind.BuildExport,
 ]);
 
 /**
@@ -129,6 +132,7 @@ export function editorTabKindOf(target: DataEditorTarget): EditorTabKind {
 		case DataEditorTarget.DebugViewer: return EditorTabKind.DebugViewer;
 		case DataEditorTarget.RendererEditor: return EditorTabKind.RendererEditor;
 		case DataEditorTarget.AssetEditor: return EditorTabKind.AssetEditor;
+		case DataEditorTarget.BuildExport: return EditorTabKind.BuildExport;
 	}
 }
 
@@ -268,6 +272,8 @@ export interface ISideBarContext {
 	readonly programs: readonly IFunctionProgram[];
 	/** Name of the Working Directory (the opened folder). */
 	readonly rootName: string;
+	/** The Editor-wide Deploy Template Registry as listed in the Build view (builtin / user / Invalid). */
+	readonly deployTemplates?: readonly IDeployTemplateListing[];
 }
 
 function node(id: string, label: string, extra: Partial<Omit<ISideBarNode, 'id' | 'label' | 'children'>> = {}, children: readonly ISideBarNode[] = []): ISideBarNode {
@@ -410,8 +416,19 @@ export function createSideBarTree(item: ActivityBarItem, context: ISideBarContex
 		case ActivityBarItem.Debug:
 			return Object.freeze([node('debug:viewer', localize('primitiveAppEditor.sideBar.debugViewer', "Debug Viewer"), { open: tab(DataEditorTarget.DebugViewer, debugViewerTabUuid) })]);
 		case ActivityBarItem.Build:
-			return Object.freeze([node('build:log', localize('primitiveAppEditor.sideBar.buildLog', "Build Log"), { open: Object.freeze({ kind: 'panel', view: BottomPanelView.BuildLog }) })]);
+			return Object.freeze([
+				node('build:configuration', localize('primitiveAppEditor.sideBar.buildExport', "Build / Export Configuration"), { open: tab(DataEditorTarget.BuildExport, buildExportTabUuid) }),
+				group('build:templates', localize('primitiveAppEditor.sideBar.deployTemplates', "Deploy Templates"), (context.deployTemplates ?? []).map(entry => node(`build-template:${entry.origin}:${entry.id}`, entry.label, {
+					description: entry.valid ? deployTemplateOriginLabel(entry.origin) : localize('primitiveAppEditor.sideBar.deployTemplateInvalid', "Invalid"),
+					open: tab(DataEditorTarget.BuildExport, buildExportTabUuid),
+				}))),
+				node('build:log', localize('primitiveAppEditor.sideBar.buildLog', "Build Log"), { open: Object.freeze({ kind: 'panel', view: BottomPanelView.BuildLog }) }),
+			]);
 	}
+}
+
+function deployTemplateOriginLabel(origin: DeployTemplateOrigin): string {
+	return origin === DeployTemplateOrigin.Builtin ? localize('primitiveAppEditor.sideBar.deployTemplateBuiltin', "Built-in") : localize('primitiveAppEditor.sideBar.deployTemplateUser', "User");
 }
 
 function dataEntryChildren(data: IDataEditorContext, section: DataEditorSection): ISideBarNode[] {

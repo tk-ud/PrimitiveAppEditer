@@ -9,6 +9,8 @@ import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/tes
 import { AssetKind, createAsset } from '../../common/assetRegistry.js';
 import { DataEditorTarget } from '../../common/dataEditor.js';
 import { debugViewerTabUuid } from '../../common/debugViewer.js';
+import { buildExportTabUuid } from '../../common/buildExportConfiguration.js';
+import { DeployTemplateOrigin } from '../../common/deployProjection.js';
 import { createEnumRegistryEntry } from '../../common/enumRegistry.js';
 import { createFunctionBindingEntry } from '../../common/functionBinding.js';
 import { functionGraphTabUuid } from '../../common/functionGraph.js';
@@ -70,7 +72,7 @@ suite('Primitive App Editor - workbench views', () => {
 
 	test('Activity Bar, Editor Tabs and Bottom Panel match the specification structure', () => {
 		assert.deepStrictEqual([...activityBarItems], ['explorer', 'registry', 'data', 'assets', 'functions', 'renderer', 'debug', 'build']);
-		assert.deepStrictEqual([...editorTabKinds], ['code_editor', 'registry_editor', 'data_editor', 'function_graph', 'renderer_editor', 'asset_editor', 'debug_viewer']);
+		assert.deepStrictEqual([...editorTabKinds], ['code_editor', 'registry_editor', 'data_editor', 'function_graph', 'renderer_editor', 'asset_editor', 'debug_viewer', 'build_export']);
 		assert.deepStrictEqual([...bottomPanelViews], ['console', 'build_log', 'runtime_state', 'event_log', 'function_output', 'diagnostics']);
 		const ids = activityBarItems.flatMap(item => [activityBarContainerId(item), activityBarViewId(item)]);
 		assert.strictEqual(new Set(ids).size, ids.length, 'container / view ids are unique and locale independent');
@@ -146,7 +148,20 @@ suite('Primitive App Editor - workbench views', () => {
 		const renderer = createSideBarTree(ActivityBarItem.Renderer, context());
 		assert.deepStrictEqual(renderer[0].children.map(entry => [entry.label, entry.open]), [['Sprite', { kind: 'tab', target: DataEditorTarget.RendererEditor, uuid: SPRITE }]]);
 		assert.deepStrictEqual(createSideBarTree(ActivityBarItem.Debug, context())[0].open, { kind: 'tab', target: DataEditorTarget.DebugViewer, uuid: debugViewerTabUuid });
-		assert.deepStrictEqual(createSideBarTree(ActivityBarItem.Build, context())[0].open, { kind: 'panel', view: BottomPanelView.BuildLog });
+		const build = createSideBarTree(ActivityBarItem.Build, { ...context(), deployTemplates: [
+			{ id: 'docker-compose-default', origin: DeployTemplateOrigin.Builtin, valid: true, label: 'Docker Compose (default)' },
+			{ id: 'broken.yaml', origin: DeployTemplateOrigin.User, valid: false, label: 'broken.yaml', diagnostic: 'bad' },
+		] });
+		assert.deepStrictEqual(build[0].open, { kind: 'tab', target: DataEditorTarget.BuildExport, uuid: buildExportTabUuid });
+		assert.deepStrictEqual(build[1].children.map(entry => [entry.label, entry.description, entry.open]), [
+			['Docker Compose (default)', 'Built-in', { kind: 'tab', target: DataEditorTarget.BuildExport, uuid: buildExportTabUuid }],
+			['broken.yaml', 'Invalid', { kind: 'tab', target: DataEditorTarget.BuildExport, uuid: buildExportTabUuid }],
+		]);
+		assert.deepStrictEqual(build[2].open, { kind: 'panel', view: BottomPanelView.BuildLog });
+		assert.strictEqual(editorTabKindOf(DataEditorTarget.BuildExport), EditorTabKind.BuildExport);
+		const model = new WorkbenchViewsModel();
+		const first = model.activate(build[0]);
+		assert.deepStrictEqual(model.activate(build[1].children[0]), { ...first, reused: true }, 'the Build / Export Configuration tab is reused, never duplicated');
 	});
 
 	test('Tree / List Select writes the Shared Selection Context and opens (or reuses) the Editor Area tab once', () => {
@@ -183,7 +198,7 @@ suite('Primitive App Editor - workbench views', () => {
 		assert.deepStrictEqual(model.activate(registry[0]), { kind: 'none' });
 		const file = flatten(createSideBarTree(ActivityBarItem.Explorer, context())).find(entry => entry.open?.kind === 'file')!;
 		assert.deepStrictEqual(model.activate(file), { kind: 'file', path: 'functions/ai/enemy.cs' });
-		assert.deepStrictEqual(model.activate(createSideBarTree(ActivityBarItem.Build, context())[0]), { kind: 'panel', view: BottomPanelView.BuildLog });
+		assert.deepStrictEqual(model.activate(createSideBarTree(ActivityBarItem.Build, context())[2]), { kind: 'panel', view: BottomPanelView.BuildLog });
 		assert.deepStrictEqual(model.selection.selection, { uuid: ENEMY });
 		assert.strictEqual(model.tabs.openTabs.length, 0);
 	});

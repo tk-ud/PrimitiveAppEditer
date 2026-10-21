@@ -5,6 +5,9 @@
 
 import { Event } from '../../../../base/common/event.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
+import { IBuildExportPlanFile } from './buildExportConfiguration.js';
+import { IBuildAuthoringData } from './buildValidation.js';
+import { IDeployTemplateRegistry } from './deployProjection.js';
 import { IDynamicResolveContext } from './dynamicResolve.js';
 import { IFunctionExecutorCatalog } from './functionRegistry.js';
 import { ProjectOpenSession } from './projectOpenSession.js';
@@ -37,6 +40,21 @@ export interface IPrimitiveAppEditorService {
 
 	/** Re-reads the Registry / Binding snapshot the Registry Driven Inspector resolves. */
 	loadResolveContext(): Promise<IDynamicResolveContext>;
+
+	/** The Authoring Data the Build reads (Registry / Raw Data / Binding / Working Directory), read-only. */
+	loadBuildAuthoringData(): Promise<IBuildAuthoringData>;
+
+	/** The Editor-wide Deploy Template Registry (built-in Template; user Templates arrive with the Registrar). */
+	getDeployTemplateRegistry(): IDeployTemplateRegistry;
+
+	/** Files already present under `outputPath` (relative to it, `/` separated); empty when the directory does not exist. */
+	listOutputFiles(outputPath: string): Promise<readonly string[]>;
+
+	/**
+	 * Writes the Build / Export plan under the Working Directory and logs to the Bottom Panel Build Log.
+	 * Scaffold files are never overwritten (an existing file rejects); the Editor never executes a generated file.
+	 */
+	exportBuild(plan: readonly IBuildExportPlanFile[]): Promise<void>;
 
 	/** Tree / List Select: Shared Selection Context + optional Editor Area / Bottom Panel Open. */
 	activate(node: ISideBarNode): Promise<void>;

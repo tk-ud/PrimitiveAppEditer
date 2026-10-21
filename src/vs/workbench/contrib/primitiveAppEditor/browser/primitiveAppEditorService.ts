@@ -4,18 +4,23 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Emitter, Event } from '../../../../base/common/event.js';
+import { VSBuffer } from '../../../../base/common/buffer.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { basename, joinPath } from '../../../../base/common/resources.js';
+import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
-import { IFileService } from '../../../../platform/files/common/files.js';
+import { FileOperationResult, IFileService, toFileOperationResult } from '../../../../platform/files/common/files.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IAsset } from '../common/assetRegistry.js';
+import { createExecutorProgramResolver, IBuildExportPlanFile, listDeployTemplates } from '../common/buildExportConfiguration.js';
+import { IBuildAuthoringData, IBuildRawDataTable, normalizeWorkingDirectoryPath } from '../common/buildValidation.js';
+import { createDeployTemplateRegistry, IDeployTemplateRegistry } from '../common/deployProjection.js';
 import { IDynamicResolveContext } from '../common/dynamicResolve.js';
 import { editorDdlResources } from '../common/editorDdlResources.js';
 import { EnumRegistryIndex } from '../common/enumRegistry.js';
 import { FunctionBindingService, IFunctionBindingEntry, readFunctionBindings } from '../common/functionBinding.js';
-import { FunctionDependencyService } from '../common/functionDependency.js';
+import { FunctionDependencyService, readFunctionDependencies } from '../common/functionDependency.js';
 import { createFunctionPrimitiveExecutorCatalog } from '../common/functionPrimitive.js';
 import { IFunctionExecutorCatalog } from '../common/functionRegistry.js';
 import { IPrimitiveAppEditorService } from '../common/primitiveAppEditorService.js';
@@ -40,11 +45,12 @@ export class PrimitiveAppEditorService extends Disposable implements IPrimitiveA
 	private readonly _onDidChangeProject = this._register(new Emitter<void>());
 	readonly onDidChangeProject: Event<void> = this._onDidChangeProject.event;
 
+	private readonly deployTemplateRegistry = createDeployTemplateRegistry();
 	private functionBindings: readonly IFunctionBindingEntry[] = [];
 	private generation = 0;
 
 	constructor(
-		@IFileService fileService: IFileService,
+		@IFileService private readonly fileService: IFileService,
 		@IProjectSqliteDatabaseFactoryService databaseFactory: IProjectSqliteDatabaseFactoryService,
 		@IEditorService private readonly editorService: IEditorService,
 		@IViewsService private readonly viewsService: IViewsService,
@@ -104,7 +110,109 @@ export class PrimitiveAppEditorService extends Disposable implements IPrimitiveA
 			assets: ready ? state.assets ?? [] : [],
 			programs: ready ? state.functionScan?.programs ?? [] : [],
 			rootName: state.root ? basename(state.root) : '',
+			deployTemplates: ready ? listDeployTemplates(this.deployTemplateRegistry) : [],
 		};
+	}
+
+	getDeployTemplateRegistry(): IDeployTemplateRegistry {
+		return this.deployTemplateRegistry;
+	}
+
+	async loadBuildAuthoringData(): Promise<IBuildAuthoringData> {
+		const services = this.getResolverServices();
+		const root = this.session.state.root;
+		if (!services || !root) {
+			throw new Error(localize('primitiveAppEditor.noProject', "No project is open."));
+		}
+		const context = await this.loadResolveContext();
+		const dependencies = await services.database.transaction(statements => readFunctionDependencies(statements));
+		const rawData: IBuildRawDataTable[] = [];
+		for (const table of context.tables) {
+			const rows = await services.rawData.select(table.uuid);
+			if (rows.length > 0) {
+				rawData.push({ table_uuid: table.uuid, rows: rows.map(row => ({ uuid: row.uuid, values: row.values })) });
+			}
+		}
+		const workingDirectoryPaths: string[] = [];
+		for (const directory of ['functions', 'scripts', 'config']) {
+			workingDirectoryPaths.push(...await this.listFiles(joinPath(root, directory), directory));
+		}
+		return {
+			tables: context.tables,
+			relations: context.relations,
+			functions: context.functions,
+			bindings: context.functionBindings,
+			dependencies,
+			renderers: context.renderers,
+			rendererBindings: context.rendererBindings,
+			assets: context.assets,
+			rawData,
+			workingDirectoryPaths,
+			executorCatalog: this.executorCatalog,
+			resolveExecutorProgram: createExecutorProgramResolver(this.session.state.functionScan?.programs ?? []),
+		};
+	}
+
+	async listOutputFiles(outputPath: string): Promise<readonly string[]> {
+		const root = this.session.state.root;
+		const path = normalizeWorkingDirectoryPath(outputPath);
+		if (!root || path === undefined) {
+			return [];
+		}
+		return this.listFiles(joinPath(root, path), '');
+	}
+
+	/** Files under `directory` (recursively), relative paths prefixed by `prefix`; a missing directory has none. */
+	private async listFiles(directory: URI, prefix: string): Promise<string[]> {
+		let stat;
+		try {
+			stat = await this.fileService.resolve(directory);
+		} catch (error) {
+			if (toFileOperationResult(error as Error) === FileOperationResult.FILE_NOT_FOUND) {
+				return [];
+			}
+			throw error;
+		}
+		const files: string[] = [];
+		for (const child of stat.children ?? []) {
+			const path = prefix ? `${prefix}/${child.name}` : child.name;
+			if (child.isDirectory) {
+				files.push(...await this.listFiles(child.resource, path));
+			} else if (child.isFile) {
+				files.push(path);
+			}
+		}
+		return files.sort();
+	}
+
+	async exportBuild(plan: readonly IBuildExportPlanFile[]): Promise<void> {
+		const root = this.session.state.root;
+		if (!root) {
+			throw new Error(localize('primitiveAppEditor.noProject', "No project is open."));
+		}
+		const log = (text: string, severity?: BottomPanelSeverity) => this.output.append(BottomPanelView.BuildLog, text, severity);
+		const targets = plan.map(file => ({ file, path: normalizeWorkingDirectoryPath(file.path) }));
+		for (const { file, path } of targets) {
+			if (path === undefined || !path.startsWith('build/')) {
+				const message = localize('primitiveAppEditor.build.outsideBuild', "Refused to write outside the build directory: {0}", file.path);
+				log(message, BottomPanelSeverity.Error);
+				throw new Error(message);
+			}
+		}
+		// Scaffold files are never overwritten: check every one before writing anything.
+		for (const { file, path } of targets) {
+			if (file.scaffold && await this.fileService.exists(joinPath(root, path!))) {
+				const message = localize('primitiveAppEditor.build.scaffoldExists', "Scaffold file already exists and is not overwritten: {0}", file.path);
+				log(message, BottomPanelSeverity.Error);
+				throw new Error(message);
+			}
+		}
+		log(localize('primitiveAppEditor.build.start', "Build / Export: writing {0} files", plan.length));
+		for (const { file, path } of targets) {
+			await this.fileService.writeFile(joinPath(root, path!), VSBuffer.fromString(file.content));
+			log(file.scaffold ? localize('primitiveAppEditor.build.scaffolded', "Scaffold: {0}", file.path) : localize('primitiveAppEditor.build.wrote', "Output: {0}", file.path));
+		}
+		log(localize('primitiveAppEditor.build.done', "Build / Export finished. The Editor does not run the generated files."));
 	}
 
 	getResolverServices(): IResolverServices | undefined {
@@ -156,8 +264,8 @@ export class PrimitiveAppEditorService extends Disposable implements IPrimitiveA
 	private async present(activation: ReturnType<WorkbenchViewsModel['open']>, label: string | undefined): Promise<void> {
 		switch (activation.kind) {
 			case 'tab':
-				// The Function Graph and Debug Viewer are one tab per project: their tab keeps its kind title.
-				await this.editorService.openEditor(new PrimitiveAppEditorInput(activation.tab.target, activation.tab.uuid, activation.tabKind === EditorTabKind.FunctionGraph || activation.tabKind === EditorTabKind.DebugViewer ? undefined : label), { pinned: true });
+				// The Function Graph, Debug Viewer and Build / Export Configuration are one tab per project: their tab keeps its kind title.
+				await this.editorService.openEditor(new PrimitiveAppEditorInput(activation.tab.target, activation.tab.uuid, activation.tabKind === EditorTabKind.FunctionGraph || activation.tabKind === EditorTabKind.DebugViewer || activation.tabKind === EditorTabKind.BuildExport ? undefined : label), { pinned: true });
 				break;
 			case 'file': {
 				const root = this.session.state.root;
