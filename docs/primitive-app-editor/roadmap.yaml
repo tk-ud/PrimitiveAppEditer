@@ -1682,7 +1682,8 @@ section:
             role: "boundary"
             sections:
               - "§31 Build Configuration"
-              - "§34 UUID"
+              - "§34 Boundary Rules"
+              - "§7 UUID Identity"
           - source: "./Deploy Configuration.md"
             role: "boundary"
             sections:
