@@ -598,6 +598,21 @@ Editor / Preview用途のDataは独立したData分類として判別せず、Bu
 
 TargetとRuntime / Storage Targetの選択に応じて利用可能な項目は、Build Target（`App Editer.md` §31 Build Configuration）とRegistryから解決する。不定な組み合わせ、未解決のOutput Path、欠落したAsset / Function / Script / Config、Dependency / Runtime Address等はBuild Validationで明示する。Build / Export ActionはValidation結果と対象Selectionを人間が確認できる状態で実行する。
 
+Build Target / Runtime / Storage Targetの表示と選択は、解決可能なTargetの数で扱いを分ける。
+
+```text
+解決可能なTargetが1件
+  = 選択Controlを必須としない
+  = 解決済みTargetを読み取り専用で表示する（暗黙の既定値として黙って選ばず、Target識別子を表示する）
+
+解決可能なTargetが2件以上
+  = selectなど明示的Controlで選択できる
+  = 選択は Build Configuration の build_target / Runtime / Storage Target に反映する
+  = 選択肢はBuild Target（App Editer.md §31 Build Configuration）とRegistryから解決し、UI側で固定列挙しない
+```
+
+Build / Export Surface内のList / Checklistは、Raw Dataのtable単位など項目ごとにUI Markerを生成しない（§19）。Markerは種別固定（例: `build.export.rows`）とし、項目の識別は`data-pae-item`等のMarkerとは別属性で行う。
+
 個々のControl配置やField集合を固定UI Schemaとせず、本SectionはUI Responsibility / Interaction Regulationとする。Registry-driven kind dispatchと既存Componentを優先し、Build TargetごとのApplication固有Hardcoded Formを増殖させない。
 
 Build Boundaryは以下を維持する。

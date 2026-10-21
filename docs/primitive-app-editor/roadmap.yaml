@@ -1644,6 +1644,31 @@ section:
           - "GUI observation of the surfaces is delegated to the UI Map Checkpoints per README GUI Verification Cycle (not a Bundle condition)."
         remaining: []
 
+      - id: "build.deploy-ui-conformance"
+        title: "Build / Export Surface conformance: kind-fixed UI Marker and Build Target / Runtime-Storage Target display-select (Issue #129 design change)"
+        reference:
+          - source: "./Editor UI.md"
+            role: "implementation"
+            sections:
+              - "§13 Export / Build Configuration"
+              - "§19 UI Marker Regulation"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
+              - "§31 Build Configuration"
+          - source: "./Deploy Configuration.md"
+            role: "boundary"
+            sections:
+              - "§4 UI / Registrar Integration"
+        depends_on:
+          - "build.deploy"
+        status: "not started"
+        evidence: []
+        remaining:
+          - "renderBuildExport: Raw Data table checklists use one kind-fixed data-pae-marker (build.export.rows) per Surface; table identity moves to data-pae-item (table uuid). No duplicate marker within the Surface."
+          - "Build Target / Runtime-Storage Target: show the resolved Target identifier read-only when exactly one is resolvable; provide a select Control bound to Build Configuration when two or more are resolvable (resolved from Build Target and Registry, not hardcoded)."
+          - "Tests for marker uniqueness within renderBuildExport output and for single/multiple Target display; no Code OSS core change; no new fixed UI Schema."
+
   - name: "Workbench"
     bundle:
       - id: "workbench.integration"
