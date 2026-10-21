@@ -5,7 +5,7 @@
 
 import { $, append } from '../../../../base/browser/dom.js';
 import { localize } from '../../../../nls.js';
-import { BuildExportConfigurationModel, IBuildChecklistItem, BuildItemState } from '../common/buildExportConfiguration.js';
+import { BuildExportConfigurationModel, IBuildChecklistItem, IBuildChecklistSection, IBuildTargetDisplay, BuildItemState } from '../common/buildExportConfiguration.js';
 import { DataEditorTarget, DataGridModel } from '../common/dataEditor.js';
 import { DeployHost } from '../common/deployProjection.js';
 import { DebugViewer } from '../common/debugViewer.js';
@@ -154,15 +154,10 @@ async function renderDebugViewer(parent: HTMLElement, appEditor: IPrimitiveAppEd
 
 // #region Build / Export Configuration
 
-function checklist(parent: HTMLElement, marker: string, title: string, items: readonly IBuildChecklistItem[], onToggle: (id: string, included: boolean) => void, onChange: () => void): void {
-	append(parent, $('h3', undefined, title));
-	if (items.length === 0) {
-		append(parent, $('.pae-empty', undefined, localize('primitiveAppEditor.build.none', "None")));
-		return;
-	}
-	const list = append(parent, $('ul', { 'data-pae-marker': marker }));
+function checklistItems(parent: HTMLElement, itemMarker: string, items: readonly IBuildChecklistItem[], onToggle: (id: string, included: boolean) => void, onChange: () => void): void {
+	const list = append(parent, $('ul'));
 	for (const item of items) {
-		const row = append(list, $('li', { 'data-pae-marker': `${marker}.item`, 'data-pae-item': item.id }));
+		const row = append(list, $('li', { 'data-pae-marker': itemMarker, 'data-pae-item': item.id }));
 		const label = append(row, $('label'));
 		const box = append(label, $('input', { type: 'checkbox' })) as HTMLInputElement;
 		box.checked = item.state === BuildItemState.Included;
@@ -171,6 +166,41 @@ function checklist(parent: HTMLElement, marker: string, title: string, items: re
 		badge.setAttribute('data-pae-state', item.state);
 		box.addEventListener('change', () => { onToggle(item.id, box.checked); onChange(); });
 	}
+}
+
+/** One kind-fixed Marker per checklist (Editor UI 19); item / table identity is `data-pae-item`, never a Marker. */
+function checklist(parent: HTMLElement, section: IBuildChecklistSection, onToggle: (id: string, included: boolean) => void, onChange: () => void): void {
+	append(parent, $('h3', undefined, section.title));
+	const groups = section.groups;
+	if (groups ? groups.length === 0 : section.items.length === 0) {
+		append(parent, $('.pae-empty', undefined, localize('primitiveAppEditor.build.none', "None")));
+		return;
+	}
+	const container = append(parent, $('div', { 'data-pae-marker': section.marker }));
+	if (groups) {
+		for (const group of groups) {
+			const table = append(container, $('div', { 'data-pae-item': group.id }));
+			append(table, $('h4', undefined, group.title));
+			checklistItems(table, `${section.marker}.item`, group.items, onToggle, onChange);
+		}
+	} else {
+		checklistItems(container, `${section.marker}.item`, section.items, onToggle, onChange);
+	}
+}
+
+/** Build Target / Runtime-Storage Target: read-only identifier for one resolvable Target, a select for two or more (Editor UI 13). */
+function targetControl(parent: HTMLElement, marker: string, title: string, display: IBuildTargetDisplay, onSelect: (target: string) => void): void {
+	append(parent, $('h3', undefined, title));
+	if (!display.selectable) {
+		append(parent, $('p', { 'data-pae-marker': marker }, display.value));
+		return;
+	}
+	const select = append(parent, $('select', { 'data-pae-marker': marker })) as HTMLSelectElement;
+	for (const choice of display.choices) {
+		const option = append(select, $('option', { value: choice }, choice)) as HTMLOptionElement;
+		option.selected = choice === display.value;
+	}
+	select.addEventListener('change', () => onSelect(select.value));
 }
 
 /**
@@ -188,21 +218,25 @@ async function renderBuildExport(parent: HTMLElement, appEditor: IPrimitiveAppEd
 		const current = ++generation;
 		clearContents(root);
 		append(root, $('h2', undefined, localize('primitiveAppEditor.build.title', "Build / Export Configuration")));
-		append(root, $('p', undefined, `${model.buildTarget} · ${model.runtimeStorageTarget}`));
+		targetControl(root, 'build.export.build-target', localize('primitiveAppEditor.build.buildTarget', "Build Target"), model.buildTargetDisplay(), target => { model.selectBuildTarget(target); render(); });
+		targetControl(root, 'build.export.runtime-storage-target', localize('primitiveAppEditor.build.runtimeStorageTarget', "Runtime / Storage Target"), model.runtimeStorageTargetDisplay(), target => { model.selectRuntimeStorageTarget(target); render(); });
 
 		const seed = model.seed();
 		const seedBox = append(append(root, $('label')), $('input', { type: 'checkbox', 'data-pae-marker': 'build.export.seed' })) as HTMLInputElement;
 		seedBox.checked = seed.include;
 		append(seedBox.parentElement!, $('span', undefined, ` ${localize('primitiveAppEditor.build.seed', "Include Seed Data")}`));
 		seedBox.addEventListener('change', () => { model.setSeedInclude(seedBox.checked); render(); });
-		checklist(root, 'build.export.raw-data', localize('primitiveAppEditor.build.rawData', "Raw Data tables"), seed.tables, (id, included) => model.setSeedTable(id, included), render);
-		for (const table of seed.tables.filter(candidate => candidate.state === BuildItemState.Included)) {
-			checklist(root, 'build.export.rows', table.label, table.rows, (id, included) => model.setRowExcluded(id, !included), render);
+		const toggles: Record<string, (id: string, included: boolean) => void> = {
+			'build.export.raw-data': (id, included) => model.setSeedTable(id, included),
+			'build.export.rows': (id, included) => model.setRowExcluded(id, !included),
+			'build.export.assets': (id, included) => model.setAsset(id, included),
+			'build.export.functions': (id, included) => model.setFunction(id, included),
+			'build.export.scripts': (id, included) => model.setScript(id, included),
+			'build.export.config': (id, included) => model.setConfig(id, included),
+		};
+		for (const section of model.checklistSections()) {
+			checklist(root, section, toggles[section.marker], render);
 		}
-		checklist(root, 'build.export.assets', localize('primitiveAppEditor.build.assets', "Assets"), model.assetItems(), (id, included) => model.setAsset(id, included), render);
-		checklist(root, 'build.export.functions', localize('primitiveAppEditor.build.functions', "Functions"), model.functionItems(), (id, included) => model.setFunction(id, included), render);
-		checklist(root, 'build.export.scripts', localize('primitiveAppEditor.build.scripts', "Scripts"), model.scriptItems(), (id, included) => model.setScript(id, included), render);
-		checklist(root, 'build.export.config', localize('primitiveAppEditor.build.config', "Config"), model.configItems(), (id, included) => model.setConfig(id, included), render);
 
 		append(root, $('h3', undefined, localize('primitiveAppEditor.build.outputPath', "Output Path")));
 		const output = append(root, $('input', { type: 'text', value: model.outputPath, 'data-pae-marker': 'build.export.output-path' })) as HTMLInputElement;

@@ -5,7 +5,7 @@
 
 import assert from 'assert';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
-import { IBuildAuthoringData } from '../../common/buildValidation.js';
+import { IBuildAuthoringData, POSTGRESQL_WEB_APPLICATION_OUTPUT, POSTGRESQL_WEB_APPLICATION_RUNTIME_STORAGE } from '../../common/buildValidation.js';
 import { createFunctionBindingEntry } from '../../common/functionBinding.js';
 import { createFunctionPrimitiveExecutorCatalog, linearDefinition, toFunctionRegistryEntryInput } from '../../common/functionPrimitive.js';
 import { createFunctionRegistryEntry } from '../../common/functionRegistry.js';
@@ -228,5 +228,41 @@ suite('Primitive App Editor - Build / Export writer', () => {
 		const regenerated = new FakeFileSystem({ [derived.path]: 'old' });
 		await writeBuildExport(files, regenerated, () => { });
 		assert.strictEqual(regenerated.files.get(derived.path), derived.content);
+	});
+
+	test('Raw Data row checklists share one kind-fixed Marker; table identity is the item, and no Marker repeats', () => {
+		const surface = new BuildExportConfigurationModel(authoring(), createDeployTemplateRegistry([]));
+		const sections = surface.checklistSections();
+		const markers = sections.map(section => section.marker);
+		assert.strictEqual(new Set(markers).size, markers.length, 'one Marker per checklist within the Surface');
+		assert.ok(markers.every(marker => !/[0-9a-f]{8}-[0-9a-f]{4}-/.test(marker)), 'Markers never contain a UUID');
+		const rows = sections.find(section => section.marker === 'build.export.rows')!;
+		assert.deepStrictEqual(rows.groups!.map(group => [group.id, group.items.map(item => item.id)]), [[PLAYER, [ROW1]]]);
+
+		const twoTables = authoring();
+		const second = '00000000-0000-4000-8000-0000000000a2';
+		const copy = { ...twoTables, tables: [...twoTables.tables, createTableRegistryEntry({ uuid: second, index: 1, schema: LogicalNamespace.Items, name: 'enemy', columns: [], created_at: NOW })], rawData: [...twoTables.rawData, { table_uuid: second, rows: [] }] };
+		const multi = new BuildExportConfigurationModel(copy, createDeployTemplateRegistry([])).checklistSections();
+		assert.deepStrictEqual(multi.map(section => section.marker), markers, 'more tables do not add Markers');
+		assert.deepStrictEqual(multi.find(section => section.marker === 'build.export.rows')!.groups!.map(group => group.id), [PLAYER, second]);
+	});
+
+	test('a single resolvable Target is shown read-only; two or more are selectable and reflected in the configuration', () => {
+		const single = model();
+		assert.deepStrictEqual(single.buildTargetDisplay(), { value: POSTGRESQL_WEB_APPLICATION_OUTPUT, choices: [POSTGRESQL_WEB_APPLICATION_OUTPUT], selectable: false });
+		assert.strictEqual(single.runtimeStorageTargetDisplay().selectable, false);
+		assert.strictEqual(single.runtimeStorageTargetDisplay().value, POSTGRESQL_WEB_APPLICATION_RUNTIME_STORAGE);
+
+		const targets = new Map<string, readonly string[]>([[POSTGRESQL_WEB_APPLICATION_OUTPUT, [POSTGRESQL_WEB_APPLICATION_RUNTIME_STORAGE, 'alt runtime']], ['Other Output', ['other runtime']]]);
+		const multi = new BuildExportConfigurationModel(authoring(), createDeployTemplateRegistry([]), targets);
+		assert.strictEqual(multi.buildTargetDisplay().selectable, true);
+		assert.deepStrictEqual(multi.runtimeStorageTargetDisplay().choices, [POSTGRESQL_WEB_APPLICATION_RUNTIME_STORAGE, 'alt runtime']);
+		multi.selectRuntimeStorageTarget('alt runtime');
+		assert.strictEqual(multi.configuration().runtime_storage_target, 'alt runtime');
+		multi.selectBuildTarget('Other Output');
+		assert.strictEqual(multi.configuration().build_target, 'Other Output');
+		assert.strictEqual(multi.configuration().runtime_storage_target, 'other runtime');
+		assert.throws(() => multi.selectBuildTarget('Unknown'));
+		assert.throws(() => multi.selectRuntimeStorageTarget(POSTGRESQL_WEB_APPLICATION_RUNTIME_STORAGE));
 	});
 });
