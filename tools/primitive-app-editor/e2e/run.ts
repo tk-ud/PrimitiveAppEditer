@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /*---------------------------------------------------------------------------------------------
  *  Primitive App Editor - Deploy E2E (completion.end-to-end, Deploy Configuration.md 7.2)
- *  Usage (repo root, after `npm ci`): node tools/primitive-app-editor/e2e/run.mjs
+ *  Usage (repo root, after `npm ci`): node --experimental-strip-types tools/primitive-app-editor/e2e/run.ts
  *  Requires Docker Engine + Compose plugin on Linux. The harness (not the Editor) runs compose explicitly.
  *--------------------------------------------------------------------------------------------*/
 
@@ -17,24 +17,24 @@ const jsOut = join(work, 'js');
 const outDir = join(work, 'app');
 const project = 'paee2e';
 const PASSWORD = 'e2e-password-not-secret';
-const results = [];
+const results: { name: string; ok: boolean }[] = [];
 
-function step(name, ok, detail = '') {
+function step(name: string, ok: boolean, detail = '') {
 	results.push({ name, ok });
 	console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? ` - ${detail}` : ''}`);
 	if (!ok) { throw new Error(`E2E step failed: ${name}`); }
 }
 
-function run(cmd, args, options = {}) {
+function run(cmd: string, args: string[], options: object = {}) {
 	return spawnSync(cmd, args, { encoding: 'utf8', ...options });
 }
 
-function compose(composeFile, ...args) {
+function compose(composeFile: string, ...args: string[]) {
 	return run('docker', ['compose', '-p', project, '-f', composeFile, ...args], { cwd: outDir, env: { ...process.env, DB_PASSWORD: PASSWORD } });
 }
 
 /** Docker Hub may be rate limited; fall back to the ECR public mirror for library images and retag. */
-function ensureImage(image) {
+function ensureImage(image: string) {
 	if (run('docker', ['image', 'inspect', image]).status === 0) { return; }
 	if (run('docker', ['pull', image]).status === 0) { return; }
 	for (const prefix of ['mirror.gcr.io/library', 'public.ecr.aws/docker/library']) {
@@ -43,7 +43,7 @@ function ensureImage(image) {
 	}
 }
 
-async function waitFor(label, probe, attempts = 60) {
+async function waitFor<T>(label: string, probe: () => Promise<T | undefined>, attempts = 60): Promise<T> {
 	for (let i = 0; i < attempts; i++) {
 		try { const value = await probe(); if (value) { return value; } } catch { /* retry */ }
 		await new Promise(r => setTimeout(r, 2000));
@@ -51,35 +51,35 @@ async function waitFor(label, probe, attempts = 60) {
 	throw new Error(`timeout waiting for ${label}`);
 }
 
-async function api(path, init) {
+async function api(path: string, init?: RequestInit): Promise<{ status: number; body: any; type: string }> {
 	const response = await fetch(`http://localhost:8080${path}`, init);
 	const text = await response.text();
-	let body; try { body = JSON.parse(text); } catch { body = text; }
+	let body: any; try { body = JSON.parse(text); } catch { body = text; }
 	return { status: response.status, body, type: response.headers.get('content-type') ?? '' };
 }
 
-const json = (method, body) => ({ method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+const json = (method: string, body: unknown) => ({ method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
 
-let composeFile;
+let composeFile = '';
 try {
 	// 1. Build Validation -> Application Output; 2. Dockerfile / Compose scaffold (never overwrites).
 	const tsc = run(join(root, 'node_modules/.bin/tsc'), ['--outDir', jsOut, '--rootDir', root, '--module', 'esnext', '--target', 'es2022', '--moduleResolution', 'bundler', '--skipLibCheck', '--noEmitOnError', 'false', '--experimentalDecorators', '--types', 'node', join(root, 'tools/primitive-app-editor/e2e/fixture.ts')]);
 	writeFileSync(join(jsOut, 'package.json'), '{"type":"module"}');
-	const { buildDeployFiles } = await import(pathToFileURL(join(jsOut, 'tools/primitive-app-editor/e2e/fixture.js')).href);
+	const { buildDeployFiles } : any = await import(pathToFileURL(join(jsOut, 'tools/primitive-app-editor/e2e/fixture.js')).href);
 	const first = buildDeployFiles();
 	step('Build Validation succeeds and Application Output + Scaffold are generated', Object.keys(first.files).length > 10 && first.files['001_init_postgresql.sql'] !== undefined, `${Object.keys(first.files).length} files`);
 	const second = buildDeployFiles(Object.keys(first.files));
 	step('Re-scaffold with existing files yields sequenced names and the same input is deterministic', second.compose === 'compose-001.yml' && JSON.stringify(buildDeployFiles().files) === JSON.stringify(first.files), second.compose);
 	for (const [path, content] of Object.entries(first.files)) {
 		mkdirSync(dirname(join(outDir, path)), { recursive: true });
-		writeFileSync(join(outDir, path), content);
+		writeFileSync(join(outDir, path), content as string);
 	}
 	composeFile = first.compose;
 	step('Editor-independent Output excludes Editor modules', !Object.keys(first.files).some(p => p.includes('vs/workbench')));
 
 	// 3. `docker compose -f <YAML> config` (password supplied via environment, never embedded).
 	step('docker compose -f <YAML> config succeeds', compose(composeFile, 'config', '-q').status === 0);
-	step('Secrets are not embedded in generated files', !Object.values(first.files).some(c => c.includes(PASSWORD)));
+	step('Secrets are not embedded in generated files', !(Object.values(first.files) as string[]).some(c => c.includes(PASSWORD)));
 
 	// 4. Explicit build / up -d by the harness (the Editor never runs them).
 	for (const image of ['postgres:16.4', 'node:20.15-alpine']) { ensureImage(image); }
@@ -90,9 +90,9 @@ try {
 
 	// 5. DDL applied / Seed loaded; 6. API health, CRUD, validation, DB connection.
 	const definition = await waitFor('API /api/definition', async () => { const r = await api('/api/definition'); return r.status === 200 ? r.body : undefined; });
-	step('API health: /api/definition returns the Application Definition', Array.isArray(definition.tables) && definition.tables.some(t => t.name === 'player'));
+	step('API health: /api/definition returns the Application Definition', Array.isArray(definition.tables) && definition.tables.some((t: any) => t.name === 'player'));
 	const rows = await waitFor('seed rows', async () => { const r = await api('/api/tables/items/player'); return r.status === 200 && r.body.length > 0 ? r.body : undefined; });
-	step('PostgreSQL DDL applied and Seed loaded (DB connection)', rows.some(r => JSON.stringify(r).includes('seed-player')), `${rows.length} row(s)`);
+	step('PostgreSQL DDL applied and Seed loaded (DB connection)', rows.some((r: any) => JSON.stringify(r).includes('seed-player')), `${rows.length} row(s)`);
 	const created = await api('/api/tables/items/player', json('POST', { label: 'e2e-created', fatigue: 2.5 }));
 	step('CRUD: create returns 201 with uuid', created.status === 201 && typeof created.body.uuid === 'string');
 	const uuid = created.body.uuid;
@@ -121,7 +121,7 @@ try {
 	step('Persisted data survives stop / restart', JSON.stringify(persisted).includes('persist-me') && keep.status === 201);
 	console.log(`\nE2E OK: ${results.length} checks passed`);
 	void tsc; void existsSync;
-} catch (error) {
+} catch (error: any) {
 	console.error(String(error?.stack ?? error));
 	process.exitCode = 1;
 } finally {

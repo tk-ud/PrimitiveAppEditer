@@ -4,7 +4,7 @@ Runs `Deploy Configuration.md` 7.2 against a real Docker Engine + Compose plugin
 
 ```
 npm ci --ignore-scripts
-node tools/primitive-app-editor/e2e/run.mjs
+node --experimental-strip-types tools/primitive-app-editor/e2e/run.ts
 ```
 
 The harness projects a fixture (Authoring Data -> Build Validation -> Application Output -> Deploy Scaffold),
