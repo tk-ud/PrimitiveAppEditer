@@ -1662,12 +1662,13 @@ section:
               - "§4 UI / Registrar Integration"
         depends_on:
           - "build.deploy"
-        status: "not started"
-        evidence: []
-        remaining:
-          - "renderBuildExport: Raw Data table checklists use one kind-fixed data-pae-marker (build.export.rows) per Surface; table identity moves to data-pae-item (table uuid). No duplicate marker within the Surface."
-          - "Build Target / Runtime-Storage Target: show the resolved Target identifier read-only when exactly one is resolvable; provide a select Control bound to Build Configuration when two or more are resolvable (resolved from Build Target and Registry, not hardcoded)."
-          - "Tests for marker uniqueness within renderBuildExport output and for single/multiple Target display; no Code OSS core change; no new fixed UI Schema."
+        status: "implemented"
+        evidence:
+          - "common/buildExportConfiguration.ts: checklistSections() (one kind-fixed Marker per checklist; Raw Data rows are one build.export.rows section grouped by table uuid), buildTargetDisplay()/runtimeStorageTargetDisplay()/selectBuildTarget()/selectRuntimeStorageTarget() resolved from buildTargetRuntimeStorageTargets (read-only for 1, select for 2+); checklistSurfaceNodes()/targetSurfaceNodes() describe the exact DOM structure renderBuildExport mounts"
+          - "browser/primitiveAppEditorSurfaces.ts: renderBuildExport mounts those nodes one to one via mountSurfaceNodes (only listeners added in the browser layer); no hand-built per-table markers"
+          - "test/common/buildExportConfiguration.test.ts: structure tests for container Marker uniqueness across the Surface with several tables, table uuid as data-pae-item, no UUID in Markers, 1 Target read-only <p> vs 2+ <select> with candidates and selection reflected in build_configuration; 16/16 pass. Run via tsc transpile + test shim because scripts/test.sh cannot build native deps in this environment; CI (Linux/Browser, Electron-Unit, Compile & Hygiene) green on the prior head"
+          - "browser file typechecks with tsc; no Code OSS core change; no integration fix to earlier producer bundles required"
+        remaining: []
 
   - name: "Workbench"
     bundle:

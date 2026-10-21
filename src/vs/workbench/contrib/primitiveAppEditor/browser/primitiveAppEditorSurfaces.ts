@@ -5,7 +5,7 @@
 
 import { $, append } from '../../../../base/browser/dom.js';
 import { localize } from '../../../../nls.js';
-import { BuildExportConfigurationModel, IBuildChecklistItem, BuildItemState } from '../common/buildExportConfiguration.js';
+import { BuildExportConfigurationModel, checklistSurfaceNodes, IBuildSurfaceNode, targetSurfaceNodes } from '../common/buildExportConfiguration.js';
 import { DataEditorTarget, DataGridModel } from '../common/dataEditor.js';
 import { DeployHost } from '../common/deployProjection.js';
 import { DebugViewer } from '../common/debugViewer.js';
@@ -154,22 +154,30 @@ async function renderDebugViewer(parent: HTMLElement, appEditor: IPrimitiveAppEd
 
 // #region Build / Export Configuration
 
-function checklist(parent: HTMLElement, marker: string, title: string, items: readonly IBuildChecklistItem[], onToggle: (id: string, included: boolean) => void, onChange: () => void): void {
-	append(parent, $('h3', undefined, title));
-	if (items.length === 0) {
-		append(parent, $('.pae-empty', undefined, localize('primitiveAppEditor.build.none', "None")));
-		return;
-	}
-	const list = append(parent, $('ul', { 'data-pae-marker': marker }));
-	for (const item of items) {
-		const row = append(list, $('li', { 'data-pae-marker': `${marker}.item`, 'data-pae-item': item.id }));
-		const label = append(row, $('label'));
-		const box = append(label, $('input', { type: 'checkbox' })) as HTMLInputElement;
-		box.checked = item.state === BuildItemState.Included;
-		append(label, $('span', undefined, ` ${item.label} `));
-		const badge = append(label, $('span.pae-badge', { title: item.state === BuildItemState.Excluded ? localize('primitiveAppEditor.build.excludedHint', "Not exported to the Production Application. Select it to include it.") : '' }, item.state));
-		badge.setAttribute('data-pae-state', item.state);
-		box.addEventListener('change', () => { onToggle(item.id, box.checked); onChange(); });
+/** Mounts the Surface node structure one to one; only the listeners named by `action` are attached. */
+function mountSurfaceNodes(parent: HTMLElement, nodes: readonly IBuildSurfaceNode[], onAction: (node: IBuildSurfaceNode, value: string | boolean) => void): void {
+	for (const node of nodes) {
+		const element = append(parent, document.createElement(node.tag));
+		for (const [name, value] of Object.entries(node.attrs ?? {})) {
+			if (name === 'checked') {
+				(element as HTMLInputElement).checked = value === true;
+			} else if (name === 'selected') {
+				(element as HTMLOptionElement).selected = value === true;
+			} else if (name === 'class') {
+				element.className = String(value);
+			} else if (name !== 'title' || value) {
+				element.setAttribute(name, String(value));
+			}
+		}
+		if (node.text !== undefined) {
+			element.textContent = node.text;
+		}
+		if (node.action?.kind === 'toggle') {
+			element.addEventListener('change', () => onAction(node, (element as HTMLInputElement).checked));
+		} else if (node.action?.kind === 'select-target') {
+			element.addEventListener('change', () => onAction(node, (element as HTMLSelectElement).value));
+		}
+		mountSurfaceNodes(element, node.children ?? [], onAction);
 	}
 }
 
@@ -188,21 +196,30 @@ async function renderBuildExport(parent: HTMLElement, appEditor: IPrimitiveAppEd
 		const current = ++generation;
 		clearContents(root);
 		append(root, $('h2', undefined, localize('primitiveAppEditor.build.title', "Build / Export Configuration")));
-		append(root, $('p', undefined, `${model.buildTarget} · ${model.runtimeStorageTarget}`));
+		const targetSetters: Record<string, (target: string) => void> = {
+			'build.export.build-target': target => model.selectBuildTarget(target),
+			'build.export.runtime-storage-target': target => model.selectRuntimeStorageTarget(target),
+		};
+		const onTarget = (node: IBuildSurfaceNode, value: string | boolean) => { targetSetters[node.action!.marker](String(value)); render(); };
+		mountSurfaceNodes(root, targetSurfaceNodes('build.export.build-target', localize('primitiveAppEditor.build.buildTarget', "Build Target"), model.buildTargetDisplay()), onTarget);
+		mountSurfaceNodes(root, targetSurfaceNodes('build.export.runtime-storage-target', localize('primitiveAppEditor.build.runtimeStorageTarget', "Runtime / Storage Target"), model.runtimeStorageTargetDisplay()), onTarget);
 
 		const seed = model.seed();
 		const seedBox = append(append(root, $('label')), $('input', { type: 'checkbox', 'data-pae-marker': 'build.export.seed' })) as HTMLInputElement;
 		seedBox.checked = seed.include;
 		append(seedBox.parentElement!, $('span', undefined, ` ${localize('primitiveAppEditor.build.seed', "Include Seed Data")}`));
 		seedBox.addEventListener('change', () => { model.setSeedInclude(seedBox.checked); render(); });
-		checklist(root, 'build.export.raw-data', localize('primitiveAppEditor.build.rawData', "Raw Data tables"), seed.tables, (id, included) => model.setSeedTable(id, included), render);
-		for (const table of seed.tables.filter(candidate => candidate.state === BuildItemState.Included)) {
-			checklist(root, 'build.export.rows', table.label, table.rows, (id, included) => model.setRowExcluded(id, !included), render);
+		const toggles: Record<string, (id: string, included: boolean) => void> = {
+			'build.export.raw-data': (id, included) => model.setSeedTable(id, included),
+			'build.export.rows': (id, included) => model.setRowExcluded(id, !included),
+			'build.export.assets': (id, included) => model.setAsset(id, included),
+			'build.export.functions': (id, included) => model.setFunction(id, included),
+			'build.export.scripts': (id, included) => model.setScript(id, included),
+			'build.export.config': (id, included) => model.setConfig(id, included),
+		};
+		for (const section of model.checklistSections()) {
+			mountSurfaceNodes(root, checklistSurfaceNodes(section), (node, value) => { toggles[node.action!.marker](node.action!.kind === 'toggle' ? node.action!.id : '', value === true); render(); });
 		}
-		checklist(root, 'build.export.assets', localize('primitiveAppEditor.build.assets', "Assets"), model.assetItems(), (id, included) => model.setAsset(id, included), render);
-		checklist(root, 'build.export.functions', localize('primitiveAppEditor.build.functions', "Functions"), model.functionItems(), (id, included) => model.setFunction(id, included), render);
-		checklist(root, 'build.export.scripts', localize('primitiveAppEditor.build.scripts', "Scripts"), model.scriptItems(), (id, included) => model.setScript(id, included), render);
-		checklist(root, 'build.export.config', localize('primitiveAppEditor.build.config', "Config"), model.configItems(), (id, included) => model.setConfig(id, included), render);
 
 		append(root, $('h3', undefined, localize('primitiveAppEditor.build.outputPath', "Output Path")));
 		const output = append(root, $('input', { type: 'text', value: model.outputPath, 'data-pae-marker': 'build.export.output-path' })) as HTMLInputElement;

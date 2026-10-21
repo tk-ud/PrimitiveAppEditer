@@ -4,7 +4,7 @@
  *  docs/primitive-app-editor/Deploy Configuration.md (4. UI / Registrar Integration)
  *--------------------------------------------------------------------------------------------*/
 
-import { BuildValidationError, IBuildAuthoringData, POSTGRESQL_WEB_APPLICATION_OUTPUT, POSTGRESQL_WEB_APPLICATION_RUNTIME_STORAGE } from './buildValidation.js';
+import { BuildValidationError, buildTargetRuntimeStorageTargets, IBuildAuthoringData, POSTGRESQL_WEB_APPLICATION_OUTPUT, POSTGRESQL_WEB_APPLICATION_RUNTIME_STORAGE } from './buildValidation.js';
 import {
 	DeployHost, DeployTemplateOrigin, DeployValidationError, DEPLOY_COMPOSE_FILE, IDeployScaffoldFile, IDeployTemplate, IDeployTemplateRegistry, projectDeployScaffold,
 } from './deployProjection.js';
@@ -35,6 +35,88 @@ export interface IBuildChecklistItem {
 	readonly id: string;
 	readonly label: string;
 	readonly state: BuildItemState;
+}
+
+/**
+ * A Build / Export Surface checklist. `marker` is the kind-fixed UI Marker (Editor UI 19): one per Surface,
+ * never per item. Item identity is `IBuildChecklistItem.id` (rendered as `data-pae-item`). `groups` splits a
+ * checklist by Raw Data table: each group is identified by the table uuid, not by a Marker.
+ */
+export interface IBuildChecklistSection {
+	readonly marker: string;
+	readonly title: string;
+	readonly items: readonly IBuildChecklistItem[];
+	readonly groups?: readonly { readonly id: string; readonly title: string; readonly items: readonly IBuildChecklistItem[] }[];
+}
+
+/** A Build Target / Runtime-Storage Target as displayed: read-only when one is resolvable, a select when two or more. */
+export interface IBuildTargetDisplay {
+	readonly value: string;
+	/** The resolvable Targets; the select candidates when `selectable`. */
+	readonly choices: readonly string[];
+	readonly selectable: boolean;
+}
+
+/**
+ * The DOM structure of the checklists / Target controls as data, so the Marker / Item Identity regulation
+ * (Editor UI 19) is verifiable without a DOM. The browser layer mounts it one to one and only attaches the
+ * listeners named by `action`.
+ */
+export interface IBuildSurfaceNode {
+	readonly tag: string;
+	readonly attrs?: Readonly<Record<string, string | boolean>>;
+	readonly text?: string;
+	readonly children?: readonly IBuildSurfaceNode[];
+	/** `toggle`: a checklist checkbox of `id` in `marker`'s checklist; `select-target`: a Target select of `marker`. */
+	readonly action?: { readonly kind: 'toggle'; readonly marker: string; readonly id: string } | { readonly kind: 'select-target'; readonly marker: string };
+}
+
+const EXCLUDED_HINT = localize('primitiveAppEditor.build.excludedHint', "Not exported to the Production Application. Select it to include it.");
+
+function itemNodes(itemMarker: string, sectionMarker: string, items: readonly IBuildChecklistItem[]): IBuildSurfaceNode {
+	return {
+		tag: 'ul',
+		children: items.map((item): IBuildSurfaceNode => ({
+			tag: 'li',
+			attrs: { 'data-pae-marker': itemMarker, 'data-pae-item': item.id },
+			children: [{
+				tag: 'label',
+				children: [
+					{ tag: 'input', attrs: { type: 'checkbox', checked: item.state === BuildItemState.Included }, action: { kind: 'toggle', marker: sectionMarker, id: item.id } },
+					{ tag: 'span', text: ` ${item.label} ` },
+					{ tag: 'span', attrs: { class: 'pae-badge', 'data-pae-state': item.state, title: item.state === BuildItemState.Excluded ? EXCLUDED_HINT : '' }, text: item.state },
+				],
+			}],
+		})),
+	};
+}
+
+/** One kind-fixed Marker per checklist; item / table identity is `data-pae-item`, never a Marker. */
+export function checklistSurfaceNodes(section: IBuildChecklistSection): readonly IBuildSurfaceNode[] {
+	const title: IBuildSurfaceNode = { tag: 'h3', text: section.title };
+	const groups = section.groups;
+	if (groups ? groups.length === 0 : section.items.length === 0) {
+		return [title, { tag: 'div', attrs: { class: 'pae-empty' }, text: localize('primitiveAppEditor.build.none', "None") }];
+	}
+	const itemMarker = `${section.marker}.item`;
+	const children = groups
+		? groups.map((group): IBuildSurfaceNode => ({ tag: 'div', attrs: { 'data-pae-item': group.id }, children: [{ tag: 'h4', text: group.title }, itemNodes(itemMarker, section.marker, group.items)] }))
+		: [itemNodes(itemMarker, section.marker, section.items)];
+	return [title, { tag: 'div', attrs: { 'data-pae-marker': section.marker }, children }];
+}
+
+/** Build Target / Runtime-Storage Target: read-only identifier for one resolvable Target, a select for two or more. */
+export function targetSurfaceNodes(marker: string, title: string, display: IBuildTargetDisplay): readonly IBuildSurfaceNode[] {
+	const heading: IBuildSurfaceNode = { tag: 'h3', text: title };
+	if (!display.selectable) {
+		return [heading, { tag: 'p', attrs: { 'data-pae-marker': marker }, text: display.value }];
+	}
+	return [heading, {
+		tag: 'select',
+		attrs: { 'data-pae-marker': marker },
+		action: { kind: 'select-target', marker },
+		children: display.choices.map(choice => ({ tag: 'option', attrs: { value: choice, selected: choice === display.value }, text: choice })),
+	}];
 }
 
 export interface IBuildSeedTable extends IBuildChecklistItem {
@@ -197,7 +279,7 @@ export class BuildExportConfigurationModel {
 	private readonly scripts: Set<string>;
 	private readonly config: Set<string>;
 
-	constructor(private readonly authoring: IBuildAuthoringData, private readonly registry: IDeployTemplateRegistry) {
+	constructor(private readonly authoring: IBuildAuthoringData, private readonly registry: IDeployTemplateRegistry, private readonly targets: ReadonlyMap<string, readonly string[]> = buildTargetRuntimeStorageTargets) {
 		this.seedInclude = authoring.rawData.length > 0;
 		this.seedTables = new Set(authoring.rawData.map(table => table.table_uuid));
 		this.assets = new Set(authoring.assets.map(asset => asset.uuid));
@@ -248,7 +330,65 @@ export class BuildExportConfigurationModel {
 
 	// #endregion
 
+	// #region Target (resolved from Build Target and Registry; never a UI-side fixed enumeration)
+
+	/** Build Targets the Build implementation provides. */
+	private resolveBuildTargets(): readonly string[] {
+		return [...this.targets.keys()];
+	}
+
+	private resolveRuntimeStorageTargets(): readonly string[] {
+		return this.targets.get(this.buildTarget) ?? [];
+	}
+
+	buildTargetDisplay(): IBuildTargetDisplay {
+		const choices = this.resolveBuildTargets();
+		return Object.freeze({ value: this.buildTarget, choices: Object.freeze(choices), selectable: choices.length >= 2 });
+	}
+
+	runtimeStorageTargetDisplay(): IBuildTargetDisplay {
+		const choices = this.resolveRuntimeStorageTargets();
+		return Object.freeze({ value: this.runtimeStorageTarget, choices: Object.freeze([...choices]), selectable: choices.length >= 2 });
+	}
+
+	/** Selects a resolvable Build Target; its Runtime / Storage Target resets to the first one it supports. */
+	selectBuildTarget(target: string): void {
+		if (!this.resolveBuildTargets().includes(target)) {
+			throw new Error(`Build Target '${target}' is not resolvable`);
+		}
+		this.buildTarget = target;
+		const runtime = this.resolveRuntimeStorageTargets();
+		if (!runtime.includes(this.runtimeStorageTarget)) {
+			this.runtimeStorageTarget = runtime[0];
+		}
+	}
+
+	selectRuntimeStorageTarget(target: string): void {
+		if (!this.resolveRuntimeStorageTargets().includes(target)) {
+			throw new Error(`Runtime / Storage Target '${target}' is not resolvable for Build Target '${this.buildTarget}'`);
+		}
+		this.runtimeStorageTarget = target;
+	}
+
+	// #endregion
+
 	// #region Views
+
+	/** The checklists in display order, each with one kind-fixed Marker. Raw Data rows are one Marker grouped per table. */
+	checklistSections(): readonly IBuildChecklistSection[] {
+		const seed = this.seed();
+		return Object.freeze([
+			{ marker: 'build.export.raw-data', title: localize('primitiveAppEditor.build.rawData', "Raw Data tables"), items: seed.tables },
+			{
+				marker: 'build.export.rows', title: localize('primitiveAppEditor.build.rows', "Raw Data rows"), items: [],
+				groups: seed.tables.filter(table => table.state === BuildItemState.Included).map(table => ({ id: table.id, title: table.label, items: table.rows })),
+			},
+			{ marker: 'build.export.assets', title: localize('primitiveAppEditor.build.assets', "Assets"), items: this.assetItems() },
+			{ marker: 'build.export.functions', title: localize('primitiveAppEditor.build.functions', "Functions"), items: this.functionItems() },
+			{ marker: 'build.export.scripts', title: localize('primitiveAppEditor.build.scripts', "Scripts"), items: this.scriptItems() },
+			{ marker: 'build.export.config', title: localize('primitiveAppEditor.build.config', "Config"), items: this.configItems() },
+		].map(section => Object.freeze(section)));
+	}
 
 	seed(): { readonly include: boolean; readonly tables: readonly IBuildSeedTable[] } {
 		const tables = this.authoring.rawData.map((data): IBuildSeedTable => {
