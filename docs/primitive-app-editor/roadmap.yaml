@@ -1951,9 +1951,13 @@ section:
         depends_on:
           - "workbench.ai-development"
           - "build.deploy"
-        status: "not started"
-        evidence: []
-        remaining: []
+        status: "partial"
+        evidence:
+          - "tools/primitive-app-editor/e2e/{fixture.ts,run.ts,README.md}: Deploy E2E harness (Authoring Data -> Build Validation -> Application Output -> Deploy Scaffold -> docker compose config/build/up -> API/UI probes)"
+          - "Re-run at head 81e5fd5a: `node --experimental-strip-types tools/primitive-app-editor/e2e/run.ts` -> PASS: tsc emit of fixture, Build Validation + 21 output files, deterministic scaffold with compose-001.yml sequencing, Editor-independent output, `docker compose -f <YAML> config`, no embedded secrets (Deploy Configuration.md 7.2 steps 1-3)"
+          - "AUDIT NG B1-B3 fixed in 81e5fd5a: UI assertion on API-derived seed values only, strict fatigue === 9 update check, tsc emit failure reported via step FAIL, unused code removed"
+        remaining:
+          - "Deploy Configuration.md 7.2 steps 4-9 unverified (docker compose build/up, DDL+Seed, API/UI probes, standalone run, restart persistence): the automation sandbox cannot reach the Docker daemon / nuget / npm registries. Run `node --experimental-strip-types tools/primitive-app-editor/e2e/run.ts` on a host with Docker and direct registry access."
 
   - name: "Deploy Extensions"
     bundle:
