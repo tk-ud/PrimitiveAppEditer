@@ -22,7 +22,7 @@ import { ProjectOpenState } from '../common/projectOpenSession.js';
 import { createDeployTemplateInspectorView } from '../common/buildExportConfiguration.js';
 import { RegistryDrivenInspector, isInspectorEmpty } from '../common/inspector.js';
 import { DataEditorSelection } from '../common/dataEditor.js';
-import { ActivityBarItem, BottomPanelView, createSideBarTree, ISideBarNode } from '../common/workbenchViews.js';
+import { ActivityBarItem, BottomPanelView, createSideBarTree, GenerationGuard, ISideBarNode } from '../common/workbenchViews.js';
 import { Resolver } from '../common/resolver.js';
 
 abstract class PrimitiveAppEditorViewPane extends ViewPane {
@@ -232,8 +232,16 @@ export class PrimitiveAppEditorInspectorView extends PrimitiveAppEditorViewPane 
 		this._register({ dispose: this.appEditor.views.deployTemplateSelection.onDidChange(() => this.refresh()) });
 	}
 
+	private readonly renderGuard = new GenerationGuard();
+
 	private refresh(): void {
-		void this.renderInspector().catch(error => this.renderMessage(error instanceof Error ? error.message : String(error), true));
+		// Only the render of the current Selection may touch the DOM; a late result of an older one is discarded.
+		const generation = this.renderGuard.begin();
+		void this.renderInspector(generation).catch(error => {
+			if (this.renderGuard.isCurrent(generation)) {
+				this.renderMessage(error instanceof Error ? error.message : String(error), true);
+			}
+		});
 	}
 
 	private renderMessage(text: string, error = false): void {
@@ -244,7 +252,7 @@ export class PrimitiveAppEditorInspectorView extends PrimitiveAppEditorViewPane 
 		append(this.container, $(`.pae-empty${error ? '.pae-error' : ''}`, undefined, text));
 	}
 
-	private async renderInspector(): Promise<void> {
+	private async renderInspector(generation: number): Promise<void> {
 		const container = this.container;
 		const templateId = this.appEditor.views.deployTemplateSelection.selection;
 		const templateView = templateId !== undefined ? createDeployTemplateInspectorView(this.appEditor.getDeployTemplateRegistry(), templateId) : undefined;
@@ -274,8 +282,10 @@ export class PrimitiveAppEditorInspectorView extends PrimitiveAppEditorViewPane 
 		const shared = new DataEditorSelection();
 		shared.select(selection);
 		const inspector = new RegistryDrivenInspector(new Resolver(services), () => this.appEditor.loadResolveContext(), shared, this.appEditor.views.tabs);
-		const view = await inspector.refresh();
-		inspector.dispose();
+		const view = await inspector.refresh().finally(() => inspector.dispose());
+		if (!this.renderGuard.isCurrent(generation)) {
+			return;
+		}
 		clearNode(container);
 		if (isInspectorEmpty(view)) {
 			this.renderMessage(localize('primitiveAppEditor.inspector.empty', "Select an item to inspect it."));
