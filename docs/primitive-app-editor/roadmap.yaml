@@ -1670,6 +1670,33 @@ section:
           - "browser file typechecks with tsc; no Code OSS core change; no integration fix to earlier producer bundles required"
         remaining: []
 
+      - id: "build.deploy-row-label"
+        title: "Build / Export Raw Data Row display label without UUID exposure (Issue #133 design change)"
+        reference:
+          - source: "./Editor UI.md"
+            role: "implementation"
+            sections:
+              - "§13 Export / Build Configuration"
+              - "§19 UI Marker Regulation"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
+              - "§31 Build Configuration"
+              - "§34 UUID"
+          - source: "./Deploy Configuration.md"
+            role: "boundary"
+            sections:
+              - "§4 UI / Registrar Integration"
+        depends_on:
+          - "build.deploy-ui-conformance"
+        status: "not started"
+        evidence: []
+        remaining:
+          - "BuildExportConfigurationModel.seed(): Raw Data Row display label must not depend on row.uuid; use a table-local ordinal name (Row 1, Row 2, ...) distinguishable within the table. Keep id: row.uuid unchanged (Machine Identity)."
+          - "Keep data-pae-item, setRowExcluded, Selection / exclusion Identity and behavior unchanged; Row / Table / Seed-wide Included-Excluded toggles must not regress."
+          - "Tests: seed().tables[].rows[].label contains no UUID and is distinguishable per table; each row id equals the original uuid; UI data-pae-item and check operation preserve Identity; existing toggle tests pass."
+          - "Scope: no change to Editor UI.md / App Editer.md design, Registry / Raw Data Authority, Build / Export Boundary or other checklists; no Code OSS core change. Return to Owner if a design decision is required."
+
   - name: "Workbench"
     bundle:
       - id: "workbench.integration"
