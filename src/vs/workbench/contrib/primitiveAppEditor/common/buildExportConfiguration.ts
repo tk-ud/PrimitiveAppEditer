@@ -291,6 +291,18 @@ export class DeploySelectionHolder {
 		this.set({ templateId: undefined, host: DeployHost.Linux });
 	}
 
+	/**
+	 * Applies a Project Open state change through `views`; a Project switch / Close (views reset) also clears the
+	 * Selection, while a re-Ready of the same Project keeps it. Returns whether the Project state was reset.
+	 */
+	applyProjectState(views: { applyProjectState(ready: boolean, project: string | undefined): boolean }, ready: boolean, project: string | undefined): boolean {
+		const reset = views.applyProjectState(ready, project);
+		if (reset) {
+			this.reset();
+		}
+		return reset;
+	}
+
 	/** True only when the Selection is exactly this Template id. */
 	isReferenced(templateId: string): boolean {
 		return this.selection.templateId === templateId;

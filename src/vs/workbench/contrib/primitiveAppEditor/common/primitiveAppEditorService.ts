@@ -59,6 +59,7 @@ export interface IPrimitiveAppEditorService {
 	getBuildDeploySelection(): string | undefined;
 	/** The full Selection (`template_id` / `host`) held for the open Project's lifetime; the Surface Model restores from it. */
 	getBuildDeploySelectionState(): IDeploySelection;
+	isBuildDeploySelectionReferenced(templateId: string): boolean;
 
 	/**
 	 * Saves the Deploy Template Editor draft through the Deploy Template Service: a new Template for the `new`

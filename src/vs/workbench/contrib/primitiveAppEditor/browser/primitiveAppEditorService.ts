@@ -84,9 +84,8 @@ export class PrimitiveAppEditorService extends Disposable implements IPrimitiveA
 	private onDidChangeState(state: IProjectOpenSessionState): void {
 		const generation = ++this.generation;
 		// Project switch / Close: drop the previous Project's Selection and Editor Area tabs (no stale state is shown).
-		if (this.views.applyProjectState(state.state === ProjectOpenState.Ready, state.root?.toString())) {
+		if (this.buildDeploySelection.applyProjectState(this.views, state.state === ProjectOpenState.Ready, state.root?.toString())) {
 			this.closeProjectEditors();
-			this.buildDeploySelection.reset();
 		}
 		this.output.clear();
 		this.functionBindings = [];
@@ -159,6 +158,10 @@ export class PrimitiveAppEditorService extends Disposable implements IPrimitiveA
 
 	getBuildDeploySelection(): string | undefined {
 		return this.buildDeploySelection.get().templateId;
+	}
+
+	isBuildDeploySelectionReferenced(templateId: string): boolean {
+		return this.buildDeploySelection.isReferenced(templateId);
 	}
 
 	getBuildDeploySelectionState(): IDeploySelection {
