@@ -199,6 +199,8 @@ editor_deploy_template_registry:
   - §3.1のKey定義・型規則・未知Key / 文書形式の境界をすべて満たす（組込みTemplateにも同じ検証を適用する）。
   - ポートの重複なし（`api.host_port` ≠ `ui.host_port`）、`password_env`が`.env.example`の変数名として有効。
   - 不正なTemplateは一覧に`Invalid`として表示し、Selectionに選べない。既存SelectionがInvalid化したTemplateを参照する場合はBuild Validationで明示し、Scaffoldしない。
+- **Selectionの保持主体と寿命:** 現在のDeploy Selection（`template_id` / `host`）の保持主体は、`PrimitiveAppEditorService`の`buildDeploySelection`（Projectに紐づくセッション状態）であり、Build / Export Configuration Surface（Editor Areaタブ・Model）ではない。保持期間は**開いているProjectの寿命**（Project切替・Close時に未選択へリセット、同一Projectの再Ready・Surfaceの再描画・Tabの閉じ直しでは保持）。Surface Modelは描画ごとの生成時にServiceのSelectionを初期値として復元し、利用者の選択変更はServiceへ書き戻す。`App Editer.md` §31はBuild Configurationの保存位置とserialization形式を規定せずBuild実装の責務とするため、本節はセッション中の保持のみを規定する。永続化の有無・再Open時の復元は本節の対象外とする。
+- **「参照中」判定の取得元:** 「参照中Selection」（Inspectorの`Referenced by Selection`、参照中Templateの削除確認）は、上記ServiceのSelectionを唯一の取得元として判定する。Surface Modelの状態を判定に使わない。これによりSurface描画状態と判定が乖離しない。
 - **編集とSelection:** Templateの編集・削除はSelectionを自動書換しない。参照中Templateの削除は確認を要し、削除後のSelectionは「Template未解決」となる。既にScaffold済みのファイルはTemplateの編集・削除の影響を受けない。
 - **Mutation経路:** 作成・編集・複製・削除はApp Editor側のDeploy Template Service経由で行い、Validationを通過した内容のみ原子的に書き込む。UIから直接保存先を書き換えない。
 - **Bundle境界:** `build.deploy-projection`はこのRegistryからの**読取**（Template解決・Validation）と選択後のScaffoldを担当する。登録・編集・複製・削除のUI/Serviceは`build.deploy-template-registrar`が担当する。
@@ -402,6 +404,10 @@ build.deploy-setup-script (not started)
 build.deploy-template-registrar (not started)
   -> Editor共通Template Registryへの利用者定義Templateの登録・編集・複製・削除・Validation UI/Service（§3.3 / §4 Template Registrar）。読取・選択・Scaffoldは build.deploy-projection / build.deploy
   -> depends_on build.deploy, build.deploy-projection, workbench.views
+
+build.deploy-selection-lifecycle (not started)
+  -> Deploy Selectionの保持主体・寿命（`PrimitiveAppEditorService.buildDeploySelection`、Project寿命）とSurface Model初期値の復元、「参照中」判定の取得元一本化（§3.2 / §3.3）
+  -> depends_on build.deploy-template-registrar
 ```
 
 各Bundleのstatus / evidence / remainingはroadmap.yamlのみで管理し、Tool First（`roadmap.next` / `roadmap.complete`）に従って更新する。本資料はBundleの進捗を持たない。
