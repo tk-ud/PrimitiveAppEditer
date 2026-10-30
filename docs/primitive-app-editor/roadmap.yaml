@@ -2037,6 +2037,35 @@ section:
           - "GUI observation on a running Workbench is excluded from bundle completion per README GUI Verification Cycle (delegated to UI Map checkpoints)"
         remaining: []
 
+      - id: "build.deploy-selection-lifecycle"
+        title: "Deploy Selection holder / lifetime and Referenced-by-Selection source (Issue #151 design change)"
+        reference:
+          - source: "./Deploy Configuration.md"
+            role: "implementation"
+            sections:
+              - "§3.2 Selection"
+              - "§3.3 Editor共通Template Registry"
+          - source: "./Deploy Configuration.md"
+            role: "boundary"
+            sections:
+              - "§4 UI / Registrar Integration"
+              - "§9 Decisions"
+          - source: "./App Editer.md"
+            role: "boundary"
+            sections:
+              - "§31 Build Configuration"
+              - "§34 Boundary Rules"
+        depends_on:
+          - "build.deploy-template-registrar"
+        status: "not started"
+        evidence: []
+        remaining:
+          - "Selection holder is PrimitiveAppEditorService.buildDeploySelection (Project session lifetime): reset to undefined on Project switch / Close, kept across Surface re-render, Tab close / reopen and repeated Ready of the same Project."
+          - "BuildExportConfigurationModel initial templateId / host is restored from the Service Selection on creation (no divergence between Model and Service after reopening the Build tab)."
+          - "Referenced by Selection (Inspector) and Template delete confirmation use the Service Selection as the only source; Surface Model state is not consulted."
+          - "Tests: reopen Build tab keeps Model Selection equal to Service Selection; Project switch/Close clears it; Referenced by Selection is Yes only when Service Selection equals the Template id; delete confirmation shown only then."
+          - "Scope: no Selection persistence format change, no Code OSS core change; return to Owner if a design decision is required."
+
 future:
   excluded_from_current_loop:
     - title: "Multiplayer"
