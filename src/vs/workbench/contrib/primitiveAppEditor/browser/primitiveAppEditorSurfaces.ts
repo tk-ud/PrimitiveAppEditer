@@ -7,7 +7,9 @@ import { $, append } from '../../../../base/browser/dom.js';
 import { localize } from '../../../../nls.js';
 import { BuildExportConfigurationModel, checklistSurfaceNodes, IBuildSurfaceNode, targetSurfaceNodes } from '../common/buildExportConfiguration.js';
 import { DataEditorTarget, DataGridModel } from '../common/dataEditor.js';
-import { DeployHost } from '../common/deployProjection.js';
+import { buildTargetRuntimeStorageTargets } from '../common/buildValidation.js';
+import { DeployHost, DeployTemplateOrigin } from '../common/deployProjection.js';
+import { DeployTemplateControlKind, DeployTemplateDraft, draftForNewTemplate, draftForTemplate, findDeployTemplateTabEntry, NEW_DEPLOY_TEMPLATE_TAB } from '../common/deployTemplateService.js';
 import { DebugViewer } from '../common/debugViewer.js';
 import { IDynamicResolveContext } from '../common/dynamicResolve.js';
 import { FunctionGraphModel } from '../common/functionGraph.js';
@@ -239,7 +241,7 @@ async function renderBuildExport(parent: HTMLElement, appEditor: IPrimitiveAppEd
 			const option = append(select, $('option', { value: choice.id }, `${choice.label} · ${choice.origin}`)) as HTMLOptionElement;
 			option.selected = choice.selected;
 		}
-		select.addEventListener('change', () => { model.selectTemplate(select.value || undefined); appEditor.views.selectDeployTemplate(select.value || undefined); render(); });
+		select.addEventListener('change', () => { model.selectTemplate(select.value || undefined); appEditor.setBuildDeploySelection(select.value || undefined); appEditor.views.selectDeployTemplate(select.value || undefined); render(); });
 		const template = model.selectedTemplate();
 		if (template) {
 			definition(root, template.label, [
@@ -288,6 +290,128 @@ async function renderBuildExport(parent: HTMLElement, appEditor: IPrimitiveAppEd
 		});
 	};
 	render();
+	const listener = appEditor.onDidChangeDeployTemplates(() => {
+		if (!root.isConnected) {
+			listener.dispose();
+			return;
+		}
+		model.updateRegistry(appEditor.getDeployTemplateRegistry());
+		render();
+	});
+}
+
+/**
+ * Deploy Template Editor (Editor Area): the Controls are derived from the Deploy Template Definition Schema
+ * (there is no parameter input), a built-in Template is read-only, and Save is possible only when the draft
+ * validates; the Mutation goes through the Deploy Template Service. Results go to the Bottom Panel Diagnostics.
+ */
+function renderDeployTemplateEditor(parent: HTMLElement, input: PrimitiveAppEditorInput, appEditor: IPrimitiveAppEditorService): void {
+	const root = append(parent, $('div', { 'data-pae-marker': 'deploy-template.editor' }));
+	const buildTargets = [...buildTargetRuntimeStorageTargets.keys()];
+	const isNew = input.uuid === NEW_DEPLOY_TEMPLATE_TAB;
+	const entry = isNew ? undefined : findDeployTemplateTabEntry(appEditor.getDeployTemplateRegistry(), input.uuid);
+
+	if (!isNew && !entry) {
+		append(root, $('.pae-empty', undefined, localize('primitiveAppEditor.deployTemplate.unresolved', "Template unresolved: it is not in the Editor Template Registry.")));
+		return;
+	}
+	const origin = entry?.origin ?? DeployTemplateOrigin.User;
+	const title = isNew ? localize('primitiveAppEditor.deployTemplate.newTitle', "New Deploy Template") : entry!.template?.label ?? entry!.id;
+	append(root, $('h2', undefined, title));
+
+	const actions = append(root, $('div', { 'data-pae-marker': 'deploy-template.actions' }));
+	const button = (marker: string, text: string, onClick: () => void): HTMLButtonElement => {
+		const element = append(actions, $('button', { type: 'button', 'data-pae-marker': marker }, text)) as HTMLButtonElement;
+		element.addEventListener('click', onClick);
+		return element;
+	};
+	const report = (error: unknown) => appEditor.output.append(BottomPanelView.Diagnostics, error instanceof Error ? error.message : String(error), BottomPanelSeverity.Error);
+
+	if (entry && !entry.valid) {
+		append(root, $('.pae-error', { 'data-pae-marker': 'deploy-template.invalid' }, entry.diagnostic ?? ''));
+		if (origin === DeployTemplateOrigin.User) {
+			button('deploy-template.delete', localize('primitiveAppEditor.deployTemplate.deleteAction', "Delete"), () => { appEditor.deleteDeployTemplate(entry.id).catch(report); });
+		}
+		return;
+	}
+
+	const draft: DeployTemplateDraft = entry?.template ? draftForTemplate(entry.template, origin, buildTargets) : draftForNewTemplate(buildTargets);
+	if (draft.readOnly) {
+		append(root, $('p', { 'data-pae-marker': 'deploy-template.readonly' }, localize('primitiveAppEditor.deployTemplate.readonly', "Built-in Template (read-only). Duplicate it to create an editable Template.")));
+	}
+	const save = draft.readOnly ? undefined : button('deploy-template.save', localize('primitiveAppEditor.deployTemplate.save', "Save"), () => {
+		appEditor.saveDeployTemplate(input.uuid, draft.toBody()).then(() => validation(), () => validation());
+	});
+	if (entry) {
+		button('deploy-template.duplicate', localize('primitiveAppEditor.deployTemplate.duplicateAction', "Duplicate"), () => { appEditor.duplicateDeployTemplate(entry.id).catch(report); });
+		if (origin === DeployTemplateOrigin.User) {
+			button('deploy-template.delete', localize('primitiveAppEditor.deployTemplate.deleteAction', "Delete"), () => { appEditor.deleteDeployTemplate(entry.id).catch(report); });
+		}
+	}
+
+	const status = append(root, $('div', { 'data-pae-marker': 'deploy-template.validation' }));
+	const validation = () => {
+		clearContents(status);
+		const result = draft.validate();
+		status.setAttribute('data-pae-state', result.valid ? 'valid' : 'invalid');
+		if (result.valid) {
+			append(status, $('p', undefined, localize('primitiveAppEditor.deployTemplate.valid', "Valid.")));
+		} else {
+			append(status, $('.pae-error', { 'data-pae-item': result.path }, result.diagnostic));
+		}
+		if (save) {
+			save.disabled = !result.valid;
+		}
+	};
+
+	const fields = append(root, $('div', { 'data-pae-marker': 'deploy-template.fields' }));
+	for (const control of draft.controls()) {
+		const field = append(fields, $('div.pae-field', { 'data-pae-marker': 'deploy-template.field', 'data-pae-item': control.path }));
+		append(field, $('label', undefined, control.label));
+		const disabled = control.readonlyReason !== undefined;
+		const apply = (value: string | number | boolean | readonly string[]) => {
+			try {
+				draft.set(control.path, value);
+			} catch (error) {
+				report(error);
+			}
+			validation();
+		};
+		switch (control.kind) {
+			case DeployTemplateControlKind.Checkbox: {
+				const box = append(field, $('input', { type: 'checkbox' })) as HTMLInputElement;
+				box.checked = control.value === true;
+				box.disabled = disabled;
+				box.addEventListener('change', () => apply(box.checked));
+				break;
+			}
+			case DeployTemplateControlKind.MultiSelect: {
+				const selected = new Set(control.value as readonly string[]);
+				for (const option of control.options ?? []) {
+					const label = append(field, $('label'));
+					const box = append(label, $('input', { type: 'checkbox' })) as HTMLInputElement;
+					box.checked = selected.has(option);
+					box.disabled = disabled;
+					append(label, $('span', undefined, ` ${option}`));
+					box.addEventListener('change', () => {
+						if (box.checked) {
+							selected.add(option);
+						} else {
+							selected.delete(option);
+						}
+						apply((control.options ?? []).filter(candidate => selected.has(candidate)));
+					});
+				}
+				break;
+			}
+			default: {
+				const text = append(field, $('input', { type: 'text', value: String(control.value) })) as HTMLInputElement;
+				text.disabled = disabled;
+				text.addEventListener('change', () => apply(text.value));
+			}
+		}
+	}
+	validation();
 }
 
 function clearContents(element: HTMLElement): void {
@@ -310,6 +434,7 @@ export async function renderEditorSurface(parent: HTMLElement, input: PrimitiveA
 		case DataEditorTarget.FunctionGraph: return renderFunctionGraph(parent, appEditor, context);
 		case DataEditorTarget.DebugViewer: return renderDebugViewer(parent, appEditor, context);
 		case DataEditorTarget.BuildExport: return renderBuildExport(parent, appEditor);
+		case DataEditorTarget.DeployTemplateEditor: return renderDeployTemplateEditor(parent, input, appEditor);
 		default: return renderDefinition(parent, input, context);
 	}
 }

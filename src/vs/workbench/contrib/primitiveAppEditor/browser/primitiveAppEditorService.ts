@@ -9,7 +9,10 @@ import { Disposable } from '../../../../base/common/lifecycle.js';
 import { basename, joinPath } from '../../../../base/common/resources.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
+import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { FileOperationResult, IFileService, toFileOperationResult } from '../../../../platform/files/common/files.js';
+import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
+import { IUserDataProfilesService } from '../../../../platform/userDataProfile/common/userDataProfile.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
@@ -17,7 +20,9 @@ import { IAsset } from '../common/assetRegistry.js';
 import { createExecutorProgramResolver, IBuildExportPlanFile, listDeployTemplates } from '../common/buildExportConfiguration.js';
 import { writeBuildExport } from '../common/buildExportWriter.js';
 import { IBuildAuthoringData, IBuildRawDataTable, normalizeWorkingDirectoryPath } from '../common/buildValidation.js';
-import { createDeployTemplateRegistry, IDeployTemplateRegistry } from '../common/deployProjection.js';
+import { DeployTemplateOrigin, DeployValidationError, IDeployTemplateRegistry } from '../common/deployProjection.js';
+import { DeployTemplateService, NEW_DEPLOY_TEMPLATE_TAB, findDeployTemplateTabEntry, deployTemplateTabUuid } from '../common/deployTemplateService.js';
+import { DataEditorTarget } from '../common/dataEditor.js';
 import { IDynamicResolveContext } from '../common/dynamicResolve.js';
 import { editorDdlResources } from '../common/editorDdlResources.js';
 import { EnumRegistryIndex } from '../common/enumRegistry.js';
@@ -33,6 +38,7 @@ import { RegistryService } from '../common/registryService.js';
 import { readRendererBindings, RendererBindingService } from '../common/rendererRegistry.js';
 import { IResolverServices } from '../common/resolver.js';
 import { BottomPanelOutput, bottomPanelViewId, BottomPanelView, BottomPanelSeverity, EditorTabKind, ISideBarContext, ISideBarNode, SideBarOpen, WorkbenchViewsModel } from '../common/workbenchViews.js';
+import { DeployTemplateFileStore } from '../common/deployTemplateFileStore.js';
 import { PrimitiveAppEditorInput } from './primitiveAppEditorEditorInput.js';
 
 export class PrimitiveAppEditorService extends Disposable implements IPrimitiveAppEditorService {
@@ -47,18 +53,29 @@ export class PrimitiveAppEditorService extends Disposable implements IPrimitiveA
 	private readonly _onDidChangeProject = this._register(new Emitter<void>());
 	readonly onDidChangeProject: Event<void> = this._onDidChangeProject.event;
 
-	private readonly deployTemplateRegistry = createDeployTemplateRegistry();
+	/** The Editor-wide Deploy Template Registry: user Templates live in the Editor's global storage, not in the Project. */
+	readonly deployTemplates: DeployTemplateService;
+	private readonly _onDidChangeDeployTemplates = this._register(new Emitter<void>());
+	readonly onDidChangeDeployTemplates: Event<void> = this._onDidChangeDeployTemplates.event;
+	private buildDeploySelection: string | undefined;
 	private functionBindings: readonly IFunctionBindingEntry[] = [];
 	private generation = 0;
 
 	constructor(
 		@IFileService private readonly fileService: IFileService,
+		@IUserDataProfilesService userDataProfilesService: IUserDataProfilesService,
+		@IDialogService private readonly dialogService: IDialogService,
+		@IQuickInputService private readonly quickInputService: IQuickInputService,
 		@IProjectSqliteDatabaseFactoryService databaseFactory: IProjectSqliteDatabaseFactoryService,
 		@IEditorService private readonly editorService: IEditorService,
 		@IViewsService private readonly viewsService: IViewsService,
 		@IEditorGroupsService private readonly editorGroupsService: IEditorGroupsService,
 	) {
 		super();
+		const store = new DeployTemplateFileStore(fileService, joinPath(userDataProfilesService.defaultProfile.globalStorageHome, 'primitive-app-editor', 'deploy-templates'));
+		this.deployTemplates = new DeployTemplateService(store, id => id === this.buildDeploySelection);
+		this._register({ dispose: this.deployTemplates.onDidChange(() => { this._onDidChangeDeployTemplates.fire(); this._onDidChangeProject.fire(); }) });
+		this.deployTemplates.load().catch(error => this.output.append(BottomPanelView.Diagnostics, error instanceof Error ? error.message : String(error), BottomPanelSeverity.Error));
 		this.session = new ProjectOpenSession(fileService, databaseFactory, editorDdlResources, this.executorCatalog);
 		this._register(this.session.onDidChangeState(state => this.onDidChangeState(state)));
 		this._register({ dispose: () => { void this.session.close(); } });
@@ -127,12 +144,93 @@ export class PrimitiveAppEditorService extends Disposable implements IPrimitiveA
 			assets: ready ? state.assets ?? [] : [],
 			programs: ready ? state.functionScan?.programs ?? [] : [],
 			rootName: state.root ? basename(state.root) : '',
-			deployTemplates: ready ? listDeployTemplates(this.deployTemplateRegistry) : [],
+			deployTemplates: ready ? listDeployTemplates(this.deployTemplates.registry) : [],
 		};
 	}
 
 	getDeployTemplateRegistry(): IDeployTemplateRegistry {
-		return this.deployTemplateRegistry;
+		return this.deployTemplates.registry;
+	}
+
+	setBuildDeploySelection(templateId: string | undefined): void {
+		this.buildDeploySelection = templateId;
+	}
+
+	getBuildDeploySelection(): string | undefined {
+		return this.buildDeploySelection;
+	}
+
+	private reportDeployTemplateError(error: unknown): void {
+		this.output.append(BottomPanelView.Diagnostics, error instanceof Error ? error.message : String(error), BottomPanelSeverity.Error);
+	}
+
+	async saveDeployTemplate(tabUuid: string, body: unknown): Promise<void> {
+		try {
+			if (tabUuid === NEW_DEPLOY_TEMPLATE_TAB) {
+				const created = await this.deployTemplates.create(body);
+				this.output.append(BottomPanelView.Diagnostics, localize('primitiveAppEditor.deployTemplate.created', "Deploy Template '{0}' was registered.", created.id));
+				await this.open({ kind: 'tab', target: DataEditorTarget.DeployTemplateEditor, uuid: deployTemplateTabUuid(DeployTemplateOrigin.User, created.id) }, created.label);
+				return;
+			}
+			const target = findDeployTemplateTabEntry(this.deployTemplates.registry, tabUuid);
+			if (!target) {
+				throw new DeployValidationError('deploy_template.id', localize('primitiveAppEditor.deployTemplate.unresolvedTab', "Template unresolved: it is not in the Editor Template Registry."));
+			}
+			const updated = await this.deployTemplates.update(target.id, body);
+			this.output.append(BottomPanelView.Diagnostics, localize('primitiveAppEditor.deployTemplate.saved', "Deploy Template '{0}' was saved. A Selection that references it is not changed; already scaffolded files are not affected.", updated.id));
+		} catch (error) {
+			this.reportDeployTemplateError(error);
+			throw error;
+		}
+	}
+
+	async duplicateDeployTemplate(templateId: string): Promise<boolean> {
+		const newId = await this.quickInputService.input({
+			title: localize('primitiveAppEditor.deployTemplate.duplicateTitle', "Duplicate Deploy Template"),
+			prompt: localize('primitiveAppEditor.deployTemplate.duplicatePrompt', "Enter the id of the new Template (a-z, 0-9, '-')."),
+			value: `${templateId}-copy`.slice(0, 63),
+			validateInput: async value => {
+				if (!/^[a-z][a-z0-9-]{0,62}$/.test(value)) {
+					return localize('primitiveAppEditor.deployTemplate.invalidId', "The id must match ^[a-z][a-z0-9-]{0,62}$.");
+				}
+				return this.deployTemplates.registry.entries.some(entry => entry.id === value) ? localize('primitiveAppEditor.deployTemplate.takenId', "The id is already registered (built-in ids are reserved).") : undefined;
+			},
+		});
+		if (newId === undefined) {
+			return false;
+		}
+		try {
+			const duplicated = await this.deployTemplates.duplicate(templateId, newId);
+			this.output.append(BottomPanelView.Diagnostics, localize('primitiveAppEditor.deployTemplate.duplicated', "Deploy Template '{0}' was created from '{1}'.", duplicated.id, templateId));
+			await this.open({ kind: 'tab', target: DataEditorTarget.DeployTemplateEditor, uuid: deployTemplateTabUuid(DeployTemplateOrigin.User, duplicated.id) }, duplicated.label);
+			return true;
+		} catch (error) {
+			this.reportDeployTemplateError(error);
+			throw error;
+		}
+	}
+
+	async deleteDeployTemplate(templateId: string): Promise<boolean> {
+		const referenced = templateId === this.buildDeploySelection;
+		const result = await this.dialogService.confirm({
+			message: localize('primitiveAppEditor.deployTemplate.deleteMessage', "Delete the Deploy Template '{0}'?", templateId),
+			detail: referenced
+				? localize('primitiveAppEditor.deployTemplate.deleteReferenced', "The Build / Export Selection references this Template. It is not rewritten; it becomes 'Template unresolved' and cannot be scaffolded until another Template is selected. Already scaffolded files are not affected.")
+				: localize('primitiveAppEditor.deployTemplate.deleteDetail', "Already scaffolded files are not affected."),
+			primaryButton: localize('primitiveAppEditor.deployTemplate.delete', "Delete"),
+			type: 'warning',
+		});
+		if (!result.confirmed) {
+			return false;
+		}
+		try {
+			await this.deployTemplates.delete(templateId, { confirmed: true });
+			this.output.append(BottomPanelView.Diagnostics, localize('primitiveAppEditor.deployTemplate.deleted', "Deploy Template '{0}' was deleted.", templateId));
+			return true;
+		} catch (error) {
+			this.reportDeployTemplateError(error);
+			throw error;
+		}
 	}
 
 	async loadBuildAuthoringData(): Promise<IBuildAuthoringData> {

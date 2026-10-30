@@ -160,7 +160,9 @@ suite('Primitive App Editor - Build / Export Configuration surface model', () =>
 		const view = createDeployTemplateInspectorView(registry, BUILTIN_DEPLOY_TEMPLATE_ID)!;
 		assert.strictEqual(view.header, 'Docker Compose (default)');
 		assert.strictEqual(view.valid, true);
-		assert.deepStrictEqual(view.rows.map(row => row[0]), ['Template ID', 'Description', 'Provider', 'Supported hosts', 'Compatible build targets', 'API port', 'UI port', 'Database']);
+		assert.deepStrictEqual(view.rows.map(row => row[0]), ['Template ID', 'Description', 'Provider', 'Supported hosts', 'Compatible build targets', 'API port', 'UI port', 'Database', 'Referenced by Selection']);
+		assert.strictEqual(view.rows.at(-1)![1], 'No');
+		assert.match(createDeployTemplateInspectorView(registry, BUILTIN_DEPLOY_TEMPLATE_ID, true)!.rows.at(-1)![1], /^Yes/);
 		assert.ok(view.rows.some(row => row[0] === 'Database' && row[1].startsWith('postgres:16.4')));
 		const invalid = createDeployTemplateInspectorView(registry, 'broken.yaml')!;
 		assert.strictEqual(invalid.valid, false);

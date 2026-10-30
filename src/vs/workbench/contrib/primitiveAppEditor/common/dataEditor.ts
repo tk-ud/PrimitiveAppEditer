@@ -97,6 +97,8 @@ export const enum DataEditorTarget {
 	AssetEditor = 'asset_editor',
 	/** Build / Export Configuration of the project (build.deploy). */
 	BuildExport = 'build_export',
+	/** Deploy Template Editor of one Editor-wide Template (build.deploy-template-registrar); the uuid is the Template id. */
+	DeployTemplateEditor = 'deploy_template_editor',
 }
 
 export interface IDataEditorEntry {

@@ -8,6 +8,7 @@ import { createDecorator } from '../../../../platform/instantiation/common/insta
 import { IBuildExportPlanFile } from './buildExportConfiguration.js';
 import { IBuildAuthoringData } from './buildValidation.js';
 import { IDeployTemplateRegistry } from './deployProjection.js';
+import { DeployTemplateService } from './deployTemplateService.js';
 import { IDynamicResolveContext } from './dynamicResolve.js';
 import { IFunctionExecutorCatalog } from './functionRegistry.js';
 import { ProjectOpenSession } from './projectOpenSession.js';
@@ -44,8 +45,31 @@ export interface IPrimitiveAppEditorService {
 	/** The Authoring Data the Build reads (Registry / Raw Data / Binding / Working Directory), read-only. */
 	loadBuildAuthoringData(): Promise<IBuildAuthoringData>;
 
-	/** The Editor-wide Deploy Template Registry (built-in Template; user Templates arrive with the Registrar). */
+	/** The Editor-wide Deploy Template Registry as of now (built-in + user Templates; replaced on every Mutation). */
 	getDeployTemplateRegistry(): IDeployTemplateRegistry;
+
+	/** The Deploy Template Service: the only Mutation path of the Editor-wide Template Registry. */
+	readonly deployTemplates: DeployTemplateService;
+
+	/** Fires when the Editor-wide Deploy Template Registry changed (create / edit / duplicate / delete / load). */
+	readonly onDidChangeDeployTemplates: Event<void>;
+
+	/** The Template id the Build / Export Configuration Selection currently references (for the delete confirmation and the Inspector). */
+	setBuildDeploySelection(templateId: string | undefined): void;
+	getBuildDeploySelection(): string | undefined;
+
+	/**
+	 * Saves the Deploy Template Editor draft through the Deploy Template Service: a new Template for the `new`
+	 * tab, else the user Template of `tabUuid`. Validation failures are reported to the Bottom Panel Diagnostics
+	 * and rethrown; nothing is written then.
+	 */
+	saveDeployTemplate(tabUuid: string, body: unknown): Promise<void>;
+
+	/** Asks for a new id and duplicates the Template (built-in or user). Resolves `false` when cancelled. */
+	duplicateDeployTemplate(templateId: string): Promise<boolean>;
+
+	/** Asks for confirmation and deletes the user Template. Resolves `false` when cancelled. The Selection is not rewritten. */
+	deleteDeployTemplate(templateId: string): Promise<boolean>;
 
 	/** Files already present under `outputPath` (relative to it, `/` separated); empty when the directory does not exist. */
 	listOutputFiles(outputPath: string): Promise<readonly string[]>;

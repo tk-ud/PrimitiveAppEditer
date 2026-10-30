@@ -11,6 +11,7 @@ import { DataEditorTarget } from '../../common/dataEditor.js';
 import { debugViewerTabUuid } from '../../common/debugViewer.js';
 import { buildExportTabUuid } from '../../common/buildExportConfiguration.js';
 import { DeployTemplateOrigin } from '../../common/deployProjection.js';
+import { deployTemplateTabUuid, NEW_DEPLOY_TEMPLATE_TAB } from '../../common/deployTemplateService.js';
 import { createEnumRegistryEntry } from '../../common/enumRegistry.js';
 import { createFunctionBindingEntry } from '../../common/functionBinding.js';
 import { functionGraphTabUuid } from '../../common/functionGraph.js';
@@ -21,7 +22,7 @@ import { createTableRegistryEntry, TableColumnKind } from '../../common/tableReg
 import { LogicalNamespace } from '../../common/projectSqlite.js';
 import {
 	activityBarContainerId, ActivityBarItem, activityBarItems, activityBarViewId, bottomPanelViews, BottomPanelOutput, BottomPanelSeverity,
-	BottomPanelView, createSideBarTree, editorTabKindOf, editorTabKinds, EditorTabKind, GenerationGuard, ISideBarContext, ISideBarNode, WorkbenchViewsModel,
+	BottomPanelView, createSideBarTree, DeployTemplateAction, editorTabKindOf, editorTabKinds, EditorTabKind, GenerationGuard, ISideBarContext, ISideBarNode, WorkbenchViewsModel,
 } from '../../common/workbenchViews.js';
 
 const ENEMY = '00000000-0000-4000-8000-0000000000a1';
@@ -72,7 +73,7 @@ suite('Primitive App Editor - workbench views', () => {
 
 	test('Activity Bar, Editor Tabs and Bottom Panel match the specification structure', () => {
 		assert.deepStrictEqual([...activityBarItems], ['explorer', 'registry', 'data', 'assets', 'functions', 'renderer', 'debug', 'build']);
-		assert.deepStrictEqual([...editorTabKinds], ['code_editor', 'registry_editor', 'data_editor', 'function_graph', 'renderer_editor', 'asset_editor', 'debug_viewer', 'build_export']);
+		assert.deepStrictEqual([...editorTabKinds], ['code_editor', 'registry_editor', 'data_editor', 'function_graph', 'renderer_editor', 'asset_editor', 'debug_viewer', 'build_export', 'deploy_template_editor']);
 		assert.deepStrictEqual([...bottomPanelViews], ['console', 'build_log', 'runtime_state', 'event_log', 'function_output', 'diagnostics']);
 		const ids = activityBarItems.flatMap(item => [activityBarContainerId(item), activityBarViewId(item)]);
 		assert.strictEqual(new Set(ids).size, ids.length, 'container / view ids are unique and locale independent');
@@ -153,15 +154,19 @@ suite('Primitive App Editor - workbench views', () => {
 			{ id: 'broken.yaml', origin: DeployTemplateOrigin.User, valid: false, label: 'broken.yaml', diagnostic: 'bad' },
 		] });
 		assert.deepStrictEqual(build[0].open, { kind: 'tab', target: DataEditorTarget.BuildExport, uuid: buildExportTabUuid });
-		assert.deepStrictEqual(build[1].children.map(entry => [entry.label, entry.description, entry.open]), [
-			['Docker Compose (default)', 'Built-in', { kind: 'tab', target: DataEditorTarget.BuildExport, uuid: buildExportTabUuid }],
-			['broken.yaml', 'Invalid', { kind: 'tab', target: DataEditorTarget.BuildExport, uuid: buildExportTabUuid }],
+		assert.deepStrictEqual(build[1].children.map(entry => [entry.label, entry.description, entry.open, entry.deployTemplateActions]), [
+			['Docker Compose (default)', 'Built-in', { kind: 'tab', target: DataEditorTarget.DeployTemplateEditor, uuid: deployTemplateTabUuid(DeployTemplateOrigin.Builtin, 'docker-compose-default') }, [DeployTemplateAction.Duplicate]],
+			['broken.yaml', 'Invalid', { kind: 'tab', target: DataEditorTarget.DeployTemplateEditor, uuid: deployTemplateTabUuid(DeployTemplateOrigin.User, 'broken.yaml') }, [DeployTemplateAction.Delete]],
+			['New Deploy Template', undefined, { kind: 'tab', target: DataEditorTarget.DeployTemplateEditor, uuid: NEW_DEPLOY_TEMPLATE_TAB }, undefined],
 		]);
 		assert.deepStrictEqual(build[2].open, { kind: 'panel', view: BottomPanelView.BuildLog });
 		assert.strictEqual(editorTabKindOf(DataEditorTarget.BuildExport), EditorTabKind.BuildExport);
 		const model = new WorkbenchViewsModel();
 		const first = model.activate(build[0]);
-		assert.deepStrictEqual(model.activate(build[1].children[0]), { ...first, reused: true }, 'the Build / Export Configuration tab is reused, never duplicated');
+		assert.deepStrictEqual(model.activate(build[0]), { ...first, reused: true }, 'the Build / Export Configuration tab is reused, never duplicated');
+		const editor = model.activate(build[1].children[0]);
+		assert.deepStrictEqual(model.activate(build[1].children[0]), { ...editor, reused: true }, 'the Deploy Template Editor tab of a Template is reused');
+		assert.strictEqual(editorTabKindOf(DataEditorTarget.DeployTemplateEditor), EditorTabKind.DeployTemplateEditor);
 	});
 
 	test('Tree / List Select writes the Shared Selection Context and opens (or reuses) the Editor Area tab once', () => {

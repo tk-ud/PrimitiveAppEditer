@@ -163,7 +163,7 @@ export interface IDeployTemplateInspectorView {
 }
 
 /** Supplementary information of the selected Deploy Template; `undefined` when the id is not in the Registry. */
-export function createDeployTemplateInspectorView(registry: IDeployTemplateRegistry, templateId: string): IDeployTemplateInspectorView | undefined {
+export function createDeployTemplateInspectorView(registry: IDeployTemplateRegistry, templateId: string, referencedBySelection = false): IDeployTemplateInspectorView | undefined {
 	const entry = registry.resolve(templateId);
 	if (!entry) {
 		return undefined;
@@ -181,6 +181,7 @@ export function createDeployTemplateInspectorView(registry: IDeployTemplateRegis
 		[localize('primitiveAppEditor.inspector.template.api', "API port"), `${template.services.api.host_port} → ${template.services.api.internal_port}`],
 		[localize('primitiveAppEditor.inspector.template.ui', "UI port"), `${template.services.ui.host_port} → ${template.services.ui.internal_port}`],
 		[localize('primitiveAppEditor.inspector.template.database', "Database"), `${template.services.database.image} · ${template.services.database.data_volume}`],
+		[localize('primitiveAppEditor.inspector.template.selection', "Referenced by Selection"), referencedBySelection ? localize('primitiveAppEditor.inspector.template.selectionYes', "Yes (Build / Export Configuration)") : localize('primitiveAppEditor.inspector.template.selectionNo', "No")],
 	];
 	return Object.freeze({ header: template.label, origin: entry.origin, valid: true, rows: Object.freeze(rows.map(row => Object.freeze(row))) });
 }
@@ -279,7 +280,7 @@ export class BuildExportConfigurationModel {
 	private readonly scripts: Set<string>;
 	private readonly config: Set<string>;
 
-	constructor(private readonly authoring: IBuildAuthoringData, private readonly registry: IDeployTemplateRegistry, private readonly targets: ReadonlyMap<string, readonly string[]> = buildTargetRuntimeStorageTargets) {
+	constructor(private readonly authoring: IBuildAuthoringData, private registry: IDeployTemplateRegistry, private readonly targets: ReadonlyMap<string, readonly string[]> = buildTargetRuntimeStorageTargets) {
 		this.seedInclude = authoring.rawData.length > 0;
 		this.seedTables = new Set(authoring.rawData.map(table => table.table_uuid));
 		this.assets = new Set(authoring.assets.map(asset => asset.uuid));
@@ -317,6 +318,14 @@ export class BuildExportConfigurationModel {
 
 	setConfig(path: string, included: boolean): void {
 		toggle(this.config, path, included);
+	}
+
+	/**
+	 * Replaces the Editor-wide Registry the Surface reads after the Registrar changed it. The Selection is never
+	 * rewritten: a Template that is gone or Invalid makes the Selection fail Deploy Validation ("Template unresolved").
+	 */
+	updateRegistry(registry: IDeployTemplateRegistry): void {
+		this.registry = registry;
 	}
 
 	/** Selects the Deploy Template (`undefined`: no Deploy). Validation rejects an id that is not a Valid Template. */
