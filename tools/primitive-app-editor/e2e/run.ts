@@ -6,7 +6,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync, appendFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -18,10 +18,15 @@ const outDir = join(work, 'app');
 const project = 'paee2e';
 const PASSWORD = 'e2e-password-not-secret';
 const results: { name: string; ok: boolean }[] = [];
+/** Opt-in diagnostics directory (PAE_E2E_LOG_DIR): step output and docker logs are written here before teardown. */
+const logDir = process.env.PAE_E2E_LOG_DIR ? resolve(process.env.PAE_E2E_LOG_DIR) : '';
+if (logDir) { mkdirSync(logDir, { recursive: true }); }
 
 function step(name: string, ok: boolean, detail = '') {
 	results.push({ name, ok });
-	console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? ` - ${detail}` : ''}`);
+	const line = `${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? ` - ${detail}` : ''}`;
+	console.log(line);
+	if (logDir) { appendFileSync(join(logDir, 'steps.log'), `${line}\n`); }
 	if (!ok) { throw new Error(`E2E step failed: ${name}`); }
 }
 
@@ -60,7 +65,20 @@ async function api(path: string, init?: RequestInit): Promise<{ status: number; 
 
 const json = (method: string, body: unknown) => ({ method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
 
+/** Capture `compose ps -a` and logs of all services (including build output of a failed step) before teardown. */
+function captureDiagnostics(composeFile: string, error: string, buildOutput: string) {
+	if (!logDir) { return; }
+	const write = (name: string, r: { stdout?: string | null; stderr?: string | null }) => writeFileSync(join(logDir, name), `${r.stdout ?? ''}${r.stderr ?? ''}`);
+	writeFileSync(join(logDir, 'error.log'), error);
+	if (buildOutput) { writeFileSync(join(logDir, 'compose-build.log'), buildOutput); }
+	if (composeFile) {
+		write('compose-ps.log', compose(composeFile, 'ps', '-a'));
+		write('compose-logs.log', compose(composeFile, 'logs', '--no-color', '--timestamps'));
+	}
+}
+
 let composeFile = '';
+let buildOutput = '';
 try {
 	// 1. Build Validation -> Application Output; 2. Dockerfile / Compose scaffold (never overwrites).
 	const tsc = run(join(root, 'node_modules/.bin/tsc'), ['--outDir', jsOut, '--rootDir', root, '--module', 'esnext', '--target', 'es2022', '--moduleResolution', 'bundler', '--skipLibCheck', '--noEmitOnError', 'false', '--experimentalDecorators', '--types', 'node', join(root, 'tools/primitive-app-editor/e2e/fixture.ts')]);
@@ -87,6 +105,7 @@ try {
 	// 4. Explicit build / up -d by the harness (the Editor never runs them).
 	for (const image of ['postgres:16.4', 'node:20.15-alpine']) { ensureImage(image); }
 	const build = compose(composeFile, 'build');
+	buildOutput = `${build.stdout ?? ''}${build.stderr ?? ''}`;
 	step('docker compose build succeeds', build.status === 0, build.status === 0 ? '' : (build.stderr ?? '').slice(-800));
 	const up = compose(composeFile, 'up', '-d');
 	step('docker compose up -d succeeds', up.status === 0, up.status === 0 ? '' : (up.stderr ?? '').slice(-800));
@@ -125,6 +144,7 @@ try {
 	console.log(`\nE2E OK: ${results.length} checks passed`);
 } catch (error: any) {
 	console.error(String(error?.stack ?? error));
+	captureDiagnostics(composeFile, String(error?.stack ?? error), buildOutput);
 	process.exitCode = 1;
 } finally {
 	if (composeFile) { compose(composeFile, 'down', '-v', '--remove-orphans'); }
