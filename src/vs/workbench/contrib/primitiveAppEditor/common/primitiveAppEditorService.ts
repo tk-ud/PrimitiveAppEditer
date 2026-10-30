@@ -5,9 +5,9 @@
 
 import { Event } from '../../../../base/common/event.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
-import { IBuildExportPlanFile } from './buildExportConfiguration.js';
+import { IBuildExportPlanFile, IDeploySelection } from './buildExportConfiguration.js';
 import { IBuildAuthoringData } from './buildValidation.js';
-import { IDeployTemplateRegistry } from './deployProjection.js';
+import { DeployHost, IDeployTemplateRegistry } from './deployProjection.js';
 import { DeployTemplateService } from './deployTemplateService.js';
 import { IDynamicResolveContext } from './dynamicResolve.js';
 import { IFunctionExecutorCatalog } from './functionRegistry.js';
@@ -55,8 +55,10 @@ export interface IPrimitiveAppEditorService {
 	readonly onDidChangeDeployTemplates: Event<void>;
 
 	/** The Template id the Build / Export Configuration Selection currently references (for the delete confirmation and the Inspector). */
-	setBuildDeploySelection(templateId: string | undefined): void;
+	setBuildDeploySelection(templateId: string | undefined, host?: DeployHost): void;
 	getBuildDeploySelection(): string | undefined;
+	/** The full Selection (`template_id` / `host`) held for the open Project's lifetime; the Surface Model restores from it. */
+	getBuildDeploySelectionState(): IDeploySelection;
 
 	/**
 	 * Saves the Deploy Template Editor draft through the Deploy Template Service: a new Template for the `new`

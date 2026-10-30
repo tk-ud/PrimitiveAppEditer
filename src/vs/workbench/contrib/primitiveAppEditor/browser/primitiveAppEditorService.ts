@@ -17,10 +17,10 @@ import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
 import { IAsset } from '../common/assetRegistry.js';
-import { createExecutorProgramResolver, IBuildExportPlanFile, listDeployTemplates } from '../common/buildExportConfiguration.js';
+import { createExecutorProgramResolver, DeploySelectionHolder, IBuildExportPlanFile, IDeploySelection, listDeployTemplates } from '../common/buildExportConfiguration.js';
 import { writeBuildExport } from '../common/buildExportWriter.js';
 import { IBuildAuthoringData, IBuildRawDataTable, normalizeWorkingDirectoryPath } from '../common/buildValidation.js';
-import { DeployTemplateOrigin, DeployValidationError, IDeployTemplateRegistry } from '../common/deployProjection.js';
+import { DeployHost, DeployTemplateOrigin, DeployValidationError, IDeployTemplateRegistry } from '../common/deployProjection.js';
 import { DeployTemplateService, NEW_DEPLOY_TEMPLATE_TAB, findDeployTemplateTabEntry, deployTemplateTabUuid } from '../common/deployTemplateService.js';
 import { DataEditorTarget } from '../common/dataEditor.js';
 import { IDynamicResolveContext } from '../common/dynamicResolve.js';
@@ -57,7 +57,7 @@ export class PrimitiveAppEditorService extends Disposable implements IPrimitiveA
 	readonly deployTemplates: DeployTemplateService;
 	private readonly _onDidChangeDeployTemplates = this._register(new Emitter<void>());
 	readonly onDidChangeDeployTemplates: Event<void> = this._onDidChangeDeployTemplates.event;
-	private buildDeploySelection: string | undefined;
+	private readonly buildDeploySelection = new DeploySelectionHolder();
 	private functionBindings: readonly IFunctionBindingEntry[] = [];
 	private generation = 0;
 
@@ -73,7 +73,7 @@ export class PrimitiveAppEditorService extends Disposable implements IPrimitiveA
 	) {
 		super();
 		const store = new DeployTemplateFileStore(fileService, joinPath(userDataProfilesService.defaultProfile.globalStorageHome, 'primitive-app-editor', 'deploy-templates'));
-		this.deployTemplates = new DeployTemplateService(store, id => id === this.buildDeploySelection);
+		this.deployTemplates = new DeployTemplateService(store, id => this.buildDeploySelection.isReferenced(id));
 		this._register({ dispose: this.deployTemplates.onDidChange(() => { this._onDidChangeDeployTemplates.fire(); this._onDidChangeProject.fire(); }) });
 		this.deployTemplates.load().catch(error => this.output.append(BottomPanelView.Diagnostics, error instanceof Error ? error.message : String(error), BottomPanelSeverity.Error));
 		this.session = new ProjectOpenSession(fileService, databaseFactory, editorDdlResources, this.executorCatalog);
@@ -86,6 +86,7 @@ export class PrimitiveAppEditorService extends Disposable implements IPrimitiveA
 		// Project switch / Close: drop the previous Project's Selection and Editor Area tabs (no stale state is shown).
 		if (this.views.applyProjectState(state.state === ProjectOpenState.Ready, state.root?.toString())) {
 			this.closeProjectEditors();
+			this.buildDeploySelection.reset();
 		}
 		this.output.clear();
 		this.functionBindings = [];
@@ -152,12 +153,16 @@ export class PrimitiveAppEditorService extends Disposable implements IPrimitiveA
 		return this.deployTemplates.registry;
 	}
 
-	setBuildDeploySelection(templateId: string | undefined): void {
-		this.buildDeploySelection = templateId;
+	setBuildDeploySelection(templateId: string | undefined, host: DeployHost = this.buildDeploySelection.get().host): void {
+		this.buildDeploySelection.set({ templateId, host });
 	}
 
 	getBuildDeploySelection(): string | undefined {
-		return this.buildDeploySelection;
+		return this.buildDeploySelection.get().templateId;
+	}
+
+	getBuildDeploySelectionState(): IDeploySelection {
+		return this.buildDeploySelection.get();
 	}
 
 	private reportDeployTemplateError(error: unknown): void {
@@ -211,7 +216,7 @@ export class PrimitiveAppEditorService extends Disposable implements IPrimitiveA
 	}
 
 	async deleteDeployTemplate(templateId: string): Promise<boolean> {
-		const referenced = templateId === this.buildDeploySelection;
+		const referenced = this.buildDeploySelection.isReferenced(templateId);
 		const result = await this.dialogService.confirm({
 			message: localize('primitiveAppEditor.deployTemplate.deleteMessage', "Delete the Deploy Template '{0}'?", templateId),
 			detail: referenced

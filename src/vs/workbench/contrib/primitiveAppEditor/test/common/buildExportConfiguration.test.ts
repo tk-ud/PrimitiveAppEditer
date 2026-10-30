@@ -12,7 +12,7 @@ import { createFunctionRegistryEntry } from '../../common/functionRegistry.js';
 import { LogicalNamespace } from '../../common/projectSqlite.js';
 import { createRendererBindingEntry, createRendererRegistryEntry } from '../../common/rendererRegistry.js';
 import { createTableRegistryEntry, TableColumnKind } from '../../common/tableRegistry.js';
-import { BuildExportConfigurationModel, BuildItemState, checklistSurfaceNodes, IBuildSurfaceNode, targetSurfaceNodes, createDeployTemplateInspectorView, createExecutorProgramResolver, IBuildExportPlanFile, listDeployTemplates } from '../../common/buildExportConfiguration.js';
+import { BuildExportConfigurationModel, DeploySelectionHolder, BuildItemState, checklistSurfaceNodes, IBuildSurfaceNode, targetSurfaceNodes, createDeployTemplateInspectorView, createExecutorProgramResolver, IBuildExportPlanFile, listDeployTemplates } from '../../common/buildExportConfiguration.js';
 import { BottomPanelOutput, BottomPanelSeverity, BottomPanelView, WorkbenchViewsModel } from '../../common/workbenchViews.js';
 import { writeBuildExport, IBuildExportFileSystem } from '../../common/buildExportWriter.js';
 import { BUILTIN_DEPLOY_TEMPLATE_DOCUMENT, BUILTIN_DEPLOY_TEMPLATE_ID, createDeployTemplateRegistry, DeployHost, DeployTemplateOrigin } from '../../common/deployProjection.js';
@@ -198,6 +198,43 @@ class FakeFileSystem implements IBuildExportFileSystem {
 	async exists(path: string): Promise<boolean> { return this.files.has(path); }
 	async write(path: string, content: string): Promise<void> { this.files.set(path, content); this.writes.push(path); }
 }
+
+suite('Primitive App Editor - Deploy Selection lifecycle', () => {
+
+	ensureNoDisposablesAreLeakedInTestSuite();
+
+	const registry = () => createDeployTemplateRegistry([]);
+
+	test('a Model created after the Build tab is reopened restores the Service Selection', () => {
+		const holder = new DeploySelectionHolder();
+		const first = new BuildExportConfigurationModel(authoring(), registry(), undefined, holder.get());
+		first.selectTemplate(BUILTIN_DEPLOY_TEMPLATE_ID);
+		first.selectHost(DeployHost.Linux);
+		holder.set({ templateId: first.templateId, host: first.host });
+		const reopened = new BuildExportConfigurationModel(authoring(), registry(), undefined, holder.get());
+		assert.strictEqual(reopened.templateId, holder.get().templateId);
+		assert.strictEqual(reopened.host, holder.get().host);
+	});
+
+	test('Project switch / Close resets the Selection to not selected', () => {
+		const holder = new DeploySelectionHolder();
+		holder.set({ templateId: BUILTIN_DEPLOY_TEMPLATE_ID, host: DeployHost.Linux });
+		holder.reset();
+		assert.strictEqual(holder.get().templateId, undefined);
+		assert.strictEqual(new BuildExportConfigurationModel(authoring(), registry(), undefined, holder.get()).templateId, undefined);
+	});
+
+	test('Referenced by Selection is Yes only when the Service Selection equals the Template id', () => {
+		const holder = new DeploySelectionHolder();
+		const reg = registry();
+		const view = (id: string) => createDeployTemplateInspectorView(reg, id, holder.isReferenced(id));
+		assert.strictEqual(holder.isReferenced(BUILTIN_DEPLOY_TEMPLATE_ID), false);
+		holder.set({ templateId: BUILTIN_DEPLOY_TEMPLATE_ID, host: DeployHost.Linux });
+		assert.strictEqual(holder.isReferenced(BUILTIN_DEPLOY_TEMPLATE_ID), true);
+		assert.strictEqual(holder.isReferenced('other-template'), false);
+		assert.ok(view(BUILTIN_DEPLOY_TEMPLATE_ID));
+	});
+});
 
 suite('Primitive App Editor - Build / Export writer', () => {
 	ensureNoDisposablesAreLeakedInTestSuite();
