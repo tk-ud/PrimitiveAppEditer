@@ -22,7 +22,7 @@ import { ProjectOpenState } from '../common/projectOpenSession.js';
 import { createDeployTemplateInspectorView } from '../common/buildExportConfiguration.js';
 import { RegistryDrivenInspector, isInspectorEmpty } from '../common/inspector.js';
 import { DataEditorSelection } from '../common/dataEditor.js';
-import { ActivityBarItem, BottomPanelView, createSideBarTree, GenerationGuard, ISideBarNode } from '../common/workbenchViews.js';
+import { ActivityBarItem, BottomPanelView, createSideBarTree, DeployTemplateAction, GenerationGuard, ISideBarNode } from '../common/workbenchViews.js';
 import { Resolver } from '../common/resolver.js';
 
 abstract class PrimitiveAppEditorViewPane extends ViewPane {
@@ -128,6 +128,18 @@ export class PrimitiveAppEditorSideBarView extends PrimitiveAppEditorViewPane {
 			if (!isGroup) {
 				button.addEventListener('click', () => { void this.appEditor.activate(node); });
 			}
+			if (node.deployTemplateId !== undefined && node.deployTemplateActions && node.deployTemplateActions.length > 0) {
+				const templateId = node.deployTemplateId;
+				const actions = append(row, $('span.pae-actions', { 'data-pae-marker': 'sidebar.deploy-template.actions' }));
+				for (const action of node.deployTemplateActions) {
+					const label = action === DeployTemplateAction.Duplicate ? localize('primitiveAppEditor.sideBar.duplicate', "Duplicate") : localize('primitiveAppEditor.sideBar.delete', "Delete");
+					const actionButton = append(actions, $('button.pae-action', { type: 'button', 'data-pae-marker': `sidebar.deploy-template.${action}`, 'data-pae-item': templateId, title: label }, label));
+					actionButton.addEventListener('click', () => {
+						const done = action === DeployTemplateAction.Duplicate ? this.appEditor.duplicateDeployTemplate(templateId) : this.appEditor.deleteDeployTemplate(templateId);
+						done.catch(() => { /* reported to the Bottom Panel Diagnostics */ });
+					});
+				}
+			}
 			if (node.children.length > 0) {
 				this.renderNodes(append(row, $('.pae-children')), node.children);
 			}
@@ -230,6 +242,7 @@ export class PrimitiveAppEditorInspectorView extends PrimitiveAppEditorViewPane 
 		this._register(this.appEditor.onDidChangeProject(() => this.refresh()));
 		this._register({ dispose: this.appEditor.views.selection.onDidChange(() => this.refresh()) });
 		this._register({ dispose: this.appEditor.views.deployTemplateSelection.onDidChange(() => this.refresh()) });
+		this._register(this.appEditor.onDidChangeDeployTemplates(() => this.refresh()));
 	}
 
 	private readonly renderGuard = new GenerationGuard();
@@ -255,7 +268,7 @@ export class PrimitiveAppEditorInspectorView extends PrimitiveAppEditorViewPane 
 	private async renderInspector(generation: number): Promise<void> {
 		const container = this.container;
 		const templateId = this.appEditor.views.deployTemplateSelection.selection;
-		const templateView = templateId !== undefined ? createDeployTemplateInspectorView(this.appEditor.getDeployTemplateRegistry(), templateId) : undefined;
+		const templateView = templateId !== undefined ? createDeployTemplateInspectorView(this.appEditor.getDeployTemplateRegistry(), templateId, templateId === this.appEditor.getBuildDeploySelection()) : undefined;
 		if (container && templateView) {
 			clearNode(container);
 			append(container, $('h3', { 'data-pae-marker': 'inspector.header' }, templateView.header));

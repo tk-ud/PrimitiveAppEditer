@@ -13,6 +13,7 @@ import {
 } from './dataEditor.js';
 import { DynamicSurface, IDynamicSelection } from './dynamicResolve.js';
 import { buildExportTabUuid, IDeployTemplateListing } from './buildExportConfiguration.js';
+import { deployTemplateTabUuid, NEW_DEPLOY_TEMPLATE_TAB } from './deployTemplateService.js';
 import { debugViewerTabUuid } from './debugViewer.js';
 import { DeployTemplateOrigin } from './deployProjection.js';
 import { functionGraphTabUuid } from './functionGraph.js';
@@ -109,11 +110,13 @@ export const enum EditorTabKind {
 	AssetEditor = 'asset_editor',
 	DebugViewer = 'debug_viewer',
 	BuildExport = 'build_export',
+	DeployTemplateEditor = 'deploy_template_editor',
 }
 
 export const editorTabKinds: readonly EditorTabKind[] = Object.freeze([
 	EditorTabKind.CodeEditor, EditorTabKind.RegistryEditor, EditorTabKind.DataEditor, EditorTabKind.FunctionGraph,
 	EditorTabKind.RendererEditor, EditorTabKind.AssetEditor, EditorTabKind.DebugViewer, EditorTabKind.BuildExport,
+	EditorTabKind.DeployTemplateEditor,
 ]);
 
 /**
@@ -133,6 +136,7 @@ export function editorTabKindOf(target: DataEditorTarget): EditorTabKind {
 		case DataEditorTarget.RendererEditor: return EditorTabKind.RendererEditor;
 		case DataEditorTarget.AssetEditor: return EditorTabKind.AssetEditor;
 		case DataEditorTarget.BuildExport: return EditorTabKind.BuildExport;
+		case DataEditorTarget.DeployTemplateEditor: return EditorTabKind.DeployTemplateEditor;
 	}
 }
 
@@ -262,8 +266,15 @@ export interface ISideBarNode {
 	readonly selection?: IDynamicSelection;
 	/** Selecting the node writes this Deploy Template id to the Deploy Template selection the Inspector shows. */
 	readonly deployTemplateId?: string;
+	/** Row actions of a Deploy Template node (Duplicate any Valid Template; Delete a user Template). */
+	readonly deployTemplateActions?: readonly DeployTemplateAction[];
 	readonly open?: SideBarOpen;
 	readonly children: readonly ISideBarNode[];
+}
+
+export const enum DeployTemplateAction {
+	Duplicate = 'duplicate',
+	Delete = 'delete',
 }
 
 /** The snapshot the Side Bar lists. Read-only. */
@@ -423,8 +434,12 @@ export function createSideBarTree(item: ActivityBarItem, context: ISideBarContex
 				group('build:templates', localize('primitiveAppEditor.sideBar.deployTemplates', "Deploy Templates"), (context.deployTemplates ?? []).map(entry => node(`build-template:${entry.origin}:${entry.id}`, entry.label, {
 					description: entry.valid ? deployTemplateOriginLabel(entry.origin) : localize('primitiveAppEditor.sideBar.deployTemplateInvalid', "Invalid"),
 					deployTemplateId: entry.id,
-					open: tab(DataEditorTarget.BuildExport, buildExportTabUuid),
-				}))),
+					deployTemplateActions: Object.freeze([
+						...entry.valid ? [DeployTemplateAction.Duplicate] : [],
+						...entry.origin === DeployTemplateOrigin.User ? [DeployTemplateAction.Delete] : [],
+					]),
+					open: tab(DataEditorTarget.DeployTemplateEditor, deployTemplateTabUuid(entry.origin, entry.id)),
+				})).concat([node('build:new-template', localize('primitiveAppEditor.sideBar.newDeployTemplate', "New Deploy Template"), { open: tab(DataEditorTarget.DeployTemplateEditor, NEW_DEPLOY_TEMPLATE_TAB) })])),
 				node('build:log', localize('primitiveAppEditor.sideBar.buildLog', "Build Log"), { open: Object.freeze({ kind: 'panel', view: BottomPanelView.BuildLog }) }),
 			]);
 	}

@@ -444,7 +444,8 @@ export interface IDeployTemplateRegistry {
 	selectable(): readonly IDeployTemplate[];
 }
 
-function readId(text: string): string | undefined {
+/** The `id` of a Template document without validating it (to name an Invalid document); `undefined` when none can be read. */
+export function readDeployTemplateDocumentId(text: string): string | undefined {
 	return /^\s{2}id:\s*"?([a-z][a-z0-9-]{0,62})"?\s*(#.*)?$/m.exec(text)?.[1];
 }
 
@@ -465,7 +466,7 @@ export function createDeployTemplateRegistry(userDocuments: readonly IUserDeploy
 			taken.add(template.id);
 			entries.push(Object.freeze({ id: template.id, origin, valid: true, template }));
 		} catch (error) {
-			entries.push(Object.freeze({ id: readId(text) ?? source, origin, valid: false, diagnostic: error instanceof Error ? error.message : String(error) }));
+			entries.push(Object.freeze({ id: readDeployTemplateDocumentId(text) ?? source, origin, valid: false, diagnostic: error instanceof Error ? error.message : String(error) }));
 		}
 	};
 	add(DeployTemplateOrigin.Builtin, BUILTIN_DEPLOY_TEMPLATE_ID, BUILTIN_DEPLOY_TEMPLATE_DOCUMENT);

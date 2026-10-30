@@ -22,6 +22,7 @@ export function editorTabTitle(kind: EditorTabKind): string {
 		case EditorTabKind.AssetEditor: return localize('primitiveAppEditor.tab.asset', "Asset Editor");
 		case EditorTabKind.DebugViewer: return localize('primitiveAppEditor.tab.debugViewer', "Debug Viewer");
 		case EditorTabKind.BuildExport: return localize('primitiveAppEditor.tab.buildExport', "Build / Export Configuration");
+		case EditorTabKind.DeployTemplateEditor: return localize('primitiveAppEditor.tab.deployTemplate', "Deploy Template");
 	}
 }
 
@@ -35,6 +36,7 @@ function editorTabIcon(kind: EditorTabKind): ThemeIcon {
 		case EditorTabKind.AssetEditor: return Codicon.fileMedia;
 		case EditorTabKind.DebugViewer: return Codicon.debugAlt;
 		case EditorTabKind.BuildExport: return Codicon.package;
+		case EditorTabKind.DeployTemplateEditor: return Codicon.fileCode;
 	}
 }
 
