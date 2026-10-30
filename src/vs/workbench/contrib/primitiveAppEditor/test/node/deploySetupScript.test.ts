@@ -7,7 +7,7 @@ import assert from 'assert';
 import { spawnSync } from 'child_process';
 import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
-import { join } from 'path';
+import { join } from '../../../../../base/common/path.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { createDeployScaffold, createDeploySelection, DEPLOY_SETUP_SH_FILE, parseDeployTemplate, BUILTIN_DEPLOY_TEMPLATE_DOCUMENT } from '../../common/deployProjection.js';
 
