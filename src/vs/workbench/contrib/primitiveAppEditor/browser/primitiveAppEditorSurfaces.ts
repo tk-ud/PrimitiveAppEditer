@@ -190,7 +190,7 @@ function mountSurfaceNodes(parent: HTMLElement, nodes: readonly IBuildSurfaceNod
  */
 async function renderBuildExport(parent: HTMLElement, appEditor: IPrimitiveAppEditorService): Promise<void> {
 	const authoring = await appEditor.loadBuildAuthoringData();
-	const model = new BuildExportConfigurationModel(authoring, appEditor.getDeployTemplateRegistry());
+	const model = new BuildExportConfigurationModel(authoring, appEditor.getDeployTemplateRegistry(), undefined, appEditor.getBuildDeploySelectionState());
 	const root = append(parent, $('div', { 'data-pae-marker': 'build.export.configuration' }));
 	let generation = 0;
 
@@ -233,7 +233,7 @@ async function renderBuildExport(parent: HTMLElement, appEditor: IPrimitiveAppEd
 			const option = append(host, $('option', { value }, value)) as HTMLOptionElement;
 			option.selected = value === model.host;
 		}
-		host.addEventListener('change', () => { model.selectHost(host.value as DeployHost); render(); });
+		host.addEventListener('change', () => { model.selectHost(host.value as DeployHost); appEditor.setBuildDeploySelection(model.templateId, model.host); render(); });
 		const choices = model.templateChoices();
 		const select = append(root, $('select', { 'data-pae-marker': 'build.export.template' })) as HTMLSelectElement;
 		append(select, $('option', { value: '' }, localize('primitiveAppEditor.build.noTemplate', "(no Deploy Template)")));
@@ -241,7 +241,7 @@ async function renderBuildExport(parent: HTMLElement, appEditor: IPrimitiveAppEd
 			const option = append(select, $('option', { value: choice.id }, `${choice.label} · ${choice.origin}`)) as HTMLOptionElement;
 			option.selected = choice.selected;
 		}
-		select.addEventListener('change', () => { model.selectTemplate(select.value || undefined); appEditor.setBuildDeploySelection(select.value || undefined); appEditor.views.selectDeployTemplate(select.value || undefined); render(); });
+		select.addEventListener('change', () => { model.selectTemplate(select.value || undefined); appEditor.setBuildDeploySelection(select.value || undefined, model.host); appEditor.views.selectDeployTemplate(select.value || undefined); render(); });
 		const template = model.selectedTemplate();
 		if (template) {
 			definition(root, template.label, [

@@ -268,7 +268,7 @@ export class PrimitiveAppEditorInspectorView extends PrimitiveAppEditorViewPane 
 	private async renderInspector(generation: number): Promise<void> {
 		const container = this.container;
 		const templateId = this.appEditor.views.deployTemplateSelection.selection;
-		const templateView = templateId !== undefined ? createDeployTemplateInspectorView(this.appEditor.getDeployTemplateRegistry(), templateId, templateId === this.appEditor.getBuildDeploySelection()) : undefined;
+		const templateView = templateId !== undefined ? createDeployTemplateInspectorView(this.appEditor.getDeployTemplateRegistry(), templateId, this.appEditor.isBuildDeploySelectionReferenced(templateId)) : undefined;
 		if (container && templateView) {
 			clearNode(container);
 			append(container, $('h3', { 'data-pae-marker': 'inspector.header' }, templateView.header));

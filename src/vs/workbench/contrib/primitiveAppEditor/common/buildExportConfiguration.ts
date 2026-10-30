@@ -264,6 +264,51 @@ function invalid(stage: string | undefined, diagnostics: readonly string[]): IBu
 	});
 }
 
+/** The current Deploy Selection (`template_id` / `host`); `templateId` `undefined` is "not selected". */
+export interface IDeploySelection {
+	readonly templateId: string | undefined;
+	readonly host: DeployHost;
+}
+
+/**
+ * Holder of the Deploy Selection for the lifetime of the open Project (Deploy Configuration 3.3). It is the only
+ * source of "Referenced by Selection"; the Surface Model restores from it and writes changes back.
+ */
+export class DeploySelectionHolder {
+
+	private selection: IDeploySelection = Object.freeze({ templateId: undefined, host: DeployHost.Linux });
+
+	get(): IDeploySelection {
+		return this.selection;
+	}
+
+	set(selection: IDeploySelection): void {
+		this.selection = Object.freeze({ templateId: selection.templateId, host: selection.host });
+	}
+
+	/** Project switch / Close: back to "not selected". */
+	reset(): void {
+		this.set({ templateId: undefined, host: DeployHost.Linux });
+	}
+
+	/**
+	 * Applies a Project Open state change through `views`; a Project switch / Close (views reset) also clears the
+	 * Selection, while a re-Ready of the same Project keeps it. Returns whether the Project state was reset.
+	 */
+	applyProjectState(views: { applyProjectState(ready: boolean, project: string | undefined): boolean }, ready: boolean, project: string | undefined): boolean {
+		const reset = views.applyProjectState(ready, project);
+		if (reset) {
+			this.reset();
+		}
+		return reset;
+	}
+
+	/** True only when the Selection is exactly this Template id. */
+	isReferenced(templateId: string): boolean {
+		return this.selection.templateId === templateId;
+	}
+}
+
 export class BuildExportConfigurationModel {
 
 	buildTarget = POSTGRESQL_WEB_APPLICATION_OUTPUT;
@@ -280,7 +325,11 @@ export class BuildExportConfigurationModel {
 	private readonly scripts: Set<string>;
 	private readonly config: Set<string>;
 
-	constructor(private readonly authoring: IBuildAuthoringData, private registry: IDeployTemplateRegistry, private readonly targets: ReadonlyMap<string, readonly string[]> = buildTargetRuntimeStorageTargets) {
+	constructor(private readonly authoring: IBuildAuthoringData, private registry: IDeployTemplateRegistry, private readonly targets: ReadonlyMap<string, readonly string[]> = buildTargetRuntimeStorageTargets, initialSelection?: IDeploySelection) {
+		if (initialSelection) {
+			this.templateId = initialSelection.templateId;
+			this.host = initialSelection.host;
+		}
 		this.seedInclude = authoring.rawData.length > 0;
 		this.seedTables = new Set(authoring.rawData.map(table => table.table_uuid));
 		this.assets = new Set(authoring.assets.map(asset => asset.uuid));

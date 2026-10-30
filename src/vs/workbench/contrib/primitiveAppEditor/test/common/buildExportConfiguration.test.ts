@@ -12,8 +12,9 @@ import { createFunctionRegistryEntry } from '../../common/functionRegistry.js';
 import { LogicalNamespace } from '../../common/projectSqlite.js';
 import { createRendererBindingEntry, createRendererRegistryEntry } from '../../common/rendererRegistry.js';
 import { createTableRegistryEntry, TableColumnKind } from '../../common/tableRegistry.js';
-import { BuildExportConfigurationModel, BuildItemState, checklistSurfaceNodes, IBuildSurfaceNode, targetSurfaceNodes, createDeployTemplateInspectorView, createExecutorProgramResolver, IBuildExportPlanFile, listDeployTemplates } from '../../common/buildExportConfiguration.js';
+import { BuildExportConfigurationModel, DeploySelectionHolder, BuildItemState, checklistSurfaceNodes, IBuildSurfaceNode, targetSurfaceNodes, createDeployTemplateInspectorView, createExecutorProgramResolver, IBuildExportPlanFile, listDeployTemplates } from '../../common/buildExportConfiguration.js';
 import { BottomPanelOutput, BottomPanelSeverity, BottomPanelView, WorkbenchViewsModel } from '../../common/workbenchViews.js';
+import { DeployTemplateConfirmationRequired, DeployTemplateService, InMemoryDeployTemplateStore, templateBody } from '../../common/deployTemplateService.js';
 import { writeBuildExport, IBuildExportFileSystem } from '../../common/buildExportWriter.js';
 import { BUILTIN_DEPLOY_TEMPLATE_DOCUMENT, BUILTIN_DEPLOY_TEMPLATE_ID, createDeployTemplateRegistry, DeployHost, DeployTemplateOrigin } from '../../common/deployProjection.js';
 
@@ -198,6 +199,69 @@ class FakeFileSystem implements IBuildExportFileSystem {
 	async exists(path: string): Promise<boolean> { return this.files.has(path); }
 	async write(path: string, content: string): Promise<void> { this.files.set(path, content); this.writes.push(path); }
 }
+
+suite('Primitive App Editor - Deploy Selection lifecycle', () => {
+
+	ensureNoDisposablesAreLeakedInTestSuite();
+
+	const registry = () => createDeployTemplateRegistry([]);
+
+	test('a Model created after the Build tab is reopened restores the Service Selection', () => {
+		const holder = new DeploySelectionHolder();
+		const first = new BuildExportConfigurationModel(authoring(), registry(), undefined, holder.get());
+		first.selectTemplate(BUILTIN_DEPLOY_TEMPLATE_ID);
+		first.selectHost(DeployHost.Linux);
+		holder.set({ templateId: first.templateId, host: first.host });
+		const reopened = new BuildExportConfigurationModel(authoring(), registry(), undefined, holder.get());
+		assert.strictEqual(reopened.templateId, holder.get().templateId);
+		assert.strictEqual(reopened.host, holder.get().host);
+	});
+
+	test('applyProjectState clears the Selection on Project switch / Close and keeps it across a re-Ready of the same Project', () => {
+		const holder = new DeploySelectionHolder();
+		const views = new WorkbenchViewsModel();
+		assert.strictEqual(holder.applyProjectState(views, true, 'file:///a'), true);
+		holder.set({ templateId: BUILTIN_DEPLOY_TEMPLATE_ID, host: DeployHost.MacOs });
+		// re-Ready of the same Project: kept
+		assert.strictEqual(holder.applyProjectState(views, true, 'file:///a'), false);
+		assert.strictEqual(holder.get().templateId, BUILTIN_DEPLOY_TEMPLATE_ID);
+		assert.strictEqual(holder.get().host, DeployHost.MacOs);
+		assert.strictEqual(new BuildExportConfigurationModel(authoring(), registry(), undefined, holder.get()).templateId, BUILTIN_DEPLOY_TEMPLATE_ID);
+		// Project switch: reset
+		assert.strictEqual(holder.applyProjectState(views, true, 'file:///b'), true);
+		assert.strictEqual(holder.get().templateId, undefined);
+		// Close: reset
+		holder.set({ templateId: BUILTIN_DEPLOY_TEMPLATE_ID, host: DeployHost.Linux });
+		assert.strictEqual(holder.applyProjectState(views, false, undefined), true);
+		assert.strictEqual(holder.get().templateId, undefined);
+		assert.strictEqual(new BuildExportConfigurationModel(authoring(), registry(), undefined, holder.get()).templateId, undefined);
+	});
+
+	test('Inspector "Referenced by Selection" is Yes only when the Service Selection equals the Template id', () => {
+		const holder = new DeploySelectionHolder();
+		const reg = registry();
+		const referenced = (id: string) => createDeployTemplateInspectorView(reg, id, holder.isReferenced(id))!.rows.at(-1)!;
+		assert.deepStrictEqual(referenced(BUILTIN_DEPLOY_TEMPLATE_ID), ['Referenced by Selection', 'No']);
+		holder.set({ templateId: BUILTIN_DEPLOY_TEMPLATE_ID, host: DeployHost.Linux });
+		assert.strictEqual(referenced(BUILTIN_DEPLOY_TEMPLATE_ID)[1], 'Yes (Build / Export Configuration)');
+		holder.set({ templateId: 'other-template', host: DeployHost.Linux });
+		assert.strictEqual(referenced(BUILTIN_DEPLOY_TEMPLATE_ID)[1], 'No');
+	});
+
+	test('delete confirmation is required only for the Template the Service Selection references', async () => {
+		const holder = new DeploySelectionHolder();
+		const service = new DeployTemplateService(new InMemoryDeployTemplateStore(), id => holder.isReferenced(id));
+		const base = templateBody(service.registry.resolve(BUILTIN_DEPLOY_TEMPLATE_ID)!.template!);
+		await service.create({ ...base, id: 'mine', label: 'Mine' });
+		await service.create({ ...base, id: 'free', label: 'Free' });
+		holder.set({ templateId: 'mine', host: DeployHost.Linux });
+		await assert.rejects(() => service.delete('mine'), DeployTemplateConfirmationRequired);
+		await service.delete('free');
+		holder.reset();
+		await service.delete('mine');
+		assert.deepStrictEqual(service.registry.entries.map(entry => entry.id), [BUILTIN_DEPLOY_TEMPLATE_ID]);
+	});
+});
 
 suite('Primitive App Editor - Build / Export writer', () => {
 	ensureNoDisposablesAreLeakedInTestSuite();
