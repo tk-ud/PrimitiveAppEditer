@@ -1,0 +1,37 @@
+name: Deploy E2E
+
+on:
+  pull_request:
+    paths:
+      - 'tools/primitive-app-editor/e2e/**'
+      - 'src/vs/workbench/contrib/primitiveAppEditor/common/**'
+      - '.github/workflows/deploy-e2e.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-e2e:
+    name: Deploy E2E (Deploy Configuration.md 7.2 steps 1-9)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PAE_E2E_LOG_DIR: ${{ runner.temp }}/pae-e2e-logs
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+      - name: Run Deploy E2E harness
+        run: node --experimental-strip-types tools/primitive-app-editor/e2e/run.ts
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: deploy-e2e-diagnostics
+          path: ${{ runner.temp }}/pae-e2e-logs
+          if-no-files-found: warn
