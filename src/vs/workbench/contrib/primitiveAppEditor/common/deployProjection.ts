@@ -646,7 +646,7 @@ ARCH=$(uname -m 2>/dev/null)
 case "$OS" in
 	Linux) HOST=linux ;;
 	Darwin) HOST=macos ;;
-  *) fail ${DeploySetupExitCode.UnsupportedHost} "unsupported host '$OS'. Use setup.bat on Windows." ;;
+	*) fail ${DeploySetupExitCode.UnsupportedHost} "unsupported host '$OS'. Use setup.bat on Windows." ;;
 esac
 say "setup: host $HOST ($ARCH)"
 
