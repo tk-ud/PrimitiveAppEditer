@@ -2043,8 +2043,8 @@ section:
           - source: "./Deploy Configuration.md"
             role: "implementation"
             sections:
-              - "§3.2 Selection"
-              - "§3.3 Editor共通Template Registry"
+              - "3.2 Selection"
+              - "3.3 Editor共通Template Registry"
           - source: "./Deploy Configuration.md"
             role: "boundary"
             sections:
