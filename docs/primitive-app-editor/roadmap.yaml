@@ -2024,8 +2024,16 @@ section:
           - "build.deploy"
           - "build.deploy-projection"
           - "workbench.views"
-        status: "not started"
-        evidence: []
+        status: "implemented"
+        evidence:
+          - "common/deployTemplateService.ts: DeployTemplateService (create/update/duplicate/delete) validates every Mutation with createDeployTemplate (3.1 Schema, unknown keys/parameters rejected), reserves built-in ids, keeps ids unique, treats built-in as read-only, makes id immutable on update, serializes Mutations, rolls back on store failure, requires confirmation to delete a Template referenced by the Build Selection and never rewrites the Selection"
+          - "common/deployTemplateService.ts: DeployTemplateDraft derives Editor Controls from the Schema only (no parameter Control; provider/dockerfile/compose fixed; supported_hosts/compatible_build_targets multi-select; ports/image/volume/password_env text; capabilities checkboxes); Save is enabled only when the draft validates"
+          - "common/deployTemplateFileStore.ts: persistence concretized as Editor global storage (IUserDataProfilesService.defaultProfile.globalStorageHome/primitive-app-editor/deploy-templates/<id>.yml), written via temp file + move so readers never see a partial document; separate from project.sqlite, Application Registry and project config/"
+          - "browser/primitiveAppEditorService.ts: Service wired with the file store; saveDeployTemplate/duplicateDeployTemplate (quick input id)/deleteDeployTemplate (confirm dialog) report to Bottom Panel Diagnostics; Registry changes refresh Side Bar, Inspector and the open Build / Export Configuration surface"
+          - "browser/primitiveAppEditorSurfaces.ts + workbenchViews.ts: Primary Side Bar Build lists Deploy Templates (builtin/user/Invalid) with New / Duplicate / Delete and opens the Editor Area Deploy Template Editor tab (UUID tab identity derived from origin:id, reused); Editor shows built-in read-only; Inspector shows Referenced by Selection; Build / Export surface selects from builtin + user Valid Templates and a deleted/Invalid referenced Template fails Deploy Validation as Template unresolved"
+          - "Integration fixes (build.deploy / build.deploy-projection consumers): exported readDeployTemplateDocumentId; BuildExportConfigurationModel.updateRegistry; createDeployTemplateInspectorView referencedBySelection row; Build view template nodes now open the Deploy Template Editor tab instead of the Build tab; EditorTabKind/DataEditorTarget gained DeployTemplateEditor"
+          - "Tests: test/common/deployTemplateService.test.ts, deployTemplateFileStore.test.ts (in-memory FS persistence/atomic replace/unsafe names), updated workbenchViews.test.ts and buildExportConfiguration.test.ts; mocha over out/.../test/common/*.test.js: 256 passing; tsc --noEmit shows no primitiveAppEditor errors; eslint on changed files clean; git diff --check clean. test/node suites needing native sqlite were not runnable in this sandbox (npm ci --ignore-scripts)"
+          - "Not verified here: GUI/real-Workbench observation (delegated to UI Map checkpoints per README GUI Verification Cycle); full CI"
         remaining: []
 
 future:
