@@ -14,7 +14,7 @@ import { createRendererBindingEntry, createRendererRegistryEntry } from '../../c
 import { createTableRegistryEntry, TableColumnKind } from '../../common/tableRegistry.js';
 import {
 	BUILTIN_DEPLOY_TEMPLATE_DOCUMENT, BUILTIN_DEPLOY_TEMPLATE_ID, chooseScaffoldFileName, createDeployScaffold, createDeploySelection, createDeployTemplateRegistry,
-	DeployTemplateOrigin, DeployValidationError, parseDeployTemplate, projectDeployScaffold, serializeDeployTemplate, validateDeploy,
+	DeployTemplateOrigin, DeployValidationError, DEPLOY_SETUP_BAT_FILE, DEPLOY_SETUP_SH_FILE, parseDeployTemplate, projectDeployScaffold, serializeDeployTemplate, validateDeploy,
 } from '../../common/deployProjection.js';
 
 const PLAYER = '00000000-0000-4000-8000-0000000000a1';
@@ -265,5 +265,57 @@ suite('Primitive App Editor - Deploy Template Registry, Selection, Docker Scaffo
 		const selection = createDeploySelection({ template_id: template.id, host: 'linux' });
 		const files = ['application.definition.json', '001_init_postgresql.sql'];
 		assert.deepStrictEqual(createDeployScaffold(template, selection, files, []), createDeployScaffold(template, selection, files, []));
+	});
+	suite('Setup Script', () => {
+		const withCapabilities = (assist: boolean) => DOC.replace('    compose: true\n', `    compose: true\n    prerequisites_check: true\n${assist ? '    installer_assistance: true\n' : ''}    setup_script: true\n`);
+		const scaffoldWith = (text: string, existing: readonly string[] = []) => {
+			const template = parseDeployTemplate(text);
+			return createDeployScaffold(template, createDeploySelection({ template_id: template.id, host: 'linux' }), ['application.definition.json', '001_init_postgresql.sql'], existing);
+		};
+
+		test('is not generated unless capabilities.setup_script is true', () => {
+			assert.deepStrictEqual(scaffoldWith(DOC).files.map(file => file.path), ['.env.example', 'api/Dockerfile', 'compose.yml', 'ui/Dockerfile']);
+		});
+
+		test('setup.sh / setup.bat are deterministic and reference the adopted Compose / .env.example names', () => {
+			const first = scaffoldWith(withCapabilities(true), ['compose.yml', '.env.example']);
+			assert.deepStrictEqual(first, scaffoldWith(withCapabilities(true), ['compose.yml', '.env.example']));
+			assert.deepStrictEqual(first.files.map(file => file.path), ['.env-001.example', 'api/Dockerfile', 'compose-001.yml', 'setup.bat', 'setup.sh', 'ui/Dockerfile']);
+			const sh = first.files.find(file => file.path === DEPLOY_SETUP_SH_FILE)!.content;
+			const bat = first.files.find(file => file.path === DEPLOY_SETUP_BAT_FILE)!.content;
+			assert.ok(sh.startsWith('#!/bin/sh\n') && sh.includes(`COMPOSE_FILE='compose-001.yml'`) && sh.includes(`ENV_EXAMPLE='.env-001.example'`));
+			assert.ok(bat.includes('set "COMPOSE_FILE=compose-001.yml"') && bat.includes('set "ENV_EXAMPLE=.env-001.example"'));
+			assert.ok(/\r\n/.test(bat) && !/[^\r]\n/.test(bat), 'setup.bat uses CRLF only');
+		});
+
+		test('setup.bat never expands %VAR% inside a parenthesised block and its messages contain no parentheses', () => {
+			const bat = scaffoldWith(withCapabilities(true)).files.find(file => file.path === DEPLOY_SETUP_BAT_FILE)!.content;
+			const lines = bat.split('\r\n');
+			let depth = 0;
+			for (const line of lines) {
+				const isRem = /^\s*rem\b/i.test(line);
+				const open = !isRem && /\(\s*$/.test(line);
+				if (depth > 0 && !isRem && /^\s*\)/.test(line)) { depth--; }
+				assert.ok(depth === 0 || !/%[A-Za-z_][A-Za-z0-9_]*%/.test(line), `variable expanded inside a block: ${line}`);
+				if (open) { depth++; }
+			}
+			assert.strictEqual(depth, 0, 'parenthesised blocks are balanced');
+			const messages = [...bat.matchAll(/set "MISSING=([^"]*)"/g)].map(match => match[1]);
+			assert.ok(messages.length > 0 && messages.every(message => !/[()]/.test(message)), 'MISSING values contain no parentheses');
+			assert.ok(/:still_missing\r\necho setup: prerequisites are still missing: %MISSING%\r\nexit \/b 2\r\n/.test(bat), 'still-missing path expands MISSING outside a block and exits 2');
+		});
+
+		test('existing setup scripts are never overwritten', () => {
+			const scaffold = scaffoldWith(withCapabilities(false), ['setup.sh', 'setup.bat', 'setup-001.sh']);
+			assert.deepStrictEqual(scaffold.files.filter(file => file.requested.startsWith('setup.')).map(file => file.path), ['setup-001.bat', 'setup-002.sh']);
+		});
+
+		test('install assistance is present only with installer_assistance: true, and contains no secret', () => {
+			const assisted = scaffoldWith(withCapabilities(true)).files.find(file => file.path === 'setup.sh')!.content;
+			const plain = scaffoldWith(withCapabilities(false)).files.find(file => file.path === 'setup.sh')!.content;
+			assert.ok(assisted.includes('INSTALLER_ASSISTANCE=1') && plain.includes('INSTALLER_ASSISTANCE=0'));
+			assert.ok(!/DB_PASSWORD=/.test(assisted), 'no secret value is embedded');
+			assert.ok(assisted.includes('[ -t 0 ] || return 1'), 'non-interactive runs never count as consent');
+		});
 	});
 });
