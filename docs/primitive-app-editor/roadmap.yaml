@@ -1979,14 +1979,8 @@ section:
               - "§9 Decisions"
         depends_on:
           - "build.deploy"
-        status: "implemented"
-        evidence:
-          - "common/deployProjection.ts: createDeployScaffold emits setup.sh (POSIX sh) and setup.bat (CRLF) when Template capabilities.setup_script is true; names chosen via chooseScaffoldFileName (setup-NNN.*) and reference the adopted Compose YAML / .env.example names; consent-gated install assistance (interactive only) only when capabilities.installer_assistance is true; built-in docker-compose-default unchanged (capabilities false)"
-          - "Exit codes: 0 started / 2 prerequisites missing / 3 consent declined or non-interactive / 4 compose up failed / 5 .env missing / 6 unsupported host; .env never created or overwritten, no secret embedded"
-          - "test/common/deployProjection.test.ts: Setup Script suite (capability gating, determinism, adopted names, no overwrite, assistance gating, CRLF)"
-          - "test/node/deploySetupScript.test.ts: runs generated setup.sh with sh and a fake docker (no Docker non-interactive -> non-zero with no changes; .env missing -> 5; start -> 0 with 'compose -f compose-001.yml up -d'; failure -> 4)"
-          - "Manually verified here: generated setup.sh/setup.bat extracted, sh -n syntax-checked, and the same scenarios executed with /usr/bin/sh and a fake docker (exit 2, 3, 5, 0, 4 as expected). NOTE: repo mocha suites were not run locally (node_modules not installed) and setup.bat was not executed (no Windows host)"
-          - "No required integration fix to earlier producer bundles"
+        status: "not started"
+        evidence: []
         remaining: []
 
       - id: "build.deploy-template-registrar"

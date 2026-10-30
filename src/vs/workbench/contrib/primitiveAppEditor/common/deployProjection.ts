@@ -635,83 +635,83 @@ fail() { code=$1; shift; say "setup: $*" >&2; exit "$code"; }
 
 # Explicit consent only: a non-interactive run (stdin is not a TTY) counts as "no".
 confirm() {
-  [ -t 0 ] || return 1
-  printf '%s [y/N] ' "$1"
-  read -r answer || return 1
-  case "$answer" in y|Y|yes|YES|Yes) return 0 ;; *) return 1 ;; esac
+	[ -t 0 ] || return 1
+	printf '%s [y/N] ' "$1"
+	read -r answer || return 1
+	case "$answer" in y|Y|yes|YES|Yes) return 0 ;; *) return 1 ;; esac
 }
 
 OS=$(uname -s 2>/dev/null)
 ARCH=$(uname -m 2>/dev/null)
 case "$OS" in
-  Linux) HOST=linux ;;
-  Darwin) HOST=macos ;;
+	Linux) HOST=linux ;;
+	Darwin) HOST=macos ;;
   *) fail ${DeploySetupExitCode.UnsupportedHost} "unsupported host '$OS'. Use setup.bat on Windows." ;;
 esac
 say "setup: host $HOST ($ARCH)"
 
 docker_state() {
-  command -v docker >/dev/null 2>&1 || { MISSING="the 'docker' command was not found"; return 1; }
-  docker compose version >/dev/null 2>&1 || { MISSING="the Docker Compose plugin ('docker compose') is not available"; return 1; }
-  docker info >/dev/null 2>&1 || { MISSING="the Docker Engine is not running or not reachable by this user"; return 1; }
-  return 0
+	command -v docker >/dev/null 2>&1 || { MISSING="the 'docker' command was not found"; return 1; }
+	docker compose version >/dev/null 2>&1 || { MISSING="the Docker Compose plugin ('docker compose') is not available"; return 1; }
+	docker info >/dev/null 2>&1 || { MISSING="the Docker Engine is not running or not reachable by this user"; return 1; }
+	return 0
 }
 
 print_guidance() {
-  say "setup: prerequisite missing: $MISSING"
-  if [ "$HOST" = linux ]; then
-    say "  Linux: install Docker Engine and the Compose plugin, then start the service."
-    say "    https://docs.docker.com/engine/install/  (needs administrator rights; your user may need the 'docker' group)"
-  else
-    say "  macOS: install Docker Desktop and start it."
-    say "    https://docs.docker.com/desktop/setup/install/mac-install/  (Docker Desktop has its own license terms)"
-  fi
+	say "setup: prerequisite missing: $MISSING"
+	if [ "$HOST" = linux ]; then
+		say "  Linux: install Docker Engine and the Compose plugin, then start the service."
+		say "    https://docs.docker.com/engine/install/  (needs administrator rights; your user may need the 'docker' group)"
+	else
+		say "  macOS: install Docker Desktop and start it."
+		say "    https://docs.docker.com/desktop/setup/install/mac-install/  (Docker Desktop has its own license terms)"
+	fi
 }
 
 install_assist() {
-  if [ "$HOST" = linux ]; then
-    say "setup: install assistance (Docker's official convenience script) would:"
-    say "  1. download https://get.docker.com to a temporary file (network access)"
-    say "  2. run it with sudo (privilege escalation, installs Docker Engine + Compose plugin packages)"
-    confirm "Download the script?" || fail ${DeploySetupExitCode.ConsentDeclined} "consent declined; nothing was changed."
-    TMP_SCRIPT=$(mktemp) || fail ${DeploySetupExitCode.PrerequisitesMissing} "could not create a temporary file."
-    if ! { command -v curl >/dev/null 2>&1 && curl -fsSL https://get.docker.com -o "$TMP_SCRIPT"; }; then
-      rm -f "$TMP_SCRIPT"
-      fail ${DeploySetupExitCode.PrerequisitesMissing} "could not download the install script (curl missing or no network)."
-    fi
-    say "setup: next command: sudo sh $TMP_SCRIPT (review the file first if you like)"
-    confirm "Run it with sudo now?" || { rm -f "$TMP_SCRIPT"; fail ${DeploySetupExitCode.ConsentDeclined} "consent declined; nothing was installed."; }
-    sudo sh "$TMP_SCRIPT"
-    rm -f "$TMP_SCRIPT"
-    if ! docker_state && command -v systemctl >/dev/null 2>&1; then
-      say "setup: next command: sudo systemctl start docker"
-      confirm "Start the Docker service now?" && sudo systemctl start docker
-    fi
-  else
-    if command -v brew >/dev/null 2>&1; then
-      say "setup: next command: brew install --cask docker (installs Docker Desktop; its license terms apply)"
-      confirm "Install Docker Desktop with Homebrew now?" || fail ${DeploySetupExitCode.ConsentDeclined} "consent declined; nothing was changed."
-      brew install --cask docker
-      say "setup: start Docker Desktop once from Applications, then run this script again."
-    else
-      say "setup: Homebrew was not found; install Docker Desktop manually (see above), then run this script again."
-    fi
-  fi
+	if [ "$HOST" = linux ]; then
+		say "setup: install assistance (Docker's official convenience script) would:"
+		say "  1. download https://get.docker.com to a temporary file (network access)"
+		say "  2. run it with sudo (privilege escalation, installs Docker Engine + Compose plugin packages)"
+		confirm "Download the script?" || fail ${DeploySetupExitCode.ConsentDeclined} "consent declined; nothing was changed."
+		TMP_SCRIPT=$(mktemp) || fail ${DeploySetupExitCode.PrerequisitesMissing} "could not create a temporary file."
+		if ! { command -v curl >/dev/null 2>&1 && curl -fsSL https://get.docker.com -o "$TMP_SCRIPT"; }; then
+			rm -f "$TMP_SCRIPT"
+			fail ${DeploySetupExitCode.PrerequisitesMissing} "could not download the install script (curl missing or no network)."
+		fi
+		say "setup: next command: sudo sh $TMP_SCRIPT (review the file first if you like)"
+		confirm "Run it with sudo now?" || { rm -f "$TMP_SCRIPT"; fail ${DeploySetupExitCode.ConsentDeclined} "consent declined; nothing was installed."; }
+		sudo sh "$TMP_SCRIPT"
+		rm -f "$TMP_SCRIPT"
+		if ! docker_state && command -v systemctl >/dev/null 2>&1; then
+			say "setup: next command: sudo systemctl start docker"
+			confirm "Start the Docker service now?" && sudo systemctl start docker
+		fi
+	else
+		if command -v brew >/dev/null 2>&1; then
+			say "setup: next command: brew install --cask docker (installs Docker Desktop; its license terms apply)"
+			confirm "Install Docker Desktop with Homebrew now?" || fail ${DeploySetupExitCode.ConsentDeclined} "consent declined; nothing was changed."
+			brew install --cask docker
+			say "setup: start Docker Desktop once from Applications, then run this script again."
+		else
+			say "setup: Homebrew was not found; install Docker Desktop manually (see above), then run this script again."
+		fi
+	fi
 }
 
 if ! docker_state; then
-  print_guidance
-  if [ "$INSTALLER_ASSISTANCE" = 1 ]; then
-    install_assist
-    docker_state || { print_guidance; fail ${DeploySetupExitCode.PrerequisitesMissing} "prerequisites are still missing (a restart or re-login may be needed); run this script again afterwards."; }
-  else
-    [ -t 0 ] || say "setup: non-interactive run: no consent, nothing was changed."
-    fail ${DeploySetupExitCode.PrerequisitesMissing} "install the prerequisites above and run this script again."
-  fi
+	print_guidance
+	if [ "$INSTALLER_ASSISTANCE" = 1 ]; then
+		install_assist
+		docker_state || { print_guidance; fail ${DeploySetupExitCode.PrerequisitesMissing} "prerequisites are still missing (a restart or re-login may be needed); run this script again afterwards."; }
+	else
+		[ -t 0 ] || say "setup: non-interactive run: no consent, nothing was changed."
+		fail ${DeploySetupExitCode.PrerequisitesMissing} "install the prerequisites above and run this script again."
+	fi
 fi
 
 if [ ! -f .env ]; then
-  fail ${DeploySetupExitCode.EnvMissing} ".env was not found. Copy '$ENV_EXAMPLE' to '.env', set real values, and run this script again. (No secret is generated here.)"
+	fail ${DeploySetupExitCode.EnvMissing} ".env was not found. Copy '$ENV_EXAMPLE' to '.env', set real values, and run this script again. (No secret is generated here.)"
 fi
 
 say "setup: docker compose -f $COMPOSE_FILE up -d"
@@ -757,18 +757,20 @@ echo         ^(package installation; Windows asks for administrator approval via
 call :confirm "Install Docker Desktop with winget now?"
 if errorlevel 1 goto declined
 where winget >nul 2>&1
-if errorlevel 1 (
-  echo setup: winget was not found; install Docker Desktop manually ^(see above^).
-  exit /b ${DeploySetupExitCode.PrerequisitesMissing}
-)
+if errorlevel 1 goto no_winget
 winget install -e --id Docker.DockerDesktop
 echo setup: restart Windows if the installer asks for it, start Docker Desktop, then run this script again.
 call :docker_state
-if errorlevel 1 (
-  echo setup: prerequisites are still missing: %MISSING%
-  exit /b ${DeploySetupExitCode.PrerequisitesMissing}
-)
+if errorlevel 1 goto still_missing
 goto have_docker
+
+:still_missing
+echo setup: prerequisites are still missing: %MISSING%
+exit /b ${DeploySetupExitCode.PrerequisitesMissing}
+
+:no_winget
+echo setup: winget was not found; install Docker Desktop manually ^(see above^).
+exit /b ${DeploySetupExitCode.PrerequisitesMissing}
 
 :no_assist
 echo setup: install the prerequisites above and run this script again.
@@ -779,25 +781,27 @@ echo setup: consent declined or non-interactive run; nothing was changed.
 exit /b ${DeploySetupExitCode.ConsentDeclined}
 
 :have_docker
-if not exist ".env" (
-  echo setup: .env was not found. Copy "%ENV_EXAMPLE%" to ".env", set real values, and run this script again. ^(No secret is generated here.^)
-  exit /b ${DeploySetupExitCode.EnvMissing}
-)
+if exist ".env" goto have_env
+echo setup: .env was not found. Copy "%ENV_EXAMPLE%" to ".env", set real values, and run this script again. ^(No secret is generated here.^)
+exit /b ${DeploySetupExitCode.EnvMissing}
+
+:have_env
 
 echo setup: docker compose -f %COMPOSE_FILE% up -d
 docker compose -f "%COMPOSE_FILE%" up -d
-if errorlevel 1 (
-  echo setup: "docker compose up" failed.
-  exit /b ${DeploySetupExitCode.StartFailed}
-)
+if errorlevel 1 goto start_failed
 echo setup: started.
 exit /b 0
+
+:start_failed
+echo setup: "docker compose up" failed.
+exit /b ${DeploySetupExitCode.StartFailed}
 
 :docker_state
 set "MISSING="
 where docker >nul 2>&1 || set "MISSING=the 'docker' command was not found"
 if defined MISSING exit /b 1
-docker compose version >nul 2>&1 || set "MISSING=the Docker Compose plugin ('docker compose') is not available"
+docker compose version >nul 2>&1 || set "MISSING=the Docker Compose plugin - 'docker compose' - is not available"
 if defined MISSING exit /b 1
 docker info >nul 2>&1 || set "MISSING=the Docker Engine is not running"
 if defined MISSING exit /b 1

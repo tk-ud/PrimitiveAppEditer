@@ -288,6 +288,23 @@ suite('Primitive App Editor - Deploy Template Registry, Selection, Docker Scaffo
 			assert.ok(/\r\n/.test(bat) && !/[^\r]\n/.test(bat), 'setup.bat uses CRLF only');
 		});
 
+		test('setup.bat never expands %VAR% inside a parenthesised block and its messages contain no parentheses', () => {
+			const bat = scaffoldWith(withCapabilities(true)).files.find(file => file.path === DEPLOY_SETUP_BAT_FILE)!.content;
+			const lines = bat.split('\r\n');
+			let depth = 0;
+			for (const line of lines) {
+				const isRem = /^\s*rem\b/i.test(line);
+				const open = !isRem && /\(\s*$/.test(line);
+				if (depth > 0 && !isRem && /^\s*\)/.test(line)) { depth--; }
+				assert.ok(depth === 0 || !/%[A-Za-z_][A-Za-z0-9_]*%/.test(line), `variable expanded inside a block: ${line}`);
+				if (open) { depth++; }
+			}
+			assert.strictEqual(depth, 0, 'parenthesised blocks are balanced');
+			const messages = [...bat.matchAll(/set "MISSING=([^"]*)"/g)].map(match => match[1]);
+			assert.ok(messages.length > 0 && messages.every(message => !/[()]/.test(message)), 'MISSING values contain no parentheses');
+			assert.ok(/:still_missing\r\necho setup: prerequisites are still missing: %MISSING%\r\nexit \/b 2\r\n/.test(bat), 'still-missing path expands MISSING outside a block and exits 2');
+		});
+
 		test('existing setup scripts are never overwritten', () => {
 			const scaffold = scaffoldWith(withCapabilities(false), ['setup.sh', 'setup.bat', 'setup-001.sh']);
 			assert.deepStrictEqual(scaffold.files.filter(file => file.requested.startsWith('setup.')).map(file => file.path), ['setup-001.bat', 'setup-002.sh']);
