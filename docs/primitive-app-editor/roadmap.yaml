@@ -1979,8 +1979,13 @@ section:
               - "§9 Decisions"
         depends_on:
           - "build.deploy"
-        status: "not started"
-        evidence: []
+        status: "implemented"
+        evidence:
+          - "common/deployProjection.ts: createDeployScaffold emits setup.sh (POSIX sh) and setup.bat (CRLF) when Template capabilities.setup_script is true; names via chooseScaffoldFileName and reference the adopted Compose YAML / .env.example names; consent-gated install assistance (interactive only) only when capabilities.installer_assistance is true; built-in docker-compose-default unchanged"
+          - "Exit codes: 0 started / 2 prerequisites missing / 3 consent declined or non-interactive / 4 compose up failed / 5 .env missing / 6 unsupported host; .env never created or overwritten, no secret embedded"
+          - "AUDIT NG B1 fix: setup.bat no longer expands %VAR% inside parenthesised blocks (still_missing / have_env / start_failed / no_winget use goto labels); MISSING messages contain no parentheses; template indentation converted to tabs for hygiene"
+          - "test/common/deployProjection.test.ts: Setup Script suite incl. static contract test (no %VAR% inside blocks, balanced blocks, MISSING without parentheses, :still_missing exits 2); test/node/deploySetupScript.test.ts runs setup.sh with a fake docker"
+          - "NOTE: mocha suites not run locally (no node_modules); only a Python static check of the generated setup.bat block structure was run. setup.bat was not executed on a real Windows host. Rely on CI."
         remaining: []
 
       - id: "build.deploy-template-registrar"
