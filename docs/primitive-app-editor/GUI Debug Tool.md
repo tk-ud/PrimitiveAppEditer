@@ -302,6 +302,7 @@ connection:
   page_selection:
     - "接続したBrowser Contextのpageからworkbench.htmlを表示するWorkbench Windowを選択する"
     - "複数Windowが存在する場合は起動設定 / GUIで対象Windowを明示選択する"
+    - "GUI Mapのpreconditions.windowは、dev起動 (workbench-dev.html) とpackaged build (workbench.html) の両方に一致する値 (例: workbench/workbench) とする"
   code_oss_modification: "不要とする (CDP portは起動引数で有効化する)"
   rejected_alternatives:
     - candidate: "Playwright _electron.launch (test/automationと同方式)"
@@ -322,6 +323,9 @@ connection:
     test/automation/src/playwrightElectron.ts (--enable-smoke-test-driver)
 - Code OSS Workbench PartはDOM idを持つ
     src/vs/workbench/services/layout/browser/layoutService.ts: workbench.parts.*
+- Workbench pageのfile名は起動種別で異なる
+    src/vs/platform/windows/electron-main/windowImpl.ts: workbench${isBuilt ? '' : '-dev'}.html
+    isBuilt = !VSCODE_DEV。scripts/code.* (VSCODE_DEV=1) はworkbench-dev.html、packaged buildはworkbench.html
 ```
 
 ### Unverified
