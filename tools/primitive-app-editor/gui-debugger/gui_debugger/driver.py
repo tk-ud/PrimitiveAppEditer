@@ -8,11 +8,18 @@ css -> justified selector. No image recognition, no coordinates, no positional s
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import urlsplit
 
 from .expectations import normalize_text
 from .runner import ConnectionLost, DriverError
 
 _CONNECTION_HINTS = ("Target closed", "Target page, context or browser has been closed", "Connection closed", "has been disconnected", "Browser has been closed")
+
+
+def _is_workbench_url(url: str) -> bool:
+	# workbench.html (packaged) and workbench-dev.html (scripts/code.*), with or without query / fragment
+	path = urlsplit(url).path
+	return "workbench" in path and path.endswith(".html")
 
 
 def _css_attr(value: str) -> str:
@@ -51,7 +58,7 @@ class PlaywrightDriver:
 
 	def workbench_pages(self) -> list[Any]:
 		pages = [p for ctx in (self._browser.contexts if self._browser else []) for p in ctx.pages]
-		return [p for p in pages if "workbench" in p.url and p.url.endswith((".html", ".html?")) or "workbench.html" in p.url]
+		return [p for p in pages if _is_workbench_url(p.url)]
 
 	def select_window(self, window: str | None) -> Any:
 		pages = self.workbench_pages()

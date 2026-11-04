@@ -174,6 +174,7 @@ class StandInWorkbench(unittest.TestCase):
 		s = self.session()
 		s.driver.page.context.new_page().goto(self.page_path.as_uri() + "?second")
 		self.assertIn("2 Workbench windows", s.driver.check_window(self.WINDOW))
+		self.assertIn("2 Workbench windows", s.driver.check_window("workbench/workbench"))  # the shipped fragment never picks one of several
 		self.assertIsNone(s.driver.check_window("?second"))
 		self.assertTrue(s.driver.page.url.endswith("?second"))
 		self.assertIn("no Workbench window", s.driver.check_window("no-such-window"))
