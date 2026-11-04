@@ -16,7 +16,7 @@ gui_map:
     regression: true
 
   preconditions:
-    window: "workbench.html"
+    window: "workbench/workbench"  # matches workbench.html (packaged) and workbench-dev.html (scripts/code.*)
     locale: "en"
     workspace: "fixture:project-open (disposable Working Directory; open it in the running editor before the run)"
     markers:

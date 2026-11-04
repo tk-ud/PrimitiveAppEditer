@@ -46,14 +46,19 @@ def free_port():
 
 @unittest.skipUnless(HAVE_PLAYWRIGHT and CHROMIUM, "Python Playwright and a Chromium binary are required")
 class StandInWorkbench(unittest.TestCase):
+	# Packaged builds load workbench/workbench.html; scripts/code.* (VSCODE_DEV) loads workbench/workbench-dev.html.
+	WINDOW = "workbench.html"
+
 	def setUp(self):
 		self.tmp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
 		self.addCleanup(self.tmp.cleanup)
 		tmp = Path(self.tmp.name)
-		(tmp / "workbench.html").write_text(PAGE, encoding="utf-8")
+		self.page_path = tmp / "workbench" / self.WINDOW
+		self.page_path.parent.mkdir()
+		self.page_path.write_text(PAGE, encoding="utf-8")
 		self.port = free_port()
 		self.proc = subprocess.Popen([str(CHROMIUM), "--headless=new", "--no-sandbox", f"--remote-debugging-port={self.port}",
-									  f"--user-data-dir={tmp / 'profile'}", (tmp / "workbench.html").as_uri()],
+									  f"--user-data-dir={tmp / 'profile'}", self.page_path.as_uri()],
 									 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
 		self.addCleanup(self.stop_browser)
 		deadline = time.time() + 20
@@ -81,7 +86,7 @@ class StandInWorkbench(unittest.TestCase):
 		from gui_debugger.driver import PlaywrightDriver
 		cfg = Config(str(Path(self.tmp.name, "roadmap.yaml")), str(self.maps), "127.0.0.1", self.port, str(Path(self.tmp.name, "runs")))
 		driver = PlaywrightDriver("127.0.0.1", self.port)
-		driver.connect("workbench.html")
+		driver.connect(self.WINDOW)
 		self.addCleanup(driver.disconnect)
 		return Session(cfg, driver)
 
@@ -103,7 +108,7 @@ class StandInWorkbench(unittest.TestCase):
 			"gui_map": {
 				"version": 1,
 				"checkpoint": {"id": "cp.stand.dup", "title": "dup", "bundles": ["b.fail"], "condition": {"require": [{"bundle": "b.fail"}]}, "regression": True},
-				"preconditions": {"window": "workbench.html", "markers": ["tree"]},
+				"preconditions": {"window": self.WINDOW, "markers": ["tree"]},
 				"markers": {
 					"tree": {"kind": "marker", "value": "registry.tree"},
 					"add": {"kind": "marker", "value": "registry.tree.add-table"},
@@ -167,8 +172,8 @@ class StandInWorkbench(unittest.TestCase):
 
 	def test_multiple_windows_require_explicit_selection(self):
 		s = self.session()
-		s.driver.page.context.new_page().goto(Path(self.tmp.name, "workbench.html").as_uri() + "?second")
-		self.assertIn("2 Workbench windows", s.driver.check_window("workbench.html"))
+		s.driver.page.context.new_page().goto(self.page_path.as_uri() + "?second")
+		self.assertIn("2 Workbench windows", s.driver.check_window(self.WINDOW))
 		self.assertIsNone(s.driver.check_window("?second"))
 		self.assertTrue(s.driver.page.url.endswith("?second"))
 		self.assertIn("no Workbench window", s.driver.check_window("no-such-window"))
@@ -178,13 +183,18 @@ class StandInWorkbench(unittest.TestCase):
 		s.driver.disconnect()
 		with self.assertRaises(ConnectionLost):
 			s.driver.check_window(None)
-		s.driver.connect("workbench.html")
-		self.assertIsNone(s.driver.check_window("workbench.html"))
+		s.driver.connect(self.WINDOW)
+		self.assertIsNone(s.driver.check_window(self.WINDOW))
 
 	def test_non_local_cdp_host_rejected(self):
 		from gui_debugger.driver import PlaywrightDriver
 		with self.assertRaises(ValueError):
 			PlaywrightDriver("0.0.0.0", 9222)
+
+
+class StandInDevWorkbench(StandInWorkbench):
+	"""Same contract on the page the designed launch (scripts/code.sh) loads."""
+	WINDOW = "workbench-dev.html"
 
 
 if __name__ == "__main__":
