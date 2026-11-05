@@ -115,7 +115,10 @@ class WriteProtocol(unittest.TestCase):
 		self.assertEqual(before["section"], after["section"])
 		self.assertEqual(before["roadmap"], after["roadmap"])
 		self.assertEqual(before["future"], after["future"])
-		self.assertEqual(len(after["diagnostics"]["gui_debug"]["records"]), 1)
+		# The real roadmap may already carry records written by GUI Debug Tool runs: they are kept and one is appended.
+		existing = before["diagnostics"]["gui_debug"]["records"]
+		self.assertEqual(after["diagnostics"]["gui_debug"]["records"][:-1], existing)
+		self.assertEqual(len(after["diagnostics"]["gui_debug"]["records"]), len(existing) + 1)
 
 
 NODE_OUT = REPO / "tools/primitive-app-editor/roadmap-mcp/out"
