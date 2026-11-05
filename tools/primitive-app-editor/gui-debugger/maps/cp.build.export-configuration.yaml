@@ -1,0 +1,123 @@
+# Checkpoint: Build / Export Configuration Surface configures and validates a Deploy Template selection
+# (Editor UI.md §13, Deploy Configuration.md §3.2 / §4 UI operation flow 1-5 / §5 Scaffold / §7.1 Validation).
+# Scope: Configure / Validate only. The Build / Export / Scaffold action (flow 6-7) writes into the Working Directory
+# and is not executed by this Checkpoint.
+# Select options are matched by their label under the fixed locale ("<Template label> · <origin>").
+gui_map:
+  version: 1
+  checkpoint:
+    id: "cp.build.export-configuration"
+    title: "Build / Export Configuration validates the selected Deploy Template"
+    bundles:
+      - "build.deploy"
+      - "build.deploy-template-registrar"
+    condition:
+      require:
+        - { bundle: "build.deploy", status: ["implemented"] }
+        - { bundle: "build.deploy-template-registrar", status: ["implemented"] }
+    regression: true
+
+  preconditions:
+    window: "workbench/workbench"  # matches workbench.html (packaged) and workbench-dev.html (scripts/code.*)
+    locale: "en"
+    workspace: "fixture:empty-project (new empty disposable Working Directory without build/output; open it in the running editor and wait for Project: Ready before the run)"
+    markers:
+      - "sidebar"
+      - "editor"
+
+  markers:
+    sidebar: { kind: "part", value: "workbench.parts.sidebar" }
+    editor: { kind: "part", value: "workbench.parts.editor" }
+    inspector: { kind: "part", value: "workbench.parts.auxiliarybar" }
+
+    view.build: { kind: "view", value: "workbench.view.primitiveAppEditor.build", within: "sidebar" }
+    node.build: { kind: "marker", value: "sidebar.node", within: "view.build" }
+
+    surface: { kind: "marker", value: "build.export.configuration", within: "editor" }
+    build-target: { kind: "marker", value: "build.export.build-target", within: "surface" }
+    runtime-storage-target: { kind: "marker", value: "build.export.runtime-storage-target", within: "surface" }
+    seed: { kind: "marker", value: "build.export.seed", within: "surface" }
+    output-path: { kind: "marker", value: "build.export.output-path", within: "surface" }
+    host: { kind: "marker", value: "build.export.host", within: "surface" }
+    template: { kind: "marker", value: "build.export.template", within: "surface" }
+    validation: { kind: "marker", value: "build.export.validation", within: "surface" }
+    file: { kind: "marker", value: "build.export.file", within: "validation" }
+    start-command: { kind: "marker", value: "build.export.start-command", within: "validation" }
+    action: { kind: "marker", value: "build.export.action", within: "surface" }
+    inspector.template: { kind: "marker", value: "inspector.deploy-template", within: "inspector" }
+
+  inputs:
+    builtin_template: "Docker Compose (default) · builtin"
+    no_template: "(no Deploy Template)"
+
+  steps:
+    # The view is opened through its View Container command: clicking an already active Activity Bar item would
+    # collapse the Primary Side Bar (Code OSS toggle convention) depending on what the previous Checkpoint left open.
+    - id: "s01"
+      title: "Open the Build view"
+      action: "command"
+      value: "View: Show Build"
+      expect:
+        - { assert: "visible", target: "view.build" }
+    - id: "s02"
+      title: "Build / Export Configuration opens in the Editor Area with its Controls"
+      action: "click"
+      target: "node.build"
+      item: { text: "Build / Export Configuration" }
+      expect:
+        - { assert: "visible", target: "surface" }
+        - { assert: "text_equals", target: "build-target", value: "PostgreSQL Web Application Output" }
+        - { assert: "text_equals", target: "runtime-storage-target", value: "ASP.NET Core API + Next.js UI / PostgreSQL" }
+        - { assert: "visible", target: "seed" }
+        - { assert: "visible", target: "output-path" }
+        - { assert: "visible", target: "host" }
+        - { assert: "visible", target: "template" }
+        - { assert: "visible", target: "action" }
+      report:
+        summary: "Build / Export Configuration Surface is incomplete"
+        category: "build-configuration"
+        suspected_bundles: ["build.deploy"]
+    - id: "s03"
+      title: "Without a Deploy Template the selection is invalid and the action is disabled"
+      action: "select"
+      target: "template"
+      value: "{{ inputs.no_template }}"
+      expect:
+        - { assert: "attribute", target: "validation", name: "data-pae-state", op: "equals", value: "invalid" }
+        - { assert: "disabled", target: "action" }
+      report:
+        summary: "Missing Deploy Template is not reported by Build Validation"
+        category: "build-validation"
+        suspected_bundles: ["build.deploy"]
+    - id: "s04"
+      title: "The built-in Template validates and shows the Scaffold files and start command"
+      action: "select"
+      target: "template"
+      value: "{{ inputs.builtin_template }}"
+      expect:
+        - { assert: "attribute", target: "validation", name: "data-pae-state", op: "equals", value: "valid" }
+        - { assert: "count", target: "file", item: { text: "compose.yml" }, op: "eq", value: 1 }
+        - { assert: "count", target: "file", item: { text: ".env.example" }, op: "eq", value: 1 }
+        - { assert: "count", target: "file", item: { text: "api/Dockerfile" }, op: "eq", value: 1 }
+        - { assert: "count", target: "file", item: { text: "ui/Dockerfile" }, op: "eq", value: 1 }
+        - { assert: "text_equals", target: "start-command", value: "docker compose -f compose.yml up -d" }
+        - { assert: "enabled", target: "action" }
+      report:
+        summary: "Built-in Deploy Template does not validate in Build / Export Configuration"
+        category: "build-validation"
+        suspected_bundles: ["build.deploy", "build.deploy-template-registrar"]
+    - id: "s05"
+      title: "The Inspector shows the selected Template (Deploy Configuration.md §4)"
+      action: "wait"
+      expect:
+        - { assert: "visible", target: "inspector.template" }
+      report:
+        summary: "Inspector does not show the selected Deploy Template"
+        category: "inspector"
+        suspected_bundles: ["build.deploy-template-registrar", "editor.inspector"]
+
+  report:
+    destination: "roadmap.diagnostics"
+    summary: "Build / Export Configuration check failed"
+    category: "build-configuration"
+    suspected_bundles: ["build.deploy"]

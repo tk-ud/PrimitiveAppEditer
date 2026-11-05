@@ -26,9 +26,9 @@ class WindowSmoke(unittest.TestCase):
 		while time.time() < deadline and win.checkpoints.count() == 0:
 			app.processEvents()
 			time.sleep(0.05)
-		self.assertEqual(win.checkpoints.count(), 1)
-		self.assertIn("cp.workbench.project-open", win.checkpoints.item(0).text())
-		self.assertIn("runnable", win.checkpoints.item(0).text())
+		rows = [win.checkpoints.item(i).text().split(" | ") for i in range(win.checkpoints.count())]
+		shipped = sorted(p.stem for p in (HERE / "maps").glob("*.yaml"))
+		self.assertEqual(sorted((row[0], row[-1]) for row in rows), [(cp, "runnable") for cp in shipped])
 
 
 if __name__ == "__main__":

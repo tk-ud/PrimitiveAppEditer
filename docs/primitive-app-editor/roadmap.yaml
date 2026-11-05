@@ -2081,4 +2081,39 @@ diagnostics:
   gui_debug:
     writer: "Python GUI Debug Tool (tooling.gui-debugger)"
     contract: "./GUI Debug Tool.md §12 Roadmap Diagnostics"
-    records: []
+    records:
+      - "id": "gd-20261105T020531Z-cp.build.export-configuration-s05"
+        "fingerprint": "cp.build.export-configuration|s05|marker_not_found|inspector.template"
+        "state": "open"
+        "checkpoint": "cp.build.export-configuration"
+        "bundles":
+          - "build.deploy"
+          - "build.deploy-template-registrar"
+        "roadmap_status":
+          "build.deploy": "implemented"
+          "build.deploy-template-registrar": "implemented"
+        "step": "s05"
+        "kind": "marker_not_found"
+        "report":
+          "summary": "Inspector does not show the selected Deploy Template"
+          "category": "inspector"
+          "suspected_bundles":
+            - "build.deploy-template-registrar"
+            - "editor.inspector"
+        "measured":
+          "marker": "inspector.template"
+          "locator": "marker:inspector.deploy-template"
+          "expected": "1 match"
+          "actual": "0 matches"
+          "error": "marker 'inspector.template' not found within 5000ms"
+          "target":
+            "repository_commit": "fa297dadbf3e1244484f66f5f5c091cf6622bc7e"
+            "gui_map_digest": "4d2f24c75f39c29c28a16702ca65e9e644457acb"
+            "tool_version": "1.0.0"
+        "artifacts":
+          "run": "run-20261105T020524716485Z"
+          "log": "run.jsonl"
+          "screenshot": "screenshots/cp.build.export-configuration/s05.png"
+        "first_seen": "2026-11-05T02:05:31Z"
+        "last_seen": "2026-11-05T02:05:31Z"
+        "occurrences": 1
