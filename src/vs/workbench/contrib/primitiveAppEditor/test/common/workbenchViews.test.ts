@@ -9,8 +9,8 @@ import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/tes
 import { AssetKind, createAsset } from '../../common/assetRegistry.js';
 import { DataEditorTarget } from '../../common/dataEditor.js';
 import { debugViewerTabUuid } from '../../common/debugViewer.js';
-import { buildExportTabUuid } from '../../common/buildExportConfiguration.js';
-import { DeployTemplateOrigin } from '../../common/deployProjection.js';
+import { buildExportTabUuid, createDeployTemplateInspectorView } from '../../common/buildExportConfiguration.js';
+import { BUILTIN_DEPLOY_TEMPLATE_ID, createDeployTemplateRegistry, DeployTemplateOrigin } from '../../common/deployProjection.js';
 import { deployTemplateTabUuid, NEW_DEPLOY_TEMPLATE_TAB } from '../../common/deployTemplateService.js';
 import { createEnumRegistryEntry } from '../../common/enumRegistry.js';
 import { createFunctionBindingEntry } from '../../common/functionBinding.js';
@@ -22,7 +22,8 @@ import { createTableRegistryEntry, TableColumnKind } from '../../common/tableReg
 import { LogicalNamespace } from '../../common/projectSqlite.js';
 import {
 	activityBarContainerId, ActivityBarItem, activityBarItems, activityBarViewId, bottomPanelViews, BottomPanelOutput, BottomPanelSeverity,
-	BottomPanelView, createSideBarTree, DeployTemplateAction, editorTabKindOf, editorTabKinds, EditorTabKind, GenerationGuard, ISideBarContext, ISideBarNode, WorkbenchViewsModel,
+	BottomPanelView, createSideBarTree, DeployTemplateAction, editorTabKindOf, editorTabKinds, EditorTabKind, GenerationGuard, InspectorRevealer, ISideBarContext, ISideBarNode,
+	subscribeInspectorRevealTriggers, WorkbenchViewsModel,
 } from '../../common/workbenchViews.js';
 
 const ENEMY = '00000000-0000-4000-8000-0000000000a1';
@@ -276,5 +277,100 @@ suite('Primitive App Editor - workbench views', () => {
 		assert.strictEqual(model.applyProjectState(false, undefined), true);
 		assert.strictEqual(model.selection.selection, undefined);
 		assert.ok(seen.includes(undefined));
+	});
+
+	suite('Inspector reveal on Registry Selection and Deploy Template Selection', () => {
+
+		/** Stand-in for the lazy View Container registration and IViewsService.openViewContainer of the Inspector contribution. */
+		function harness() {
+			const model = new WorkbenchViewsModel();
+			const log = { registered: 0, opened: 0, visible: false };
+			const revealer = new InspectorRevealer(
+				() => { log.registered++; },
+				async () => { log.opened++; log.visible = true; },
+			);
+			const reveals: Promise<void>[] = [];
+			const unsubscribe = subscribeInspectorRevealTriggers(model, () => { reveals.push(revealer.reveal()); });
+			return { model, log, revealer, unsubscribe, settle: () => Promise.all(reveals) };
+		}
+
+		test('startup without a Selection does not register the Inspector View Container', async () => {
+			const { log, revealer, unsubscribe, settle } = harness();
+			await settle();
+			assert.strictEqual(revealer.registered, false);
+			assert.deepStrictEqual(log, { registered: 0, opened: 0, visible: false });
+			unsubscribe();
+		});
+
+		test('a valid Deploy Template selection registers the Inspector and opens its View Container', async () => {
+			const { model, log, revealer, unsubscribe, settle } = harness();
+			model.selectDeployTemplate(BUILTIN_DEPLOY_TEMPLATE_ID);
+			await settle();
+			assert.strictEqual(revealer.registered, true);
+			assert.deepStrictEqual(log, { registered: 1, opened: 1, visible: true });
+			// The Build Side Bar Template node path reaches the same trigger through activate().
+			model.activate({ id: 'template', label: 'Docker Compose (default)', children: [], deployTemplateId: BUILTIN_DEPLOY_TEMPLATE_ID });
+			await settle();
+			assert.deepStrictEqual(log, { registered: 1, opened: 2, visible: true });
+			unsubscribe();
+		});
+
+		test('an undefined Template selection (clear, or the exclusive clear by a Registry Selection) does not reveal', async () => {
+			const { model, log, unsubscribe, settle } = harness();
+			model.selectDeployTemplate(undefined);
+			model.deployTemplateSelection.select(undefined);
+			await settle();
+			assert.deepStrictEqual(log, { registered: 0, opened: 0, visible: false });
+			model.selectDeployTemplate(BUILTIN_DEPLOY_TEMPLATE_ID);
+			model.selection.select({ uuid: ENEMY });
+			await settle();
+			// One reveal for the Template, one for the Registry Selection; the exclusive Template clear adds none.
+			assert.strictEqual(log.opened, 2);
+			assert.strictEqual(model.deployTemplateSelection.selection, undefined);
+			unsubscribe();
+		});
+
+		test('the Registry Selection path keeps revealing and an empty Selection does not', async () => {
+			const { model, log, unsubscribe, settle } = harness();
+			model.selection.select(undefined);
+			await settle();
+			assert.strictEqual(log.opened, 0);
+			model.selection.select({ uuid: ENEMY });
+			await settle();
+			assert.deepStrictEqual(log, { registered: 1, opened: 1, visible: true });
+			unsubscribe();
+		});
+
+		test('after the Secondary Side Bar is closed a later Template selection opens the Inspector again', async () => {
+			const { model, log, unsubscribe, settle } = harness();
+			model.selectDeployTemplate(BUILTIN_DEPLOY_TEMPLATE_ID);
+			await settle();
+			log.visible = false;
+			model.selectDeployTemplate(BUILTIN_DEPLOY_TEMPLATE_ID);
+			await settle();
+			assert.deepStrictEqual(log, { registered: 1, opened: 2, visible: true });
+			unsubscribe();
+		});
+
+		test('unsubscribing stops the reveal triggers', async () => {
+			const { model, log, unsubscribe, settle } = harness();
+			unsubscribe();
+			model.selectDeployTemplate(BUILTIN_DEPLOY_TEMPLATE_ID);
+			model.selection.select({ uuid: ENEMY });
+			await settle();
+			assert.strictEqual(log.opened, 0);
+		});
+
+		test('the revealed Inspector renders the supplementary information of the selected Template', async () => {
+			const { model, unsubscribe, settle } = harness();
+			model.selectDeployTemplate(BUILTIN_DEPLOY_TEMPLATE_ID);
+			await settle();
+			// The Inspector View renders these rows under the inspector.deploy-template marker for the current Template selection.
+			const view = createDeployTemplateInspectorView(createDeployTemplateRegistry(), model.deployTemplateSelection.selection!);
+			assert.ok(view);
+			assert.strictEqual(view.valid, true);
+			assert.ok(view.rows.some(row => row[0] === 'Template ID' && row[1] === BUILTIN_DEPLOY_TEMPLATE_ID));
+			unsubscribe();
+		});
 	});
 });

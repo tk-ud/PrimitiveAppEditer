@@ -19,7 +19,8 @@ import { Extensions as ViewContainerExtensions, IViewContainersRegistry, IViewDe
 import { IPrimitiveAppEditorService } from '../common/primitiveAppEditorService.js';
 import {
 	ActivityBarItem, activityBarContainerId, activityBarIcon, activityBarItems, activityBarTitle, activityBarViewId,
-	bottomPanelContainerId, BottomPanelView, bottomPanelTitle, bottomPanelViewId, bottomPanelViews,
+	bottomPanelContainerId, BottomPanelView, bottomPanelTitle, bottomPanelViewId, bottomPanelViews, InspectorRevealer,
+	subscribeInspectorRevealTriggers,
 } from '../common/workbenchViews.js';
 import { PrimitiveAppEditorPane } from './primitiveAppEditorEditor.js';
 import { PrimitiveAppEditorInput } from './primitiveAppEditorEditorInput.js';
@@ -67,57 +68,55 @@ const inspectorContainerId = 'workbench.view.primitiveAppEditor.inspector';
 const inspectorViewId = 'primitiveAppEditor.view.inspector';
 
 /**
- * The Inspector shows the Shared Selection Context, so its View Container joins the Secondary Side Bar on the
- * first Selection and not at startup: any registered Secondary Side Bar container counts as a default view
- * container, which would keep the Secondary Side Bar visible in a Workbench that has nothing to inspect (for
- * example with AI features disabled).
+ * The Inspector shows the Shared Selection Context or the selected Deploy Template, so its View Container joins
+ * the Secondary Side Bar on the first reveal trigger and not at startup: any registered Secondary Side Bar
+ * container counts as a default view container, which would keep the Secondary Side Bar visible in a Workbench
+ * that has nothing to inspect (for example with AI features disabled). The triggers are a Registry Selection and a
+ * Deploy Template Selection (Deploy Configuration.md §4 Inspector Reveal).
  */
 class PrimitiveAppEditorInspectorContribution extends Disposable implements IWorkbenchContribution {
 
 	static readonly ID = 'workbench.contrib.primitiveAppEditorInspector';
 
-	private registered = false;
+	private readonly revealer = new InspectorRevealer(
+		() => this.registerInspector(),
+		() => this.viewsService.openViewContainer(inspectorContainerId, false),
+	);
 
 	constructor(
 		@IPrimitiveAppEditorService private readonly appEditor: IPrimitiveAppEditorService,
 		@IViewsService private readonly viewsService: IViewsService,
 	) {
 		super();
-		this._register({
-			dispose: this.appEditor.views.selection.onDidChange(selection => {
-				if (selection) {
-					void this.reveal();
-				}
-			})
-		});
+		this._register({ dispose: subscribeInspectorRevealTriggers(this.appEditor.views, () => void this.reveal()) });
 	}
 
-	private async reveal(): Promise<void> {
-		if (!this.registered) {
-			this.registered = true;
-			const icon = ThemeIcon.fromId('symbol-property');
-			const title = localize('primitiveAppEditor.inspector.title', "Inspector");
-			const container = viewContainersRegistry.registerViewContainer({
-				id: inspectorContainerId,
-				title: { value: title, original: 'Inspector' },
-				icon,
-				order: 100,
-				ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [inspectorContainerId, { mergeViewWithContainerWhenSingleView: true }]),
-				storageId: `${inspectorContainerId}.state`,
-				hideIfEmpty: false,
-				windowEnablement: WindowEnablement.Editor,
-			}, ViewContainerLocation.AuxiliaryBar);
-			viewsRegistry.registerViews([{
-				id: inspectorViewId,
-				name: { value: title, original: 'Inspector' },
-				containerIcon: icon,
-				ctorDescriptor: new SyncDescriptor(PrimitiveAppEditorInspectorView),
-				canToggleVisibility: false,
-				canMoveView: false,
-				windowEnablement: WindowEnablement.Editor,
-			}], container);
-		}
-		await this.viewsService.openViewContainer(inspectorContainerId, false);
+	private reveal(): Promise<void> {
+		return this.revealer.reveal();
+	}
+
+	private registerInspector(): void {
+		const icon = ThemeIcon.fromId('symbol-property');
+		const title = localize('primitiveAppEditor.inspector.title', "Inspector");
+		const container = viewContainersRegistry.registerViewContainer({
+			id: inspectorContainerId,
+			title: { value: title, original: 'Inspector' },
+			icon,
+			order: 100,
+			ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [inspectorContainerId, { mergeViewWithContainerWhenSingleView: true }]),
+			storageId: `${inspectorContainerId}.state`,
+			hideIfEmpty: false,
+			windowEnablement: WindowEnablement.Editor,
+		}, ViewContainerLocation.AuxiliaryBar);
+		viewsRegistry.registerViews([{
+			id: inspectorViewId,
+			name: { value: title, original: 'Inspector' },
+			containerIcon: icon,
+			ctorDescriptor: new SyncDescriptor(PrimitiveAppEditorInspectorView),
+			canToggleVisibility: false,
+			canMoveView: false,
+			windowEnablement: WindowEnablement.Editor,
+		}], container);
 	}
 }
 
