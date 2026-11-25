@@ -488,6 +488,58 @@ export class DeployTemplateSelection {
 }
 
 /**
+ * Inspector reveal (Deploy Configuration.md section 4 Inspector Reveal). The Inspector View Container is registered in
+ * the Secondary Side Bar lazily, on the first reveal and never at startup (a registered Secondary Side Bar
+ * container is a default container and would keep the Secondary Side Bar visible), and every later trigger opens
+ * it again through the Workbench views service.
+ */
+export class InspectorRevealer {
+
+	private registeredContainer = false;
+
+	constructor(
+		private readonly registerContainer: () => void,
+		private readonly openContainer: () => Promise<unknown>,
+	) { }
+
+	get registered(): boolean {
+		return this.registeredContainer;
+	}
+
+	async reveal(): Promise<void> {
+		if (!this.registeredContainer) {
+			this.registeredContainer = true;
+			this.registerContainer();
+		}
+		await this.openContainer();
+	}
+}
+
+/**
+ * Subscribes the Inspector reveal triggers: a defined Registry Selection (Shared Selection Context) and a defined
+ * Deploy Template Selection template_id. Clearing either (undefined, including the exclusive clear by the other
+ * selection) does not reveal. Every Template selection path (Build / Export Configuration Template select, Build
+ * Side Bar Template node) changes {@link WorkbenchViewsModel.deployTemplateSelection}, so no path reveals on its own.
+ * Returns the unsubscribe function.
+ */
+export function subscribeInspectorRevealTriggers(views: WorkbenchViewsModel, reveal: () => void): () => void {
+	const offSelection = views.selection.onDidChange(selection => {
+		if (selection) {
+			reveal();
+		}
+	});
+	const offTemplate = views.deployTemplateSelection.onDidChange(templateId => {
+		if (templateId !== undefined) {
+			reveal();
+		}
+	});
+	return () => {
+		offSelection();
+		offTemplate();
+	};
+}
+
+/**
  * Generation guard for asynchronous renders that depend on the Selection (Inspector etc.). `begin()` starts a
  * render; a result that arrives after a later `begin()` is no longer `isCurrent` and must be discarded.
  */
