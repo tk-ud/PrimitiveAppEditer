@@ -266,6 +266,48 @@ Bottom Panel
 - Primary Side BarはDiscovery / Navigation / Selectionに留め、Template編集はEditor Areaで行う（`Editor UI.md` §9 / §10 / §13）。
 - Template RegistrarはApplication Registry（`table_registry`等）のUIを流用・拡張して保存先にしない。操作体系（一覧・選択・Inspector・Validation表示）と共通処理機構のみを揃える。
 
+### Inspector Reveal
+
+§4の「Secondary Side Bar / Inspector -> 選択中Templateの補足情報」を、Registry Selectionが一度も行われていない状態（空Projectを含む）でも満たすための、Inspector表示（登録・reveal）条件。GUI Debug Tool diagnostics `gd-20261105T020531Z-cp.build.export-configuration-s05` に対するOwner承認の設計変更である。
+
+```text
+Inspector reveal trigger
+  = Shared Selection Context（Registry Selection）に値が入った        (既存)
+  = Deploy Template Selection（WorkbenchViewsModel.deployTemplateSelection）に
+    undefinedでないtemplate_idが入った                                 (追加)
+
+reveal
+  = 既存の PrimitiveAppEditorInspectorContribution.reveal()
+  = 初回のみInspector View Container / ViewをSecondary Side Barへ登録し、
+    以後もtriggerごとにIViewsService.openViewContainerで表示する
+```
+
+- Template選択の経路（Build / Export Configuration SurfaceのTemplate select、Primary Side Bar / BuildのTemplateノード）は、いずれも`deployTemplateSelection`の変更として上記triggerに含まれる。経路ごとにrevealを呼び出さない。
+- `PrimitiveAppEditorInspectorContribution`は`views.deployTemplateSelection.onDidChange`を購読し、template_idが`undefined`でない場合のみ既存の`reveal()`を呼ぶ。購読解除はcontributionの既存ライフサイクル（Disposable登録）で行う。
+- `undefined`（Template選択の解除、Registry Selectionによる排他的な解除）ではrevealしない。
+- 遅延登録を維持する。起動時にはInspector View Containerを登録しない（Secondary Side Barに登録されたView Containerはdefault containerとなりSecondary Side Barを表示状態に保つため。Chat Disabled smoke testの`.noauxiliarybar`）。
+- Shared Selection ContextとDeploy Template Selectionの排他規則（一方の選択で他方を解除）は変更しない。Template idをShared Selection Contextへ入れない（`Editor UI.md` §4 Registry Driven InspectorのUUID / Registry解決を変更しない）。
+- Template RegistryのAuthority（§3.3）、Inspectorの描画内容（選択中Templateの補足情報・参照中Selection）、Registry Selection経路の挙動は変更しない。
+- Code OSS extension point（`IViewContainersRegistry` / `IViewsRegistry` / `IViewsService`）の利用方法とCode OSS本体は変更しない。
+
+検証（Bundle完了条件は自動テストとevidence。GUI実機結果はREADME GUI Verification Cycleに従いBundle完了条件に含めない）:
+
+```text
+単体 / 統合
+  - 有効なDeploy Template選択で、Inspector View Containerが登録されopenViewContainer(Inspector)が呼ばれる
+  - undefinedのTemplate選択ではrevealしない
+  - 起動直後（Selectionなし）はInspector View Containerを登録しない
+  - Registry Selection経路のrevealを維持する
+  - Inspector登録済みでSecondary Side Barを閉じた後のTemplate選択でも、再度openViewContainerされ再表示される
+  - reveal後のInspectorが選択中Templateの補足情報（inspector.deploy-template）を描画する
+
+smoke
+  - Chat Disabledの .noauxiliarybar smoke testを維持する
+
+GUI回帰（GUI Debug Tool Regression Run。Bundle完了条件ではない）
+  - GUI Map cp.build.export-configuration をs05を含めて再実行する
+```
+
 ## 5. Docker Projection / Scaffold
 
 ```text
@@ -408,6 +450,10 @@ build.deploy-template-registrar (not started)
 build.deploy-selection-lifecycle (not started)
   -> Deploy Selectionの保持主体・寿命（`PrimitiveAppEditorService.buildDeploySelection`、Project寿命）とSurface Model初期値の復元、「参照中」判定の取得元一本化（§3.2 / §3.3）
   -> depends_on build.deploy-template-registrar
+
+build.deploy-inspector-reveal (not started)
+  -> Deploy Template Selectionを契機とするInspector reveal（§4 Inspector Reveal）。遅延登録・Selection排他規則・Template Registry Authorityは変更しない
+  -> depends_on workbench.views, build.deploy
 ```
 
 各Bundleのstatus / evidence / remainingはroadmap.yamlのみで管理し、Tool First（`roadmap.next` / `roadmap.complete`）に従って更新する。本資料はBundleの進捗を持たない。

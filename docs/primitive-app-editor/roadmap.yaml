@@ -2067,6 +2067,36 @@ section:
           - "commit 5d603df1; no Code OSS core change"
         remaining: []
 
+      - id: "build.deploy-inspector-reveal"
+        title: "Inspector reveal on Deploy Template Selection (design change for diagnostics gd-20261105T020531Z-cp.build.export-configuration-s05)"
+        reference:
+          - source: "./Deploy Configuration.md"
+            role: "implementation"
+            sections:
+              - "§4 Inspector Reveal"
+          - source: "./Deploy Configuration.md"
+            role: "boundary"
+            sections:
+              - "§4 Template Registrar"
+              - "3.3 Editor共通Template Registry"
+              - "§9 Decisions"
+          - source: "./Editor UI.md"
+            role: "boundary"
+            sections:
+              - "§3 Workbench Placement"
+              - "§4 Registry Driven Inspector"
+              - "§15 UI Responsibility Boundary"
+          - source: "../../README.md"
+            role: "boundary"
+            sections:
+              - "GUI Verification Cycle"
+        depends_on:
+          - "workbench.views"
+          - "build.deploy"
+        status: "not started"
+        evidence: []
+        remaining: []
+
 future:
   excluded_from_current_loop:
     - title: "Multiplayer"
@@ -2084,7 +2114,10 @@ diagnostics:
     records:
       - "id": "gd-20261105T020531Z-cp.build.export-configuration-s05"
         "fingerprint": "cp.build.export-configuration|s05|marker_not_found|inspector.template"
-        "state": "open"
+        "state": "planned"
+        "resolution":
+          "bundle_ids":
+            - "build.deploy-inspector-reveal"
         "checkpoint": "cp.build.export-configuration"
         "bundles":
           - "build.deploy"
