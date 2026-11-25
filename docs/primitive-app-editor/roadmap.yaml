@@ -2093,8 +2093,15 @@ section:
         depends_on:
           - "workbench.views"
           - "build.deploy"
-        status: "not started"
-        evidence: []
+        status: "implemented"
+        evidence:
+          - "Commit 87ca2076: common/workbenchViews.ts adds InspectorRevealer (registers the Inspector View Container / View once on first reveal, then IViewsService.openViewContainer on every trigger) and subscribeInspectorRevealTriggers (reveals on a defined Shared Selection Context value and on a defined WorkbenchViewsModel.deployTemplateSelection template_id; undefined never reveals)"
+          - "browser/primitiveAppEditorViews.contribution.ts: PrimitiveAppEditorInspectorContribution subscribes both triggers via subscribeInspectorRevealTriggers(appEditor.views, reveal) registered as a Disposable; reveal() delegates to InspectorRevealer; registration remains lazy (no Inspector container at startup), IViewContainersRegistry / IViewsRegistry / IViewsService usage and Code OSS core unchanged"
+          - "Template selection paths (Build / Export Configuration Template select, Build Side Bar Template node via WorkbenchViewsModel.activate) all reach the trigger through deployTemplateSelection; no per-path reveal. Exclusive Selection / Template rule, Template Registry Authority and Inspector rendering unchanged; template id is not written to the Shared Selection Context"
+          - "test/common/workbenchViews.test.ts suite 'Inspector reveal on Registry Selection and Deploy Template Selection' (7 tests): startup registers nothing; valid Template selection registers once and opens (also via Side Bar Template node activate); undefined / exclusive clear does not reveal; Registry Selection path keeps revealing; re-open after Secondary Side Bar closed; unsubscribe stops triggers; revealed Inspector Template rows (inspector.deploy-template input) via createDeployTemplateInspectorView"
+          - "Verification: tsc -p src/tsconfig.json --noEmit -> 0 primitiveAppEditor errors (only Electron namespace errors from npm ci --ignore-scripts); tsc emit + mocha --ui tdd over all primitiveAppEditor test/common -> 267 passing, 0 failing; eslint --max-warnings 0 on changed files clean"
+          - "Chat Disabled .noauxiliarybar smoke test preserved: no startup registration (covered by the startup unit test); smoke run is left to CI. GUI Map cp.build.export-configuration s05 re-run is a GUI Debug Tool Regression Run, not a Bundle completion condition (README GUI Verification Cycle)"
+          - "No earlier producer bundle required an integration fix"
         remaining: []
 
 future:
