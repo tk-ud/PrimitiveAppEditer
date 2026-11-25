@@ -1,0 +1,165 @@
+# Checkpoint: Activity Bar / Primary Side Bar / Bottom Panel placement of workbench.views
+# (App Editer.md §39 Structure / Side Bar / Bottom Panel, Editor UI.md §3 / §9 / §14).
+# Locators: View Container DOM ids (workbench.view.primitiveAppEditor.<item>, workbench.panel.primitiveAppEditor) and
+# Side Bar / Panel UI Markers (Editor UI.md §19). The Activity Bar entries have no DOM id, so they are resolved by
+# ARIA role + accessible name under the fixed locale. "App Explorer" / "App Debug" are the shipped titles of the
+# Explorer / Debug items (distinct from the Code OSS Explorer / Run and Debug).
+# Hidden View Containers stay in the DOM, so every Side Bar Marker is scoped to its View Container.
+gui_map:
+  version: 1
+  checkpoint:
+    id: "cp.workbench.views"
+    title: "Activity Bar items open their Primary Side Bar views and the Bottom Panel views"
+    bundles:
+      - "workbench.views"
+    condition:
+      require:
+        - { bundle: "workbench.views", status: ["implemented"] }
+    regression: true
+
+  preconditions:
+    window: "workbench/workbench"  # matches workbench.html (packaged) and workbench-dev.html (scripts/code.*)
+    locale: "en"
+    workspace: "fixture:empty-project (new empty disposable Working Directory; open it in the running editor and wait for Project: Ready before the run)"
+    markers:
+      - "activitybar"
+
+  markers:
+    activitybar: { kind: "part", value: "workbench.parts.activitybar" }
+    sidebar: { kind: "part", value: "workbench.parts.sidebar" }
+    panel: { kind: "part", value: "workbench.parts.panel" }
+
+    activity.explorer: { kind: "role", value: "tab:App Explorer", within: "activitybar" }
+    activity.registry: { kind: "role", value: "tab:Registry", within: "activitybar" }
+    activity.data: { kind: "role", value: "tab:Data", within: "activitybar" }
+    activity.assets: { kind: "role", value: "tab:Assets", within: "activitybar" }
+    activity.functions: { kind: "role", value: "tab:Functions", within: "activitybar" }
+    activity.renderer: { kind: "role", value: "tab:Renderer", within: "activitybar" }
+    activity.debug: { kind: "role", value: "tab:App Debug", within: "activitybar" }
+    activity.build: { kind: "role", value: "tab:Build", within: "activitybar" }
+
+    view.explorer: { kind: "view", value: "workbench.view.primitiveAppEditor.explorer", within: "sidebar" }
+    view.registry: { kind: "view", value: "workbench.view.primitiveAppEditor.registry", within: "sidebar" }
+    view.data: { kind: "view", value: "workbench.view.primitiveAppEditor.data", within: "sidebar" }
+    view.assets: { kind: "view", value: "workbench.view.primitiveAppEditor.assets", within: "sidebar" }
+    view.functions: { kind: "view", value: "workbench.view.primitiveAppEditor.functions", within: "sidebar" }
+    view.renderer: { kind: "view", value: "workbench.view.primitiveAppEditor.renderer", within: "sidebar" }
+    view.debug: { kind: "view", value: "workbench.view.primitiveAppEditor.debug", within: "sidebar" }
+    view.build: { kind: "view", value: "workbench.view.primitiveAppEditor.build", within: "sidebar" }
+
+    tree.explorer: { kind: "marker", value: "sidebar.tree", within: "view.explorer" }
+    group.explorer: { kind: "marker", value: "sidebar.group", within: "view.explorer" }
+    group.registry: { kind: "marker", value: "sidebar.group", within: "view.registry" }
+    group.data: { kind: "marker", value: "sidebar.group", within: "view.data" }
+    group.assets: { kind: "marker", value: "sidebar.group", within: "view.assets" }
+    group.functions: { kind: "marker", value: "sidebar.group", within: "view.functions" }
+    node.functions: { kind: "marker", value: "sidebar.node", within: "view.functions" }
+    group.build: { kind: "marker", value: "sidebar.group", within: "view.build" }
+    node.build: { kind: "marker", value: "sidebar.node", within: "view.build" }
+
+    view.panel: { kind: "view", value: "workbench.panel.primitiveAppEditor", within: "panel" }
+    panel.console: { kind: "marker", value: "panel.console", within: "view.panel" }
+    panel.build-log: { kind: "marker", value: "panel.build_log", within: "view.panel" }
+    panel.runtime-state: { kind: "marker", value: "panel.runtime_state", within: "view.panel" }
+    panel.event-log: { kind: "marker", value: "panel.event_log", within: "view.panel" }
+    panel.function-output: { kind: "marker", value: "panel.function_output", within: "view.panel" }
+    panel.diagnostics: { kind: "marker", value: "panel.diagnostics", within: "view.panel" }
+
+  steps:
+    # Clicking the active Activity Bar item collapses the Primary Side Bar (Code OSS toggle convention). s00 opens
+    # Registry through its View Container command (never toggles), so App Explorer is inactive whatever the previous
+    # Checkpoint left open and the s01 click always opens it.
+    - id: "s00"
+      title: "Start from a known Activity Bar state"
+      action: "command"
+      value: "View: Show Registry"
+      expect:
+        - { assert: "visible", target: "view.registry" }
+    - id: "s01"
+      title: "Explorer shows the Working Directory"
+      action: "click"
+      target: "activity.explorer"
+      expect:
+        - { assert: "visible", target: "view.explorer" }
+        - { assert: "visible", target: "tree.explorer" }
+        - { assert: "count", target: "group.explorer", op: "eq", value: 1 }
+    - id: "s02"
+      title: "Registry shows Table / Column / Relation / Enum / Function / Renderer"
+      action: "click"
+      target: "activity.registry"
+      expect:
+        - { assert: "visible", target: "view.registry" }
+        - { assert: "count", target: "group.registry", item: { text: "Table" }, op: "eq", value: 1 }
+        - { assert: "count", target: "group.registry", item: { text: "Column" }, op: "eq", value: 1 }
+        - { assert: "count", target: "group.registry", item: { text: "Relation" }, op: "eq", value: 1 }
+        - { assert: "count", target: "group.registry", item: { text: "Enum" }, op: "eq", value: 1 }
+        - { assert: "count", target: "group.registry", item: { text: "Function" }, op: "eq", value: 1 }
+        - { assert: "count", target: "group.registry", item: { text: "Renderer" }, op: "eq", value: 1 }
+    - id: "s03"
+      title: "Data shows Physical Table / Raw Data"
+      action: "click"
+      target: "activity.data"
+      expect:
+        - { assert: "visible", target: "view.data" }
+        - { assert: "count", target: "group.data", item: { text: "Physical Table" }, op: "eq", value: 1 }
+        - { assert: "count", target: "group.data", item: { text: "Raw Data" }, op: "eq", value: 1 }
+    - id: "s04"
+      title: "Assets shows the Asset Tree"
+      action: "click"
+      target: "activity.assets"
+      expect:
+        - { assert: "visible", target: "view.assets" }
+        - { assert: "count", target: "group.assets", item: { text: "Asset Tree" }, op: "eq", value: 1 }
+    - id: "s05"
+      title: "Functions shows Function Registry / Function Binding / Dependency Graph"
+      action: "click"
+      target: "activity.functions"
+      expect:
+        - { assert: "visible", target: "view.functions" }
+        - { assert: "count", target: "group.functions", item: { text: "Function Registry" }, op: "eq", value: 1 }
+        - { assert: "count", target: "group.functions", item: { text: "Function Binding" }, op: "eq", value: 1 }
+        - { assert: "count", target: "node.functions", item: { text: "Dependency Graph" }, op: "eq", value: 1 }
+    # Renderer / Debug: Editor UI.md §9 lists the views but no design defines their entries, so only placement is checked.
+    - id: "s06"
+      title: "Renderer view is shown"
+      action: "click"
+      target: "activity.renderer"
+      expect:
+        - { assert: "visible", target: "view.renderer" }
+    - id: "s07"
+      title: "Debug view is shown"
+      action: "click"
+      target: "activity.debug"
+      expect:
+        - { assert: "visible", target: "view.debug" }
+    - id: "s08"
+      title: "Build view navigates to Build / Export Configuration and Deploy Templates"
+      action: "click"
+      target: "activity.build"
+      expect:
+        - { assert: "visible", target: "view.build" }
+        - { assert: "count", target: "node.build", item: { text: "Build / Export Configuration" }, op: "eq", value: 1 }
+        - { assert: "count", target: "group.build", item: { text: "Deploy Templates" }, op: "eq", value: 1 }
+    - id: "s09"
+      title: "Bottom Panel shows Console / Build Log / Runtime State / Event Log / Function Output / Diagnostics"
+      action: "click"
+      target: "node.build"
+      item: { text: "Build Log" }
+      expect:
+        - { assert: "visible", target: "view.panel" }
+        - { assert: "visible", target: "panel.console" }
+        - { assert: "visible", target: "panel.build-log" }
+        - { assert: "visible", target: "panel.runtime-state" }
+        - { assert: "visible", target: "panel.event-log" }
+        - { assert: "visible", target: "panel.function-output" }
+        - { assert: "visible", target: "panel.diagnostics" }
+      report:
+        summary: "Bottom Panel views are not shown"
+        category: "placement"
+        suspected_bundles: ["workbench.views"]
+
+  report:
+    destination: "roadmap.diagnostics"
+    summary: "Workbench view placement check failed"
+    category: "placement"
+    suspected_bundles: ["workbench.views"]

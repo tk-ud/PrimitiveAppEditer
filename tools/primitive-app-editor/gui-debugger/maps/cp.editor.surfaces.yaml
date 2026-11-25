@@ -1,0 +1,118 @@
+# Checkpoint: Function Graph and Debug Viewer open as Editor Area Surfaces in their own, reused Editor Tabs
+# (App Editer.md §39 Editor Tabs, Editor UI.md §3 / §10 / §14, Function Graph.md §2).
+# The Surfaces are plain DOM in the Editor Area (no webview / iframe, GD-GAP-08). Editor Tabs are Code OSS tabs
+# without a DOM id, so they are resolved by ARIA role + accessible name under the fixed locale.
+# Scope: placement and tab reuse only. Graph nodes / Debug Viewer entities need Registry / Runtime data, which the
+# empty fixture does not have; the Surface lists are checked for presence, not content.
+gui_map:
+  version: 1
+  checkpoint:
+    id: "cp.editor.surfaces"
+    title: "Function Graph and Debug Viewer open in reused Editor Area tabs"
+    bundles:
+      - "workbench.views"
+      - "editor.function-graph"
+      - "editor.debug-viewer"
+    condition:
+      require:
+        - { bundle: "workbench.views", status: ["implemented"] }
+        - { bundle: "editor.function-graph", status: ["implemented"] }
+        - { bundle: "editor.debug-viewer", status: ["implemented"] }
+    regression: true
+
+  preconditions:
+    window: "workbench/workbench"  # matches workbench.html (packaged) and workbench-dev.html (scripts/code.*)
+    locale: "en"
+    workspace: "fixture:empty-project (new empty disposable Working Directory; open it in the running editor and wait for Project: Ready before the run)"
+    markers:
+      - "sidebar"
+      - "editor"
+
+  markers:
+    sidebar: { kind: "part", value: "workbench.parts.sidebar" }
+    editor: { kind: "part", value: "workbench.parts.editor" }
+
+    view.functions: { kind: "view", value: "workbench.view.primitiveAppEditor.functions", within: "sidebar" }
+    view.debug: { kind: "view", value: "workbench.view.primitiveAppEditor.debug", within: "sidebar" }
+    node.functions: { kind: "marker", value: "sidebar.node", within: "view.functions" }
+    node.debug: { kind: "marker", value: "sidebar.node", within: "view.debug" }
+
+    tab.function-graph: { kind: "role", value: "tab:Function Graph", within: "editor" }
+    tab.debug-viewer: { kind: "role", value: "tab:Debug Viewer", within: "editor" }
+    surface.function-graph: { kind: "marker", value: "editor.function_graph", within: "editor" }
+    graph.nodes: { kind: "marker", value: "editor.graph.nodes", within: "surface.function-graph" }
+    surface.debug-viewer: { kind: "marker", value: "editor.debug_viewer", within: "editor" }
+    debug.entities: { kind: "marker", value: "editor.debug.entities", within: "surface.debug-viewer" }
+
+  steps:
+    # Views are opened through their View Container command: clicking an already active Activity Bar item would
+    # collapse the Primary Side Bar (Code OSS toggle convention) depending on what the previous Checkpoint left open.
+    - id: "s01"
+      title: "Open the Functions view"
+      action: "command"
+      value: "View: Show Functions"
+      expect:
+        - { assert: "visible", target: "view.functions" }
+    - id: "s02"
+      title: "Dependency Graph opens the Function Graph in the Editor Area"
+      action: "click"
+      target: "node.functions"
+      item: { text: "Dependency Graph" }
+      expect:
+        - { assert: "visible", target: "surface.function-graph" }
+        - { assert: "count", target: "graph.nodes", op: "eq", value: 1 }
+        - { assert: "count", target: "tab.function-graph", op: "eq", value: 1 }
+      report:
+        summary: "Function Graph does not open as an Editor Area Surface"
+        category: "surface"
+        suspected_bundles: ["editor.function-graph", "workbench.views"]
+    - id: "s03"
+      title: "Opening the Function Graph again reuses its tab"
+      action: "click"
+      target: "node.functions"
+      item: { text: "Dependency Graph" }
+      expect:
+        - { assert: "visible", target: "surface.function-graph" }
+        - { assert: "count", target: "tab.function-graph", op: "eq", value: 1 }
+      report:
+        summary: "Function Graph opens a duplicate tab"
+        category: "tab-reuse"
+        suspected_bundles: ["workbench.views"]
+    - id: "s04"
+      title: "Open the Debug view"
+      action: "command"
+      value: "View: Show App Debug"
+      expect:
+        - { assert: "visible", target: "view.debug" }
+    - id: "s05"
+      title: "Debug Viewer opens in its own Editor Area tab"
+      action: "click"
+      target: "node.debug"
+      item: { text: "Debug Viewer" }
+      expect:
+        - { assert: "visible", target: "surface.debug-viewer" }
+        - { assert: "count", target: "debug.entities", op: "eq", value: 1 }
+        - { assert: "count", target: "tab.debug-viewer", op: "eq", value: 1 }
+        - { assert: "count", target: "tab.function-graph", op: "eq", value: 1 }
+      report:
+        summary: "Debug Viewer does not open as a separate Editor Area Surface"
+        category: "surface"
+        suspected_bundles: ["editor.debug-viewer", "workbench.views"]
+    - id: "s06"
+      title: "Opening the Debug Viewer again reuses its tab"
+      action: "click"
+      target: "node.debug"
+      item: { text: "Debug Viewer" }
+      expect:
+        - { assert: "visible", target: "surface.debug-viewer" }
+        - { assert: "count", target: "tab.debug-viewer", op: "eq", value: 1 }
+      report:
+        summary: "Debug Viewer opens a duplicate tab"
+        category: "tab-reuse"
+        suspected_bundles: ["workbench.views"]
+
+  report:
+    destination: "roadmap.diagnostics"
+    summary: "Editor Area Surface check failed"
+    category: "surface"
+    suspected_bundles: ["workbench.views"]
