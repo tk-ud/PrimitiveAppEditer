@@ -72,7 +72,7 @@ const inspectorViewId = 'primitiveAppEditor.view.inspector';
  * the Secondary Side Bar on the first reveal trigger and not at startup: any registered Secondary Side Bar
  * container counts as a default view container, which would keep the Secondary Side Bar visible in a Workbench
  * that has nothing to inspect (for example with AI features disabled). The triggers are a Registry Selection and a
- * Deploy Template Selection (Deploy Configuration.md §4 Inspector Reveal).
+ * Deploy Template Selection (Deploy Configuration.md section 4 Inspector Reveal).
  */
 class PrimitiveAppEditorInspectorContribution extends Disposable implements IWorkbenchContribution {
 

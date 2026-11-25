@@ -488,7 +488,7 @@ export class DeployTemplateSelection {
 }
 
 /**
- * Inspector reveal (Deploy Configuration.md §4 Inspector Reveal). The Inspector View Container is registered in
+ * Inspector reveal (Deploy Configuration.md section 4 Inspector Reveal). The Inspector View Container is registered in
  * the Secondary Side Bar lazily, on the first reveal and never at startup (a registered Secondary Side Bar
  * container is a default container and would keep the Secondary Side Bar visible), and every later trigger opens
  * it again through the Workbench views service.
