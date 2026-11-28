@@ -2,6 +2,40 @@
 
 set -e
 
+# Downloads $1 into the file $2 and succeeds only for HTTP 200 with a non-empty body, so an error
+# response (e.g. "429: Too Many Requests") is never handed to the consumer. Transient failures
+# (curl transport errors, HTTP 408 / 429 / 5xx) are retried a finite number of times with an
+# exponential backoff; any other status fails at once. Attempts and the first delay (seconds) can be
+# set with VSCODE_DOWNLOAD_ATTEMPTS / VSCODE_DOWNLOAD_RETRY_DELAY.
+vscode_download_with_retry() {
+  local url="$1" dest="$2"
+  local attempts="${VSCODE_DOWNLOAD_ATTEMPTS:-5}" delay="${VSCODE_DOWNLOAD_RETRY_DELAY:-10}"
+  local attempt status
+  for (( attempt = 1; attempt <= attempts; attempt++ )); do
+    rm -f "$dest"
+    status=$(curl -sS -L --connect-timeout 30 --max-time 300 -o "$dest" -w '%{http_code}' "$url") || status="curl exit $?"
+    if [ "$status" == "200" ] && [ -s "$dest" ]; then
+      return 0
+    fi
+    case "$status" in
+      408|429|5??|000|curl\ exit\ *) ;;
+      *)
+        echo "Download of $url failed with HTTP $status (not retryable)" >&2
+        rm -f "$dest"
+        return 1
+        ;;
+    esac
+    if (( attempt < attempts )); then
+      echo "Download of $url failed ($status), attempt $attempt/$attempts; retrying in ${delay}s" >&2
+      sleep "$delay"
+      delay=$(( delay * 2 ))
+    fi
+  done
+  echo "Download of $url failed after $attempts attempts (last: $status)" >&2
+  rm -f "$dest"
+  return 1
+}
+
 SYSROOT_ARCH=$VSCODE_ARCH
 if [ "$SYSROOT_ARCH" == "x64" ]; then
   SYSROOT_ARCH="amd64"
@@ -39,7 +73,15 @@ EOF
 
 if [ "$npm_config_arch" == "x64" ]; then
   # Download clang based on chromium revision used by vscode
-  curl -s https://raw.githubusercontent.com/chromium/chromium/150.0.7871.250/tools/clang/scripts/update.py | python - --output-dir=$PWD/.build/CR_Clang --host-os=linux
+  # The script is fetched completely first and run only when the download succeeded (it is still fed
+  # through stdin so it runs exactly as before).
+  CR_CLANG_UPDATE_PY="$(mktemp)"
+  if ! vscode_download_with_retry https://raw.githubusercontent.com/chromium/chromium/150.0.7871.250/tools/clang/scripts/update.py "$CR_CLANG_UPDATE_PY"; then
+    echo "Error: could not download the Chromium clang update.py; aborting environment setup" >&2
+    exit 1
+  fi
+  python - --output-dir=$PWD/.build/CR_Clang --host-os=linux < "$CR_CLANG_UPDATE_PY"
+  rm -f "$CR_CLANG_UPDATE_PY"
 
   # Download libcxx headers and objects from upstream electron releases
   DEBUG=libcxx-fetcher \

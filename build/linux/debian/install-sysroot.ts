@@ -72,8 +72,11 @@ function getVSCodeSysrootChecksum(expectedName: string) {
 async function fetchUrl(options: IFetchOptions): Promise<void> {
 	const version = '20260212-405735';
 	const releaseUrl = `https://api.github.com/repos/Microsoft/vscode-linux-build-agent/releases/tags/v${version}`;
+	// GitHub API rate limiting answers 403 / 429 to the release lookup. With the default 1s delay the
+	// 11 attempts were all spent within ~11s, too short for the limit to clear; 10s spreads them over ~100s.
 	const downloadOptions = {
 		attempts: 11,
+		retryDelay: 10_000,
 		onRetry: (error: Error) => console.log(`Fetching failed: ${error}`)
 	};
 	const releaseContents = await download(releaseUrl, { ...downloadOptions, headers: ghApiHeaders });
