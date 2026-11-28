@@ -2121,7 +2121,7 @@ diagnostics:
     records:
       - "id": "gd-20261105T020531Z-cp.build.export-configuration-s05"
         "fingerprint": "cp.build.export-configuration|s05|marker_not_found|inspector.template"
-        "state": "planned"
+        "state": "resolved"
         "resolution":
           "bundle_ids":
             - "build.deploy-inspector-reveal"
